@@ -9,7 +9,7 @@
 /plugin install seo-god-mode@seo-god-mode
 ```
 
-Then install the MCP server's Python dependencies once: `pip install -r <plugin folder>/mcp/requirements.txt` (the folder is shown in `/plugin`). Plugin skills are namespaced (`/seo-god-mode:seo-god-mode`).
+Then install the MCP server's Python dependencies once: `pip install -r <plugin folder>/mcp-server/requirements.txt` (the folder is shown in `/plugin`). Plugin skills are namespaced (`/seo-god-mode:seo-god-mode`).
 
 **Option C: Claude apps with custom skill upload (claude.ai / Desktop chat)**
 

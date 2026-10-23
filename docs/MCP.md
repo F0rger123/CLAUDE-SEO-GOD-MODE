@@ -1,14 +1,14 @@
 # MCP servers
 
-## Built in: `seo-god-mode` (mcp/server.py)
+## Built in: `seo-god-mode` (mcp-server/server.py)
 
 A local stdio MCP server that exposes this repo's tools to any MCP client (Claude Code, Claude Desktop, Cursor, VS Code, Codex). Google and Bing calls go straight to the official APIs from your machine; no third-party service sees client data.
 
 ### Install
 
 ```bash
-pip install -r mcp/requirements.txt          # mcp SDK + Google API client
-claude mcp add seo-god-mode --scope user -- python /absolute/path/to/repo/mcp/server.py
+pip install -r mcp-server/requirements.txt          # mcp SDK + Google API client
+claude mcp add seo-god-mode --scope user -- python /absolute/path/to/repo/mcp-server/server.py
 ```
 
 As a Claude Code plugin, `.mcp.json` registers it automatically (you still run the `pip install` once).
@@ -20,7 +20,7 @@ Claude Desktop / Cursor / other clients (`mcpServers` JSON):
   "mcpServers": {
     "seo-god-mode": {
       "command": "python",
-      "args": ["/absolute/path/to/repo/mcp/server.py"],
+      "args": ["/absolute/path/to/repo/mcp-server/server.py"],
       "env": {
         "GSC_SERVICE_ACCOUNT_FILE": "/path/to/gsc-sa.json",
         "BING_WEBMASTER_API_KEY": "your-key",

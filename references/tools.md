@@ -30,7 +30,7 @@ Legend: **Core** = used by this skill's workflows. **Optional** = add when a cli
 
 ## Community MCP servers (optional)
 
-Updated comparison of open-source Google Search Console and Bing Webmaster MCP servers (2026-10-23): `docs/MCP.md`. This repo also ships its own MCP server (`mcp/server.py`).
+Updated comparison of open-source Google Search Console and Bing Webmaster MCP servers (2026-10-23): `docs/MCP.md`. This repo also ships its own MCP server (`mcp-server/server.py`).
 
 | Tool | URL | Purpose | State (2026-10-22) | Credentials | Why | Security notes |
 |---|---|---|---|---|---|---|

@@ -23,24 +23,36 @@ Paste a URL into a Claude chat that has this skill (or the MCP server) and ask:
 Can you rate my website SEO-wise? https://example.com
 ```
 
-You get an **Overall**, **SEO**, **AEO** (answer engines) and **GEO** (generative AI search) score out of 100, letter grades, the top fixes ranked by how many points each one is worth, the exact pages affected, what's already working, and an honest list of what a public crawl can't see. No accounts or API keys needed.
+You get an **Overall**, **SEO**, **AEO** (answer engines) and **GEO** (generative AI search) score out of 100 with letter grades, plus:
+
+- **Fixes ranked by points gained**, with the exact pages affected, and the score you could reach after the top 5
+- **Fix kits** you can copy: current titles and descriptions with their lengths, social tags, starter Organization JSON-LD, sameAs, robots.txt groups. Every fact you must supply is marked `[CONFIRM]`, nothing invented
+- **A visual report** (`report.html`): score rings, category bars, fix cards, page-by-page table
+- **An honest list** of what a public crawl can't see
+
+No accounts or API keys needed.
 
 ```text
-| Score                      |                                     | Grade |
-|----------------------------|-------------------------------------|-------|
-| Overall                    | ██████████████░░░░░░  70/100        | C     |
-| SEO                        | ███████████████░░░░░  74/100        | C     |
-| AEO (answer engines)       | ██████████░░░░░░░░░░  52/100        | F     |
-| GEO (generative AI search) | █████████████████░░░  83/100        | B     |
+| Score                      |                        | Grade |
+|----------------------------|------------------------|-------|
+| Overall                    | ██████████████████░░ 88 | B     |
+| SEO                        | ██████████████████░░ 88 | B     |
+| AEO (answer engines)       | ████████████████░░░░ 82 | B     |
+| GEO (generative AI search) | ███████████████████░ 93 | A     |
+Potential: fixing the top 5 items could lift the overall score to about 96.
 
-1. Publish an XML sitemap with only 200, indexable URLs and list it in robots.txt. (+3.8 pts)
-2. Add Organization JSON-LD (name, url, logo, sameAs). (+3.8 pts)
-3. Open key pages with a plain 1-3 sentence answer to the main question. (+4.0 pts)
+1. 🔴 301-redirect http:// to one canonical https host.            +1.8 pts
+2. 🟡 Defer non-critical scripts, serve WebP/AVIF images.           +1.7 pts
+3. 🔴 Write unique 120–160 character meta descriptions (7 pages).   +1.3 pts
 ```
 
-<sub>Real output from a public site, trimmed. How every point is earned: [references/rating-rubric.md](references/rating-rubric.md).</sub>
+<sub>Real output for theagencyzero.com, trimmed. Every point is explained in [references/rating-rubric.md](references/rating-rubric.md); 39 scored checks, rubric v2.0.</sub>
 
-From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_site`. Without Python (for example a claude.ai chat), the `rate-my-site` skill falls back to a manual rating with the same rubric and labels it approximate.
+From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_site`. Without Python (for example a claude.ai chat), the `rate-my-site` skill rates by hand with the same rubric and labels the result approximate.
+
+### It improves itself
+
+[CONTRIBUTING.md](CONTRIBUTING.md) defines a self-improvement loop that humans and agents both follow: self-audit real sites, classify each miss, fix the smallest cause, lock it in with an offline fixture test, then benchmark before and after (`scripts/dev/benchmark.py`). Every change is logged in [CHANGELOG.md](CHANGELOG.md).
 
 ## What you get
 
@@ -68,8 +80,8 @@ From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_
 
 ```bash
 git clone https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE ~/.claude/skills/seo-god-mode
-pip install -r ~/.claude/skills/seo-god-mode/mcp/requirements.txt
-claude mcp add seo-god-mode --scope user -- python ~/.claude/skills/seo-god-mode/mcp/server.py
+pip install -r ~/.claude/skills/seo-god-mode/mcp-server/requirements.txt
+claude mcp add seo-god-mode --scope user -- python ~/.claude/skills/seo-god-mode/mcp-server/server.py
 ```
 
 **MCP server only** (Claude Desktop, Cursor, VS Code): see [docs/MCP.md](docs/MCP.md).
@@ -211,7 +223,7 @@ Full comparison of open-source GSC and Bing MCP servers: [docs/MCP.md](docs/MCP.
 SKILL.md          router (always loaded)        RULES.md       hard rules
 skills/           original + vendor/ sub-skills  workflows/     one file per job
 references/       facts and limits               templates/     reports, roadmap, plans
-scripts/          deterministic tools            mcp/           MCP server
+scripts/          deterministic tools            mcp-server/    MCP server
 docs/             setup, integrations, MCP, security, architecture
 tests/            unit + MCP smoke tests         .claude-plugin/ plugin + marketplace
 ```
@@ -222,6 +234,7 @@ Client data never lives in this repo. It lives in `$SEO_CLIENTS_DIR`, which you 
 
 ```bash
 python -m unittest discover -s tests -p "test_core.py"   # offline unit tests
+python -m unittest tests/test_rating.py                    # offline rater tests (fixture sites)
 python tests/test_mcp_server.py                            # MCP server smoke test
 claude plugin validate .                                   # plugin manifest check
 ```

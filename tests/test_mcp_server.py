@@ -1,14 +1,19 @@
-"""Smoke test: start mcp/server.py over stdio, list tools, call offline-safe tools.
+"""Smoke test: start mcp-server/server.py over stdio, list tools, call offline-safe tools.
 
-Run: python tests/test_mcp_server.py   (needs `pip install -r mcp/requirements.txt`; network for robots check)
+Run: python tests/test_mcp_server.py   (needs `pip install -r mcp-server/requirements.txt`; network for robots check)
 """
 import asyncio
 import os
 import sys
+import unittest
 from pathlib import Path
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+try:
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    HAVE_MCP = True
+except ImportError:  # SDK not installed: `pip install -r mcp-server/requirements.txt`
+    HAVE_MCP = False
 
 ROOT = Path(__file__).resolve().parents[1]
 if hasattr(sys.stdout, "reconfigure"):
@@ -20,7 +25,7 @@ EXPECTED = {"seo_status", "seo_rate_site", "seo_client_resume", "seo_audit", "se
 async def main() -> int:
     env = {**os.environ}
     env.pop("SEO_GODMODE_ALLOW_WRITES", None)
-    params = StdioServerParameters(command=sys.executable, args=[str(ROOT / "mcp" / "server.py")], env=env)
+    params = StdioServerParameters(command=sys.executable, args=[str(ROOT / "mcp-server" / "server.py")], env=env)
     async with stdio_client(params) as (r, w), ClientSession(r, w) as s:
         await s.initialize()
         names = {t.name for t in (await s.list_tools()).tools}
@@ -44,6 +49,12 @@ async def main() -> int:
         assert "**Overall**" in rating and "AEO" in rating and "GEO" in rating, rating[:500]
         print("rating OK:", next(l for l in rating.splitlines() if "**Overall**" in l))
     return 0
+
+
+@unittest.skipUnless(HAVE_MCP, "mcp SDK not installed")
+class McpServerSmokeTest(unittest.TestCase):
+    def test_server(self):
+        self.assertEqual(asyncio.run(main()), 0)
 
 
 if __name__ == "__main__":

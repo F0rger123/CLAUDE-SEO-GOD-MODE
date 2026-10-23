@@ -17,8 +17,9 @@ from urllib.parse import urldefrag, urljoin, urlparse, urlunparse
 USER_AGENT = "AgencyZeroSEO/1.0 (+site audit; contact site owner)"
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def clients_dir() -> Path:

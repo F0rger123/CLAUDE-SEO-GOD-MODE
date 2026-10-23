@@ -2,7 +2,7 @@
   "mcpServers": {
     "seo-god-mode": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
       "env": {
         "GSC_SERVICE_ACCOUNT_FILE": "${GSC_SERVICE_ACCOUNT_FILE:-}",
         "GSC_OAUTH_CLIENT_FILE": "${GSC_OAUTH_CLIENT_FILE:-}",

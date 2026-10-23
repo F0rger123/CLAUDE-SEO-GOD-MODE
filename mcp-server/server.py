@@ -14,8 +14,8 @@ Credentials (environment variables, never arguments):
 Safety: tools that change something outside this machine (sitemap submit/delete, URL submission,
 IndexNow) refuse to run unless SEO_GODMODE_ALLOW_WRITES=1 is set AND the call passes confirm=true.
 
-Run:  python mcp/server.py            (stdio)
-Add:  claude mcp add seo-god-mode --scope user -- python /path/to/repo/mcp/server.py
+Run:  python mcp-server/server.py            (stdio)
+Add:  claude mcp add seo-god-mode --scope user -- python /path/to/repo/mcp-server/server.py
 """
 from __future__ import annotations
 
@@ -166,8 +166,11 @@ def seo_rate_site(site: str, max_pages: int = 30, pagespeed: bool = True) -> str
     """Rate any website from its URL: Overall, SEO, AEO and GEO scores out of 100 with grades, top fixes with point
     gains and affected pages, what's working, and what can't be known without account access. No credentials needed.
     Rubric: references/rating-rubric.md."""
-    args = [site, "--max-pages", str(max_pages)] + ([] if pagespeed else ["--no-psi"])
-    return _run("rate_site.py", *args, timeout=1800)
+    host = (site.split("//")[-1].split("/")[0] or "site").lower()
+    out = Path(tempfile.gettempdir()) / f"rating-{host}-{common.today()}"
+    args = [site, "--max-pages", str(max_pages), "--out", str(out)] + ([] if pagespeed else ["--no-psi"])
+    text = _run("rate_site.py", *args, timeout=1800)
+    return text + f"\n[visual report: {out / 'report.html'}; copy it into the user's folder before linking it]"
 
 
 @mcp.tool()
