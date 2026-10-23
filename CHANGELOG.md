@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.3.0 (2026-10-23): lessons from a live local-business engagement
+
+From a real engagement with a local service-area business (permanent lighting installer, York, PA):
+
+| Problem hit | Fix |
+|---|---|
+| MCP server failed with "Connection closed" because the `mcp` package wasn't installed | `scripts/setup/connect.py status` detects it; `connect.py deps` installs it |
+| Owner downloaded the service-account key and couldn't find "the email" to add in Search Console | `connect.py gsc --find` moves the key out of Downloads, saves the setting, and prints the exact email and clicks |
+| Bing key, GSC key and PageSpeed key each needed manual env-var setup | `connect.py bing --key` (validated against Bing first) and `connect.py pagespeed --key` save them per user |
+| Owner-facing setup steps were scattered | `docs/CONNECT.md`: word-for-word steps for agents to relay |
+| A new agent had no single "what do I do" file | `START_HERE.md`: setup check, owner communication, proven order of work, false positives, environment gotchas |
+| Titles flagged at 100+ characters on pages with an inline SVG map | `PageParser` ignores `<title>` inside `<svg>` and keeps only the first document title |
+| "About and Contact pages" failed when contact lived at `/quote` | Also accepts ContactPage/AboutPage schema |
+
 ## 2.2.0 (2026-10-23): smarter rater, visual report, self-improvement loop
 
 Findings from a self-audit of theagencyzero.com, python.org, and example.com, and what changed:

@@ -2,6 +2,10 @@
 
 Instructions for Claude when this repository is the working directory or is loaded as a skill.
 
+## Start here
+
+Read `START_HERE.md` before anything else. Then run `python scripts/setup/connect.py status`.
+
 ## Hard rules
 
 `RULES.md` applies to every skill here, original or vendored: never invent data; tag findings OBSERVED / INFERRED / RECOMMENDED / UNKNOWN; keep attribution; never promise rankings or AI placement; ask before external changes.

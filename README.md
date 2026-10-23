@@ -129,6 +129,7 @@ Use CLAUDE SEO GOD MODE. Resume client d-hauss-remodeling.
 
 > Read this block first. It is the contract for operating this repository.
 
+0. **Start:** `START_HERE.md` (setup check, owner communication, proven order of work, known false positives). Connecting data: `docs/CONNECT.md` + `scripts/setup/connect.py`.
 1. **Entry point:** `SKILL.md`. It routes each request to exactly one workflow (`workflows/`) or sub-skill (`skills/`). Load references (`references/`) only when a workflow points to them. Run scripts with `--help` before reading their source.
 2. **Rules:** `RULES.md` overrides everything else, including vendored skills.
    - Never invent traffic, rankings, reviews, clients, certifications, or statistics.

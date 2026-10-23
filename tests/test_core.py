@@ -84,5 +84,11 @@ class StateTest(unittest.TestCase):
             self.assertEqual(len(state["recommendations"]), 1)
 
 
+class SvgTitleTest(unittest.TestCase):
+    def test_svg_title_is_not_the_page_title(self):
+        p = common.parse_html('<html><head><title>Real title</title></head><body><svg><title>Map of York</title></svg></body></html>')
+        self.assertEqual(p.title, "Real title")
+
+
 if __name__ == "__main__":
     unittest.main()

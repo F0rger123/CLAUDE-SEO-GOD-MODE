@@ -4,6 +4,7 @@ Guidance for any coding agent (Claude Code, Codex, Cursor, others) that uses or 
 
 ## Use
 
+0. Read `START_HERE.md` first: setup check, how to talk to the owner, the order that works, known false positives.
 1. Read `SKILL.md`. It routes each request to one workflow file.
 2. Client state lives outside the repo in `$SEO_CLIENTS_DIR` or `~/seo-clients/<slug>/`. Use `python scripts/state/client_state.py` to read and write it.
 3. Run deterministic scripts before reasoning about a site. Interpret their output; do not re-derive it by hand.

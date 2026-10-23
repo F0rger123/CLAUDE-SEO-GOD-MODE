@@ -7,6 +7,10 @@ description: CLAUDE SEO GOD MODE (Agency Zero). Use when someone asks to rate or
 
 Open-source SEO operating system for Claude. Works for any business, agency, or freelancer, in any geography. Created by Agency Zero.
 
+## Start here
+
+New session? Read `START_HERE.md` (two minutes), then run `python scripts/setup/connect.py status`. To connect Search Console, Bing, or PageSpeed, relay `docs/CONNECT.md` word for word and use `scripts/setup/connect.py`. Never ask for key-file contents in chat.
+
 ## Hard rules first
 
 Read `RULES.md` once per session. In short: never invent data; tag every finding OBSERVED / INFERRED / RECOMMENDED / UNKNOWN; keep third-party attribution; never promise rankings or AI placement; ask before any external change.

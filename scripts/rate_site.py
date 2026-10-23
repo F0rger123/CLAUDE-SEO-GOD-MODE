@@ -424,7 +424,8 @@ def main():
                      "body": json.dumps({"sameAs": same_as + ["[CONFIRM: Google Business Profile / Maps URL]", "[CONFIRM: LinkedIn URL]",
                                                               "[CONFIRM: Facebook or industry directory URL]"][:max(0, 4 - len(same_as))]}, indent=2)})
     urls_l = " ".join(p["url"].lower() for p in pages)
-    trust = sum(1 for k in ("about", "contact") if k in urls_l)
+    # A URL with the word, or the matching schema type (a contact page can live at /quote or /get-in-touch).
+    trust = int("about" in urls_l or "AboutPage" in all_types) + int("contact" in urls_l or "ContactPage" in all_types)
     c.add("geo", "About and Contact pages exist", trust / 2, 10, f"found {trust}/2",
           "Publish About (who, credentials, history) and Contact (how to reach you) pages.", impact="Medium")
     contact = bool(re.search(r'href=["\'](tel:|mailto:)', home["body"], re.I)) or bool((entity or {}).get("telephone") or (entity or {}).get("email"))

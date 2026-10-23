@@ -117,13 +117,17 @@ class PageParser(HTMLParser):
         self.og, self.lang, self.text_parts, self.script_count = {}, None, [], 0
         self._stack, self._buf, self._in_title, self._in_jsonld, self._skip = [], [], False, False, 0
         self.robots_meta = ""
+        # <title> inside inline SVG (icons, maps) is an accessible label, not the page title.
+        self._svg, self._title_done = 0, False
 
     def handle_starttag(self, tag, attrs):
         a = {k.lower(): (v or "") for k, v in attrs}
         if tag == "html":
             self.lang = a.get("lang")
+        elif tag == "svg":
+            self._svg += 1
         elif tag == "title":
-            self._in_title = True
+            self._in_title = self._svg == 0 and not self._title_done
         elif tag == "meta":
             name = (a.get("name") or "").lower()
             prop = (a.get("property") or "").lower()
@@ -158,7 +162,11 @@ class PageParser(HTMLParser):
             self._skip += 1
 
     def handle_endtag(self, tag):
-        if tag == "title":
+        if tag == "svg":
+            self._svg = max(0, self._svg - 1)
+        elif tag == "title":
+            if self._in_title:
+                self._title_done = True
             self._in_title = False
         elif tag == "script":
             if self._in_jsonld:
