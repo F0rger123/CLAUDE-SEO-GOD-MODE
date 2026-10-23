@@ -49,6 +49,10 @@ Read this first, then `RULES.md`, then `SKILL.md`. It is short on purpose: what 
 - On Windows, `connect.py` saves settings with `setx`. New terminals and a restarted Claude Code see them; the current shell does not, so export them for the current session too.
 - OpenSEO and DataForSEO calls cost credits. Check `whoami` first, batch keywords in one call, and prefer free Search Console data.
 
+## 4b. Social profiles and listings
+
+Facebook, Instagram, Buffer, Yelp, Nextdoor, Bing Places, Apple: what can and can't be connected, and the owner steps, are in `references/social-and-listings.md`. Posting always needs the owner's yes on each post.
+
 ## 5. Where things go
 
 - Client reports: inside the client's own project (for example `docs/seo-rating/`), not temp folders. Mention file names, not temp paths.

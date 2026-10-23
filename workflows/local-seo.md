@@ -73,6 +73,9 @@ Build a map in `<client>/data/keyword-map.csv`: `keyword, intent, service, locat
 
 ### Citations
 
+Which platforms have APIs or Claude connectors (and which are manual only): `references/social-and-listings.md`.
+
+
 Priority: data aggregators and the platforms above first, then industry and local (chamber, BBB, local news sponsorships). Quality over volume. Paid listing services are optional; the user decides.
 
 ### Local links and mentions
