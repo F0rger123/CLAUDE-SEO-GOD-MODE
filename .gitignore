@@ -1,0 +1,27 @@
+# Client data never belongs in this repository
+clients/
+agency-zero-clients/
+data/
+audit-*/
+*.csv
+
+# Credentials
+*.json.key
+*credentials*.json
+*client_secret*.json
+*service-account*.json
+*token*.json
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

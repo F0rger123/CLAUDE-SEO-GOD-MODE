@@ -1,0 +1,4 @@
+# Only needed for scripts/integrations/gsc.py. All other scripts use the Python standard library.
+google-api-python-client>=2.100
+google-auth>=2.23
+google-auth-oauthlib>=1.1
