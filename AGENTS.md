@@ -2,6 +2,10 @@
 
 Guidance for any coding agent (Claude Code, Codex, Cursor, others) that uses or edits this repository.
 
+## 0. First thing
+
+Asked to *set this up*, *install it*, or *explain what it is* (often after someone pasted the repo link)? Follow [`docs/SETUP_WIZARD.md`](docs/SETUP_WIZARD.md): detect where you run, ask the short interview, install, verify, start the first client. Everything below applies throughout.
+
 ## Use
 
 0. Read `START_HERE.md` first: setup check, how to talk to the owner, the order that works, known false positives.

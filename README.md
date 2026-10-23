@@ -15,6 +15,14 @@ One prompt starts a client. Claude onboards, audits, pulls real Search Console a
 
 ---
 
+> [!IMPORTANT]
+> **🤖 AI agents (Claude, ChatGPT, Codex, Cursor, Gemini): start here.** If someone pasted this link and asked you to set it up or explain it, do this before anything else:
+> 1. Read the setup wizard: [`docs/SETUP_WIZARD.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/SETUP_WIZARD.md). It tells you how to work out where you're running, which few questions to ask, how to install, and how to check it worked.
+> 2. Read the rules: [`AGENTS.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/AGENTS.md) and [`RULES.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/RULES.md). Operating the skill starts at [`SKILL.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/SKILL.md).
+> 3. Then ask the person the Step 1 questions (goal, their site, which data they can connect), install, and run the first rating or onboarding.
+>
+> Plain-text index of everything: [`llms.txt`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/llms.txt). Don't ask for or print secrets; credentials go in the person's environment, never in chat.
+
 ## ⚡ Rate any website in one prompt
 
 Paste a URL into a Claude chat that has this skill (or the MCP server) and ask:
