@@ -1,6 +1,6 @@
 ---
 name: seo-god-mode
-description: CLAUDE SEO GOD MODE (Agency Zero). Use when onboarding, auditing, optimizing, reporting on, or resuming SEO work for any client website, including technical SEO, local SEO, keyword research, rank tracking, content briefs, Google Search Console, Bing Webmaster Tools, indexing, schema, competitor analysis, AI search (AI Overviews, AI Mode, ChatGPT/Perplexity/Claude citations, AEO/GEO), and AI-referral measurement.
+description: CLAUDE SEO GOD MODE (Agency Zero). Use when someone asks to rate or score a website's SEO, GEO, or AEO from a URL, or when onboarding, auditing, optimizing, reporting on, or resuming SEO work for any client website, including technical SEO, local SEO, keyword research, rank tracking, content briefs, Google Search Console, Bing Webmaster Tools, indexing, schema, competitor analysis, AI search (AI Overviews, AI Mode, ChatGPT/Perplexity/Claude citations, AEO/GEO), and AI-referral measurement.
 ---
 
 # CLAUDE SEO GOD MODE
@@ -30,6 +30,7 @@ Client data never lives in this repository: `$SEO_CLIENTS_DIR` (default `~/seo-c
 
 | User intent | Use |
 |---|---|
+| "rate my website", SEO/GEO/AEO score, quick audit of any URL | `skills/rate-my-site` (`python scripts/rate_site.py <url>` or MCP `seo_rate_site`) |
 | new client, onboarding | `workflows/onboarding.md` |
 | resume, continue | `python scripts/state/client_state.py resume <slug>`, then its `next` items |
 | full site audit | `skills/vendor/claude-seo/seo-audit` (needs claude-seo plugin) + `scripts/audit.py` data; fallback `workflows/initial-audit.md` |

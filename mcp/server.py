@@ -162,6 +162,15 @@ def seo_audit(site: str = "", client: str = "", max_pages: int = 200, log_issues
 
 
 @mcp.tool()
+def seo_rate_site(site: str, max_pages: int = 30, pagespeed: bool = True) -> str:
+    """Rate any website from its URL: Overall, SEO, AEO and GEO scores out of 100 with grades, top fixes with point
+    gains and affected pages, what's working, and what can't be known without account access. No credentials needed.
+    Rubric: references/rating-rubric.md."""
+    args = [site, "--max-pages", str(max_pages)] + ([] if pagespeed else ["--no-psi"])
+    return _run("rate_site.py", *args, timeout=1800)
+
+
+@mcp.tool()
 def seo_sitemap_check(sitemap_url: str, check_limit: int = 200) -> str:
     """Validate a sitemap (or index) and fetch up to check_limit URLs: non-200, redirects, noindex, canonical mismatch."""
     with tempfile.TemporaryDirectory() as d:

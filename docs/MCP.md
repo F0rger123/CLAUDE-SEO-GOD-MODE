@@ -33,12 +33,12 @@ Claude Desktop / Cursor / other clients (`mcpServers` JSON):
 
 Credentials: environment variables only (`docs/INTEGRATIONS.md`). Call `seo_status` to see what's configured.
 
-### Tools (26)
+### Tools (27)
 
 | Group | Tools |
 |---|---|
 | Client memory | `seo_client_list`, `seo_client_init`, `seo_client_resume`, `seo_client_set`, `seo_client_record`, `seo_client_log` |
-| Site checks (no credentials) | `seo_robots_check`, `seo_audit`, `seo_sitemap_check`, `seo_schema_check`, `seo_generate_schema`, `seo_ai_answer_check`, `pagespeed` |
+| Site checks (no credentials) | `seo_rate_site`, `seo_robots_check`, `seo_audit`, `seo_sitemap_check`, `seo_schema_check`, `seo_generate_schema`, `seo_ai_answer_check`, `pagespeed` |
 | Google Search Console | `gsc_list_sites`, `gsc_search_analytics`, `gsc_compare_periods`, `gsc_list_sitemaps`, `gsc_inspect_urls`, `gsc_submit_sitemap`*, `gsc_delete_sitemap`* |
 | Bing Webmaster | `bing_report` (sites, traffic, queries, pages, crawl stats/issues, sitemaps, quota), `bing_url_info`, `bing_keyword`, `bing_submit`* |
 | IndexNow | `indexnow_submit`* |

@@ -11,7 +11,9 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = {"seo_status", "seo_client_resume", "seo_audit", "seo_ai_answer_check", "gsc_search_analytics",
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+EXPECTED = {"seo_status", "seo_rate_site", "seo_client_resume", "seo_audit", "seo_ai_answer_check", "gsc_search_analytics",
             "gsc_inspect_urls", "gsc_submit_sitemap", "bing_report", "bing_submit", "indexnow_submit", "pagespeed"}
 
 
@@ -38,6 +40,9 @@ async def main() -> int:
         env_err = (await s.call_tool("bing_report", {"report": "sites"})).content[0].text
         assert "BING_WEBMASTER_API_KEY" in env_err or env_err.startswith("["), env_err
         print("missing-credential handling OK")
+        rating = (await s.call_tool("seo_rate_site", {"site": "example.com", "max_pages": 3, "pagespeed": False})).content[0].text
+        assert "**Overall**" in rating and "AEO" in rating and "GEO" in rating, rating[:500]
+        print("rating OK:", next(l for l in rating.splitlines() if "**Overall**" in l))
     return 0
 
 

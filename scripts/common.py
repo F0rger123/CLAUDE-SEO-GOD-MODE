@@ -68,7 +68,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 _opener = urllib.request.build_opener(_NoRedirect)
 
 
-def fetch(url: str, method: str = "GET", timeout: int = 20, max_redirects: int = 10, max_bytes: int = 5_000_000):
+def fetch(url: str, method: str = "GET", timeout: int = 20, max_redirects: int = 10, max_bytes: int = 5_000_000,
+          user_agent: str | None = None):
     """Fetch a URL and follow redirects manually so the chain is recorded.
 
     Returns dict: url, final_url, status, chain [(url, status)], headers, body (str), elapsed_ms, error.
@@ -76,7 +77,7 @@ def fetch(url: str, method: str = "GET", timeout: int = 20, max_redirects: int =
     chain, current, start = [], url, time.time()
     for _ in range(max_redirects + 1):
         req = urllib.request.Request(current, method=method, headers={
-            "User-Agent": USER_AGENT, "Accept-Encoding": "gzip", "Accept": "text/html,application/xml;q=0.9,*/*;q=0.8"})
+            "User-Agent": user_agent or USER_AGENT, "Accept-Encoding": "gzip", "Accept": "text/html,application/xml;q=0.9,*/*;q=0.8"})
         try:
             resp = _opener.open(req, timeout=timeout)
             status, headers = resp.status, resp.headers

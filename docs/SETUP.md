@@ -11,6 +11,14 @@
 
 Then install the MCP server's Python dependencies once: `pip install -r <plugin folder>/mcp/requirements.txt` (the folder is shown in `/plugin`). Plugin skills are namespaced (`/seo-god-mode:seo-god-mode`).
 
+**Option C: Claude apps with custom skill upload (claude.ai / Desktop chat)**
+
+```bash
+python scripts/build_skill_zip.py      # -> dist/seo-god-mode-skill.zip
+```
+
+Upload the zip where your Claude app accepts custom skills (Settings → Capabilities → Skills; requires code execution to be enabled). Whether the scripts can reach websites depends on that environment's network access. If they can't, `rate-my-site` switches to a manual rating with the same rubric and labels it approximate. Not yet verified end-to-end in claude.ai.
+
 **Option B: plain skill (git clone), available in every Claude Code session:**
 
 ```bash

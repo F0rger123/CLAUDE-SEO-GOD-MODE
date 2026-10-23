@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/actions/workflows/ci.yml"><img src="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/Claude%20Code-plugin%20%2B%20skill-ff7a45" alt="Claude Code plugin + skill">
-  <img src="https://img.shields.io/badge/MCP-26%20tools-5c4ee5" alt="MCP server: 26 tools">
+  <img src="https://img.shields.io/badge/MCP-27%20tools-5c4ee5" alt="MCP server: 27 tools">
   <img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/data-never%20fabricated-2ea44f" alt="Data never fabricated">
 </p>
@@ -14,6 +14,33 @@
 One prompt starts a client. Claude onboards, audits, pulls real Search Console and Bing data, fixes what it safely can, tells you exactly what to approve, and remembers everything for next time.</p>
 
 ---
+
+## ⚡ Rate any website in one prompt
+
+Paste a URL into a Claude chat that has this skill (or the MCP server) and ask:
+
+```text
+Can you rate my website SEO-wise? https://example.com
+```
+
+You get an **Overall**, **SEO**, **AEO** (answer engines) and **GEO** (generative AI search) score out of 100, letter grades, the top fixes ranked by how many points each one is worth, the exact pages affected, what's already working, and an honest list of what a public crawl can't see. No accounts or API keys needed.
+
+```text
+| Score                      |                                     | Grade |
+|----------------------------|-------------------------------------|-------|
+| Overall                    | ██████████████░░░░░░  70/100        | C     |
+| SEO                        | ███████████████░░░░░  74/100        | C     |
+| AEO (answer engines)       | ██████████░░░░░░░░░░  52/100        | F     |
+| GEO (generative AI search) | █████████████████░░░  83/100        | B     |
+
+1. Publish an XML sitemap with only 200, indexable URLs and list it in robots.txt. (+3.8 pts)
+2. Add Organization JSON-LD (name, url, logo, sameAs). (+3.8 pts)
+3. Open key pages with a plain 1-3 sentence answer to the main question. (+4.0 pts)
+```
+
+<sub>Real output from a public site, trimmed. How every point is earned: [references/rating-rubric.md](references/rating-rubric.md).</sub>
+
+From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_site`. Without Python (for example a claude.ai chat), the `rate-my-site` skill falls back to a manual rating with the same rubric and labels it approximate.
 
 ## What you get
 
@@ -25,7 +52,7 @@ One prompt starts a client. Claude onboards, audits, pulls real Search Console a
 | 🤖 **AI search** | A Google-grounded workflow for AI Overviews and AI Mode, GEO/AEO audits, AI-readiness scoring, rewrite engine, and AI-referral measurement. |
 | 📍 **Local SEO** | Google Business Profile, NAP, service-area strategy, location pages that pass the doorway test, reviews, citations. |
 | 🧠 **Client memory** | Tasks, issues, recommendations (rejected ones stay rejected), checkpoints, recurring work. Any session can resume. |
-| 🔌 **MCP server** | 26 tools for Claude Code, Claude Desktop, Cursor, VS Code, and Codex. Write actions are locked by default. |
+| 🔌 **MCP server** | 27 tools for Claude Code, Claude Desktop, Cursor, VS Code, and Codex. Write actions are locked by default. |
 | 🧾 **Honest by design** | Every finding is tagged OBSERVED, INFERRED, RECOMMENDED, or UNKNOWN. No invented numbers, reviews, or rankings. |
 
 ## Quick start (people)
@@ -79,6 +106,7 @@ Use CLAUDE SEO GOD MODE. Resume client d-hauss-remodeling.
 
 ### Other things to ask
 
+- "Rate my website SEO-wise: https://example.com"
 - "Run a full audit for d-hauss-remodeling and log the issues."
 - "Which of our pages don't answer the questions people actually search? Use Search Console."
 - "Check robots.txt and AI crawler access for example.com."
@@ -112,7 +140,7 @@ flowchart LR
     R --> S[skills/<br/>original + vendored]
     W --> X[scripts/<br/>deterministic tools]
     S --> X
-    M[MCP server<br/>26 tools] --> X
+    M[MCP server<br/>27 tools] --> X
     X --> G[(Google Search Console<br/>official API)]
     X --> B[(Bing Webmaster<br/>official API)]
     X --> P[(PageSpeed · CrUX · IndexNow)]
@@ -128,6 +156,7 @@ flowchart LR
 | Skill / workflow | Covers |
 |---|---|
 | `SKILL.md` | Router and core rules |
+| `skills/rate-my-site` | Rate any URL: Overall/SEO/AEO/GEO scores, grades, fixes ranked by point gain, published rubric |
 | `skills/ai-search-answer-workflow` | Google AI Overviews / AI Mode readiness from Google's own guide: real queries → page grading → drafted rewrites → fan-out coverage → weekly re-check |
 | `workflows/onboarding.md` · `initial-audit.md` | Intake, integration checklist, audit orchestration, roadmap |
 | `workflows/technical-seo.md` · `indexing.md` | Crawl and index health, Core Web Vitals, JS rendering, 10-step indexing process |

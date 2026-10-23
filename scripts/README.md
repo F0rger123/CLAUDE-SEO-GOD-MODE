@@ -4,6 +4,7 @@ Run any script with `--help` for usage. Paths are relative to the skill root.
 
 | Script | Does | Needs |
 |---|---|---|
+| `rate_site.py` | Rate any URL: Overall/SEO/AEO/GEO scores, grades, ranked fixes (`references/rating-rubric.md`) | network |
 | `audit.py` | Full deterministic audit, writes `summary.md`, updates client state | network |
 | `state/client_state.py` | Client memory: init, resume, set, task, issue, rec, checkpoint, recurring, log | — |
 | `crawling/crawl.py` | Polite same-site crawl to `crawl.json` | network |
