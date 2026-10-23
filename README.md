@@ -13,6 +13,8 @@
 <p align="center"><b>The all-in-one SEO operating system for Claude.</b><br>
 One prompt starts a client. Claude onboards, audits, pulls real Search Console and Bing data, fixes what it safely can, tells you exactly what to approve, and remembers everything for next time.</p>
 
+<p align="center"><a href="https://github.com/F0rger123/claude-business-god-mode"><img src="https://img.shields.io/badge/part%20of-Claude%20Business%20God%20Mode-f59e0b?style=for-the-badge" alt="Part of Claude Business God Mode"></a></p>
+
 ---
 
 > [!IMPORTANT]
@@ -249,6 +251,23 @@ claude plugin validate .                                   # plugin manifest che
 ```
 
 CI runs the unit tests, the MCP smoke test, and a JSON check of the plugin manifests on Ubuntu and Windows.
+
+## 👑 Part of Claude Business God Mode
+
+This repo is one of four parts of **[Claude Business God Mode](https://github.com/F0rger123/claude-business-god-mode)**, one umbrella that runs a whole
+business with Claude: a shared business profile, launch and growth playbooks, and one marketplace that installs
+every plugin. Here, service pages send leads into the CRM, and CRM review requests feed Google Business Profile.
+
+| Part | What it does |
+|---|---|
+| [📇 Ultimate CRM Template](https://github.com/F0rger123/ultimate-crm-template) | leads, jobs, invoices, payments, portals |
+| [📣 Meta Ads God Mode](https://github.com/F0rger123/claude-meta-ads-god-mode) | paid media, paused-first, approval-gated |
+| [🔎 SEO God Mode](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE) | audits, local SEO, Search Console, AI search · **this repo** |
+| [🎬 Video Editing God Mode](https://github.com/F0rger123/claude-video-editing-god-mode) | reels, Shorts, ad creatives, approval PWA |
+
+```text
+/plugin marketplace add F0rger123/claude-business-god-mode
+```
 
 ## License
 
