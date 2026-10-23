@@ -18,6 +18,7 @@ Run any script with `--help` for usage. Paths are relative to the skill root.
 | `integrations/bing.py` | Bing Webmaster API | `BING_WEBMASTER_API_KEY` |
 | `integrations/indexnow.py` | IndexNow keygen/verify/submit | per-site key |
 | `integrations/pagespeed.py` | PageSpeed Insights + CrUX | `GOOGLE_API_KEY` |
+| `ai_answer/answer_check.py` | AI-search answer check: crawler allowlist, snippet eligibility, who/what/where, direct answers, FAQ-schema match, query grading; tagged findings | network; GSC CSV optional |
 | `reporting/compare_periods.py` | Diff two GSC/Bing CSV exports | — |
 | `reporting/report_data.py` | Period data pack from state + log | — |
 

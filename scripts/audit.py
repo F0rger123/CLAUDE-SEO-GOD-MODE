@@ -74,6 +74,8 @@ def main():
     crawl = common.read_json(crawl_json)
     issues = common.read_json(out / "metadata-issues.json")
     summary = [f"# Technical audit — {url}", f"Date: {common.today()}  |  Output: {out}", "",
+               "_Evidence: everything in this file is OBSERVED by automated checks on this date. "
+               "Interpretations added later must be tagged INFERRED / RECOMMENDED / UNKNOWN (RULES.md)._", "",
                "## Crawl", "```", json.dumps(crawl["summary"], indent=1), "```",
                "## robots.txt", "```", robots_txt.strip(), "```",
                "## Sitemap", "```", sm_txt.strip()[-3000:], "```",

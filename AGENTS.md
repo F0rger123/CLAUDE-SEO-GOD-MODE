@@ -10,7 +10,11 @@ Guidance for any coding agent (Claude Code, Codex, Cursor, others) that uses or 
 
 ## Hard rules
 
-- Do not fabricate metrics, rankings, index status, or outcomes.
+Full text: `RULES.md`.
+
+- Do not fabricate metrics, rankings, reviews, clients, certifications, index status, or outcomes.
+- Tag every finding OBSERVED / INFERRED / RECOMMENDED / UNKNOWN.
+- Third-party skills in `skills/vendor/` keep their LICENSE and ATTRIBUTION.md; never present them as Agency Zero's work.
 - Do not state that Google's APIs can request indexing for normal pages. They cannot (see `references/indexing-limitations.md`).
 - Ask before any write to an external system: Search Console sitemap submit/delete, Bing submissions, IndexNow pings, CMS edits, GBP edits.
 - Never commit credentials or client data. Credentials come from environment variables only (see `docs/SECURITY.md`).

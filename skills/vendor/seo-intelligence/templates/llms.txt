@@ -1,0 +1,14 @@
+# [Nombre real de la empresa]
+
+> [Descripción de una línea, real, de qué hace la empresa y a quién sirve]
+
+## Servicios
+- [Servicio 1]: [descripción corta real]
+- [Servicio 2]: [descripción corta real]
+
+## Contacto
+- Sitio: [URL real]
+- Correo: [correo real]
+- Ubicación: [ciudad/zonas de servicio reales]
+
+<!-- Completar siempre con datos reales y verificables. Nunca dejar contenido de ejemplo en producción. -->

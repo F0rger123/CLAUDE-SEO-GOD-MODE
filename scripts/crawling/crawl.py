@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-import urllib.robotparser
 from collections import deque
 from pathlib import Path
 from urllib.parse import urlparse
@@ -29,11 +28,8 @@ SKIP_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg", ".pdf", "
             ".css", ".js", ".ico", ".woff", ".woff2", ".ttf", ".xml", ".txt", ".doc", ".docx", ".xls", ".xlsx")
 
 
-def robots_for(root: str):
-    rp = urllib.robotparser.RobotFileParser()
-    r = common.fetch(common.normalize_url("/robots.txt", root))
-    rp.parse(r["body"].splitlines() if r["status"] == 200 else [])
-    return rp
+def robots_for(root: str) -> common.Robots:
+    return common.Robots.fetch(root)
 
 
 def sitemap_urls(url: str, limit: int = 5000) -> list[str]:

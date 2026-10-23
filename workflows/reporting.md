@@ -1,6 +1,6 @@
 # Workflow: Reporting
 
-Rule: **every number in a report traces to a data file or API export. If data is missing, say "not available" and why.** Never describe a change as a win unless the data shows it, and never attribute a change to our work without evidence (timing alone is weak evidence; say so).
+Rule: **tag every finding OBSERVED / INFERRED / RECOMMENDED / UNKNOWN (`RULES.md`).** Rule: **every number in a report traces to a data file or API export. If data is missing, say "not available" and why.** Never describe a change as a win unless the data shows it, and never attribute a change to our work without evidence (timing alone is weak evidence; say so).
 
 ## Report types
 

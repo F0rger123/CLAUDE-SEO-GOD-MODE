@@ -2,6 +2,14 @@
 
 Instructions for Claude when this repository is the working directory or is loaded as a skill.
 
+## Hard rules
+
+`RULES.md` applies to every skill here, original or vendored: never invent data; tag findings OBSERVED / INFERRED / RECOMMENDED / UNKNOWN; keep attribution; never promise rankings or AI placement; ask before external changes.
+
+## Vendored skills
+
+`skills/vendor/` holds third-party skills, copied unmodified with LICENSE and ATTRIBUTION.md. Do not edit them in place or remove attribution. To change behavior, add rules in this repo's own files. Only copy from repositories whose license permits it.
+
 ## When using the skill for a client
 
 Start at `SKILL.md`. Follow its load rules: one workflow at a time, references only on demand, scripts via `--help` before reading source.

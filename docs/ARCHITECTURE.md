@@ -10,6 +10,8 @@ SKILL.md                 always loaded (~70 lines): routing + rules
        -> templates/*    copied into client folder when needed
 ```
 
+Sub-skills sit in `skills/`: Agency Zero originals (e.g. `skills/ai-search-answer-workflow`) and third-party skills in `skills/vendor/<source>/`, each with its LICENSE and ATTRIBUTION.md. Claude Code only auto-registers the top-level `SKILL.md`; sub-skills load when the router points to them. `RULES.md` applies to all of them.
+
 This is progressive disclosure. A typical request loads `SKILL.md` plus one workflow, which keeps context small and cost low.
 
 ## Client state (memory)

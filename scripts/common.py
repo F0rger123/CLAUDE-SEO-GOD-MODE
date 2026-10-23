@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import gzip
+import re
 import json
 import os
 import sys
@@ -223,6 +224,84 @@ def parse_jsonld(blocks: list[str]) -> tuple[list[dict], list[str]]:
 def schema_types(obj: dict) -> list[str]:
     t = obj.get("@type", [])
     return t if isinstance(t, list) else [t]
+
+
+class Robots:
+    """robots.txt matcher following Google's rules (RFC 9309).
+
+    Python's urllib.robotparser applies the first matching rule, so 'Allow: /' listed before
+    'Disallow: /app' allows /app. Google uses the longest matching rule (Allow wins ties),
+    supports '*' and '$', and picks the most specific matching user-agent group.
+    """
+
+    def __init__(self, text: str = ""):
+        self.groups: list[tuple[list[str], list[tuple[bool, str]]]] = []
+        agents, rules, last_was_agent = [], [], False
+        for raw in text.splitlines():
+            line = raw.split("#", 1)[0].strip()
+            if ":" not in line:
+                continue
+            key, val = (x.strip() for x in line.split(":", 1))
+            key = key.lower()
+            if key == "user-agent":
+                if not last_was_agent and (agents or rules):
+                    self.groups.append((agents, rules))
+                    agents, rules = [], []
+                agents.append(val.lower())
+                last_was_agent = True
+            elif key in ("allow", "disallow"):
+                last_was_agent = False
+                if val or key == "allow":
+                    rules.append((key == "allow", val))
+            else:
+                last_was_agent = False
+        if agents:
+            self.groups.append((agents, rules))
+
+    @classmethod
+    def fetch(cls, site: str) -> "Robots":
+        r = fetch(normalize_url("/robots.txt", site))
+        # 4xx: no restrictions. 5xx/unreachable: Google treats the site as fully disallowed for a while.
+        if r["status"] and 400 <= r["status"] < 500:
+            return cls("")
+        if r["status"] != 200:
+            return cls("User-agent: *\nDisallow: /")
+        return cls(r["body"])
+
+    def _rules_for(self, agent: str) -> list[tuple[bool, str]]:
+        agent = agent.lower().split("/")[0]
+        best, best_len, star = None, -1, None
+        for agents, rules in self.groups:
+            for a in agents:
+                if a == "*":
+                    star = (star or []) + rules
+                elif agent.startswith(a) and len(a) > best_len:
+                    best, best_len = rules, len(a)
+        if best is not None:
+            # Merge every group naming the same most specific agent.
+            merged = []
+            for agents, rules in self.groups:
+                if any(a != "*" and agent.startswith(a) and len(a) == best_len for a in agents):
+                    merged += rules
+            return merged
+        return star or []
+
+    @staticmethod
+    def _match(pattern: str, path: str) -> bool:
+        regex = "".join(".*" if c == "*" else ("$" if c == "$" and i == len(pattern) - 1 else re.escape(c))
+                        for i, c in enumerate(pattern))
+        return re.match(regex, path) is not None
+
+    def can_fetch(self, agent: str, url: str) -> bool:
+        p = urlparse(url)
+        path = (p.path or "/") + (("?" + p.query) if p.query else "")
+        best_len, allowed = -1, True
+        for allow, pattern in self._rules_for(agent):
+            if self._match(pattern, path):
+                n = len(pattern)
+                if n > best_len or (n == best_len and allow):
+                    best_len, allowed = n, allow
+        return allowed
 
 
 def md_table(rows: list[dict], cols: list[str], limit: int | None = None) -> str:

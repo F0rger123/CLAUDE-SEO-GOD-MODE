@@ -5,18 +5,18 @@
 Global install (available in every Claude Code session):
 
 ```bash
-git clone https://github.com/F0rger123/agency-zero-seo-skill ~/.claude/skills/agency-zero-seo
+git clone https://github.com/F0rger123/master-seo-skill-set-for-claude ~/.claude/skills/master-seo-skill-set
 ```
 
 Windows PowerShell:
 
 ```powershell
-git clone https://github.com/F0rger123/agency-zero-seo-skill "$HOME\.claude\skills\agency-zero-seo"
+git clone https://github.com/F0rger123/master-seo-skill-set-for-claude "$HOME\.claude\skills\master-seo-skill-set"
 ```
 
-Update later with `git -C ~/.claude/skills/agency-zero-seo pull`.
+Update later with `git -C ~/.claude/skills/master-seo-skill-set pull`.
 
-Project-only install: clone into `<project>/.claude/skills/agency-zero-seo` instead.
+Project-only install: clone into `<project>/.claude/skills/master-seo-skill-set` instead.
 
 ## 2. Python
 
@@ -25,7 +25,7 @@ Python 3.10 or newer. Core scripts need nothing else.
 For Google Search Console:
 
 ```bash
-pip install -r ~/.claude/skills/agency-zero-seo/scripts/requirements.txt
+pip install -r ~/.claude/skills/master-seo-skill-set/scripts/requirements.txt
 ```
 
 ## 3. Client data folder
@@ -61,7 +61,7 @@ IndexNow needs a per-site key file hosted on the client's site; it is generated 
 ## 5. Check it works
 
 ```bash
-cd ~/.claude/skills/agency-zero-seo
+cd ~/.claude/skills/master-seo-skill-set
 python scripts/crawling/robots_check.py https://example.com
 python scripts/state/client_state.py list
 ```
@@ -71,7 +71,7 @@ python scripts/state/client_state.py list
 In Claude Code:
 
 ```text
-Use the Agency Zero SEO skill for this new client.
+Use the Master SEO Skill Set for this new client.
 
 Business: <name>
 Website: <url>

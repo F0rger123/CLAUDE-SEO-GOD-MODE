@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import urllib.robotparser
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -40,8 +39,7 @@ def main():
             findings.append("No Sitemap: line in robots.txt (optional but recommended).")
         if any(l.strip().lower() == "disallow: /" for l in lines):
             findings.append("A 'Disallow: /' rule exists — check which user-agent it applies to.")
-    rp = urllib.robotparser.RobotFileParser()
-    rp.parse(lines)
+    rp = common.Robots(r["body"]) if r["status"] == 200 else common.Robots.fetch(a.site)
     for path in a.test:
         full = common.normalize_url(path, a.site)
         result["tests"][full] = {ag: rp.can_fetch(ag, full) for ag in AGENTS}

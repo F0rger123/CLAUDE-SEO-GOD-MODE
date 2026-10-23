@@ -38,7 +38,7 @@ Then: compare the new audit with the previous one (new issue groups = regression
 All core checks are scripts, so they can run without a model:
 
 - **Local scheduler**: Windows Task Scheduler or cron running the monthly commands above, writing to the client data folder. Claude reads the outputs next session.
-- **Claude Code scheduled tasks / routines**: schedule a prompt such as "Use the Agency Zero SEO skill. Run recurring maintenance for <slug>." Requires the machine or environment to have the credentials as environment variables.
+- **Claude Code scheduled tasks / routines**: schedule a prompt such as "Use the Master SEO Skill Set. Run recurring maintenance for <slug>." Requires the machine or environment to have the credentials as environment variables.
 - **GitHub Actions** (on the private client-data repo): possible for crawl/sitemap checks; store API keys as encrypted secrets only.
 
 Report regressions to the user; do not auto-fix live sites.

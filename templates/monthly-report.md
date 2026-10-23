@@ -2,6 +2,8 @@
 
 **Period:** YYYY-MM-DD to YYYY-MM-DD · **Compared with:** previous period / same period last year
 
+_Tag every finding OBSERVED / INFERRED / RECOMMENDED / UNKNOWN (RULES.md). Changes attributed to our work are INFERRED unless proven._
+
 ## Summary
 
 Two to four sentences. What we did, what moved (with numbers and direction), what's next. If data is flat or down, say so and why.

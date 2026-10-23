@@ -2,6 +2,8 @@
 
 Answer Engine Optimization and Generative Engine Optimization: making the business easy for AI systems (Google AI Overviews and AI Mode, ChatGPT search, Perplexity, Microsoft Copilot, Gemini, Claude) to understand, trust, and cite. Reference: `references/aeo-geo-reference.md`.
 
+**For Google AI Overviews / AI Mode, start with `skills/ai-search-answer-workflow`** (grounded in Google's own guide: core ranking, indexed + snippet-eligible, no special schema or AI files). This workflow covers the wider entity, citability, and multi-engine picture. Deep audit: `skills/vendor/claude-seo/seo-geo`. Score: `skills/vendor/geo-optimizer`. All findings tagged per `RULES.md`.
+
 Principle: the same things that help people help AI systems. Clear facts, consistent identity, real expertise, well-structured answers. **No hidden text, no AI-targeted keyword lists, no "prompt injection" content for bots.** Humans first.
 
 ## Audit

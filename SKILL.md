@@ -1,64 +1,70 @@
 ---
-name: agency-zero-seo
-description: Agency Zero SEO operating system. Use when onboarding, auditing, optimizing, reporting on, or resuming SEO work for any client website, including technical SEO, local SEO, Google Search Console, Bing Webmaster Tools, indexing, schema, content strategy, competitor analysis, and AEO/GEO (AI search visibility).
+name: master-seo-skill-set
+description: The Master SEO Skill Set for Claude (Agency Zero). Use when onboarding, auditing, optimizing, reporting on, or resuming SEO work for any client website, including technical SEO, local SEO, keyword research, rank tracking, content briefs, Google Search Console, Bing Webmaster Tools, indexing, schema, competitor analysis, AI search (AI Overviews, AI Mode, ChatGPT/Perplexity/Claude citations, AEO/GEO), and AI-referral measurement.
 ---
 
-# Agency Zero SEO
+# The Master SEO Skill Set for Claude
 
-Reusable SEO operating system for client websites. Works for any business and any geography.
+Agency Zero's SEO operating system. Works for any business and any geography.
+
+## Hard rules first
+
+Read `RULES.md` once per session. In short: never invent data; tag every finding OBSERVED / INFERRED / RECOMMENDED / UNKNOWN; keep third-party attribution; never promise rankings or AI placement; ask before any external change.
 
 ## Load rules (progressive disclosure)
 
-Read only what the current step needs. Do not read the whole repository.
+Read only what the current step needs.
 
 1. This file. Always.
-2. One workflow file in `workflows/` for the current step.
-3. A reference file in `references/` only when the workflow points to it.
-4. A script in `scripts/` only when you are about to run it. Run scripts with `--help` before reading their source.
+2. One workflow (`workflows/`) or one sub-skill (`skills/`) for the current step.
+3. A reference (`references/`) only when the workflow points to it.
+4. A script (`scripts/`) only when you are about to run it. Run with `--help` before reading source.
 
-Paths in this skill are relative to the skill root (the folder that holds this file).
+Paths are relative to this skill's root folder.
 
 ## Client state
 
-Client data never lives in this repository. It lives in the clients directory:
-
-- `$AZ_SEO_CLIENTS` if set, else `~/agency-zero-clients/`.
-- One folder per client: `<clients>/<slug>/` with `state.json`, `profile.md`, `roadmap.md`, `log.md`, `data/`, `reports/`.
-
-`state.json` is the single source of truth. Read and change it with `scripts/state/client_state.py`. Never ask the user for a fact that `state.json` already holds.
+Client data never lives in this repository: `$AZ_SEO_CLIENTS` (default `~/agency-zero-clients/`) → `<slug>/state.json`, `profile.md`, `roadmap.md`, `log.md`, `data/`, `reports/`. Read and change state with `scripts/state/client_state.py`. Never ask for a fact `state.json` already holds.
 
 ## Route the request
 
-| User intent | Do this |
+| User intent | Use |
 |---|---|
-| "new client", "start onboarding" | `workflows/onboarding.md` |
-| "resume", "continue", client name only | Run `python scripts/state/client_state.py resume <slug>`, then follow the `next` items it prints |
-| "audit" | `workflows/initial-audit.md` |
-| crawl, robots, sitemap, canonical, redirects, speed | `workflows/technical-seo.md` |
+| new client, onboarding | `workflows/onboarding.md` |
+| resume, continue | `python scripts/state/client_state.py resume <slug>`, then its `next` items |
+| full site audit | `skills/vendor/claude-seo/seo-audit` (needs claude-seo plugin) + `scripts/audit.py` data; fallback `workflows/initial-audit.md` |
+| audit from real GSC/GA4 performance | `skills/vendor/open-seo-mcp-skills/seo-audit` (Ryze connector) or `workflows/search-console.md` (official API) |
+| crawl, robots, sitemap, canonicals, speed | `workflows/technical-seo.md` |
+| Google AI Overviews / AI Mode, "answer the questions people search" | `skills/ai-search-answer-workflow` |
+| GEO/AEO audit (citability, entity, brand) | `skills/vendor/claude-seo/seo-geo` + `workflows/aeo-geo.md` |
+| AI-readiness score (0–100, before/after) | `skills/vendor/geo-optimizer` |
+| GEO rewrites of flagged pages | `skills/vendor/egeoagents/geo-loop` (drafts only) |
+| AI referral traffic (ChatGPT, Perplexity, Claude, Gemini) | `skills/vendor/open-seo-mcp-skills/ai-visibility` |
+| keywords | `workflows/keyword-research.md` (+ `open-seo-mcp-skills/keyword-research` when connected) |
+| rank tracking, movers | `skills/vendor/open-seo-mcp-skills/rank-tracking` or `scripts/reporting/compare_periods.py` |
+| competitor keyword gap | `skills/vendor/open-seo-mcp-skills/competitor-gap`; structure review `workflows/competitor-analysis.md` |
+| backlinks | `skills/vendor/open-seo-mcp-skills/backlink-check` |
+| content brief | `skills/vendor/open-seo-mcp-skills/content-brief`; plan `workflows/content-strategy.md` |
+| customer journey / question mapping | `workflows/customer-journey.md` |
+| 30-day sprint on one page, daily autopilot | `workflows/sprint-and-autopilot.md` |
 | Google Business Profile, map pack, city pages, NAP | `workflows/local-seo.md` |
 | titles, headings, service pages, internal links | `workflows/on-page-seo.md` |
-| Search Console data, queries, pages | `workflows/search-console.md` |
+| Search Console data | `workflows/search-console.md` |
 | Bing | `workflows/bing-webmaster.md` |
-| "get pages indexed", coverage | `workflows/indexing.md` |
-| keywords | `workflows/keyword-research.md` |
-| competitors | `workflows/competitor-analysis.md` |
-| content plan, blog, topic clusters | `workflows/content-strategy.md` |
-| AI search, AEO, GEO, ChatGPT/Perplexity/AI Overviews | `workflows/aeo-geo.md` |
-| structured data, JSON-LD | `workflows/schema.md` |
+| indexing | `workflows/indexing.md` |
+| schema / JSON-LD | `workflows/schema.md` |
 | report | `workflows/reporting.md` |
-| monthly / recurring work | `workflows/recurring-maintenance.md` |
+| recurring work | `workflows/recurring-maintenance.md` |
 
-## Non-negotiable rules
+Evidence layer for every route: `skills/vendor/seo-intelligence/rules/` (confidence labels, never-fake-data, safe changes). Its own audit modes are alternatives, not defaults. Full index and dedupe notes: `README.md`.
 
-- Scripts and APIs before model reasoning. Run the deterministic tool, then interpret its output.
-- Never fabricate data, rankings, traffic, indexing status, or results. If data is missing, say so.
-- Never claim an API can do something it cannot. Read `references/indexing-limitations.md` before any indexing promise.
-- Humans first. No keyword stuffing, no doorway pages, no copied competitor text.
-- Do not change a live website, submit to Google or Bing, or send anything externally without the user's go-ahead for that action.
-- Credentials stay out of chat, out of `state.json`, and out of git. See `docs/SECURITY.md`.
-- After every work block: update `state.json` (tasks, issues, recommendations) and append to `log.md` with `client_state.py log`.
-- Rejected recommendations stay rejected. Check `state.json` → `recommendations` before proposing again.
+## Operating rules
 
-## Python
+- Scripts and official APIs before model reasoning.
+- Humans first: no keyword stuffing, no doorway or mass fan-out pages, no copied competitor content.
+- Do not change a live site, submit to Google or Bing, publish, deploy, or push without the user's go-ahead for that action.
+- Credentials stay out of chat, state, and git (`docs/SECURITY.md`).
+- After every work block: update state (tasks, issues, recommendations) and `client_state.py log`.
+- Rejected recommendations stay rejected.
 
-Scripts need Python 3.10+. Core scripts use the standard library only. Google API scripts need `pip install -r scripts/requirements.txt`.
+Python 3.10+. Core scripts use the standard library; `scripts/integrations/gsc.py` needs `pip install -r scripts/requirements.txt`. Vendored skills have their own dependencies (see each `ATTRIBUTION.md`).
