@@ -6,7 +6,7 @@
 - **License:** MIT (`LICENSE`)
 - **Copied:** `SKILL.md`, `agents/`, `checks/`, `rules/`, `templates/`, `workflows/`. Files are unmodified. `SKILL.md` is written in Spanish; `rules/` is in English.
 
-This is third-party work, not Agency Zero's.
+This is third-party work, not this project's.
 
 ## Role in the Master SEO Skill Set
 

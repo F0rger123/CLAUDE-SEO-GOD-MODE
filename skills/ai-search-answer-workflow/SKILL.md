@@ -5,7 +5,7 @@ description: Make a client's pages clearly answer the real questions people sear
 
 # AI search answer workflow
 
-Agency Zero original skill. Follows `/RULES.md`: every finding is tagged OBSERVED, INFERRED, RECOMMENDED, or UNKNOWN, and no data is invented.
+Original skill of this project. Follows `/RULES.md`: every finding is tagged OBSERVED, INFERRED, RECOMMENDED, or UNKNOWN, and no data is invented.
 
 ## What Google actually says (source of truth)
 
@@ -22,7 +22,7 @@ Source: Google Search Central, "Optimizing your website for generative AI featur
 
 ### Where this workflow goes beyond Google's text
 
-These are Agency Zero practices, labeled as such. Do not present them as Google requirements.
+These are this project's practices, labeled as such. Do not present them as Google requirements.
 
 | Practice | Status |
 |---|---|

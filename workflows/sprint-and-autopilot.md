@@ -1,6 +1,6 @@
 # Workflow: 30-day page sprint and daily autopilot
 
-Original Agency Zero workflow. Concept credit: the "SEO autopilot" and "blitz SEO" ideas in Illyism/seo-skills (https://github.com/Illyism/seo-skills). That repository has no license, so none of its text is used here.
+Original workflow of this project. Concept credit: the "SEO autopilot" and "blitz SEO" ideas in Illyism/seo-skills (https://github.com/Illyism/seo-skills). That repository has no license, so none of its text is used here.
 
 All findings follow `RULES.md` (OBSERVED / INFERRED / RECOMMENDED / UNKNOWN).
 

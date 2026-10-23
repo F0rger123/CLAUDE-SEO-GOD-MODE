@@ -7,7 +7,7 @@
 - **Copied:** `skills/seo-audit/` and `skills/seo-geo/` (SKILL.md, LICENSE.txt, `seo-geo/references/`). Files are unmodified.
 - **Not copied:** the plugin's scripts, subagents, and other sub-skills.
 
-This is third-party work, not Agency Zero's. Keep this note and the license files with the copied files.
+This is third-party work, not this project's. Keep this note and the license files with the copied files.
 
 ## Dependency
 

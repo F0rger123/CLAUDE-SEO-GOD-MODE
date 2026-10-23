@@ -39,20 +39,20 @@ pip install -r ~/.claude/skills/seo-god-mode/scripts/requirements.txt
 
 ## 3. Client data folder
 
-Default: `~/agency-zero-clients`. Override with an environment variable:
+Default: `~/seo-clients`. Override with an environment variable:
 
 ```bash
-export AZ_SEO_CLIENTS="$HOME/agency-zero-clients"        # macOS/Linux, add to shell profile
+export SEO_CLIENTS_DIR="$HOME/seo-clients"        # macOS/Linux, add to shell profile
 ```
 
 ```powershell
-[Environment]::SetEnvironmentVariable("AZ_SEO_CLIENTS", "$HOME\agency-zero-clients", "User")
+[Environment]::SetEnvironmentVariable("SEO_CLIENTS_DIR", "$HOME\seo-clients", "User")
 ```
 
 Optional but recommended: back it up as a separate private repository.
 
 ```bash
-cd ~/agency-zero-clients && git init && gh repo create agency-zero-clients --private --source . --push
+cd ~/seo-clients && git init && gh repo create seo-clients --private --source . --push
 ```
 
 ## 4. Credentials

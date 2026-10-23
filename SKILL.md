@@ -5,7 +5,7 @@ description: CLAUDE SEO GOD MODE (Agency Zero). Use when onboarding, auditing, o
 
 # CLAUDE SEO GOD MODE
 
-Agency Zero's SEO operating system. Works for any business and any geography.
+Open-source SEO operating system for Claude. Works for any business, agency, or freelancer, in any geography. Created by Agency Zero.
 
 ## Hard rules first
 
@@ -24,7 +24,7 @@ Paths are relative to this skill's root folder.
 
 ## Client state
 
-Client data never lives in this repository: `$AZ_SEO_CLIENTS` (default `~/agency-zero-clients/`) → `<slug>/state.json`, `profile.md`, `roadmap.md`, `log.md`, `data/`, `reports/`. Read and change state with `scripts/state/client_state.py`. Never ask for a fact `state.json` already holds.
+Client data never lives in this repository: `$SEO_CLIENTS_DIR` (default `~/seo-clients/`) → `<slug>/state.json`, `profile.md`, `roadmap.md`, `log.md`, `data/`, `reports/`. Read and change state with `scripts/state/client_state.py`. Never ask for a fact `state.json` already holds.
 
 ## Route the request
 

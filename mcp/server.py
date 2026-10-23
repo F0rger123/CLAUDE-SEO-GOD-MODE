@@ -9,7 +9,7 @@ Credentials (environment variables, never arguments):
   GSC_SERVICE_ACCOUNT_FILE or GSC_OAUTH_CLIENT_FILE   Google Search Console
   BING_WEBMASTER_API_KEY                              Bing Webmaster Tools
   GOOGLE_API_KEY                                      PageSpeed Insights / CrUX
-  AZ_SEO_CLIENTS                                      client state folder (default ~/agency-zero-clients)
+  SEO_CLIENTS_DIR                                     client state folder (default ~/seo-clients; legacy AZ_SEO_CLIENTS)
 
 Safety: tools that change something outside this machine (sitemap submit/delete, URL submission,
 IndexNow) refuse to run unless SEO_GODMODE_ALLOW_WRITES=1 is set AND the call passes confirm=true.

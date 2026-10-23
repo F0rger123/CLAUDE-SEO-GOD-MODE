@@ -6,7 +6,7 @@
 - **License:** MIT (`LICENSE`). Upstream also has `TRADEMARKS.md`: do not use the "GEO Optimizer" name or logo as Agency Zero branding.
 - **Copied:** `SKILL.md`, `SCORING_RUBRIC.md`, `references/`. Files are unmodified.
 
-This is third-party work, not Agency Zero's.
+This is third-party work, not this project's.
 
 ## Dependency
 

@@ -6,7 +6,7 @@
 - **License:** MIT (`LICENSE`)
 - **Copied:** `skills/seo-audit`, `keyword-research`, `rank-tracking`, `competitor-gap`, `backlink-check`, `ai-visibility`, `content-brief`. Files are unmodified. `seo-vs-ads` was not copied (paid ads are out of scope).
 
-This is third-party work, not Agency Zero's.
+This is third-party work, not this project's.
 
 ## Dependency and security
 

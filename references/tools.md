@@ -65,6 +65,6 @@ Updated comparison of open-source Google Search Console and Bing Webmaster MCP s
 
 Screaming Frog SEO Spider (desktop crawler; free up to 500 URLs), Ahrefs/Semrush/Moz (backlinks, keywords), BrightLocal/Local Falcon/Whitespark (local rank grids, citations), Google Ads Keyword Planner (free with an Ads account). Record which ones a client pays for in `integrations.keyword_data.notes`.
 
-## Already on this machine (Agency Zero setup)
+## Other SEO plugins you may already have
 
 The user's Claude environment may include other SEO skills/plugins (for example an OpenSEO plugin with Search Console, SERP, and IndexNow tools). They are optional accelerators; this skill does not depend on them. If one is available and connected, prefer it over manual steps, but keep results in this skill's client state.

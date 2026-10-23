@@ -7,7 +7,7 @@
 - **Copied:** `.claude/skills/geo-loop`, `content-scoring`, `validation-doctor`. Files are unmodified.
 - **Not copied:** `competitive-analysis` (duplicates open-seo-mcp-skills `competitor-gap`) and `schema-generator` (duplicates this repo's `scripts/schema/generate_schema.py`). Both remain available upstream as alternatives.
 
-This is third-party work, not Agency Zero's.
+This is third-party work, not this project's.
 
 ## Dependency
 

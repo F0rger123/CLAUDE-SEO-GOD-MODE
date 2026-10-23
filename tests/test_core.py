@@ -73,7 +73,7 @@ class ParserTest(unittest.TestCase):
 class StateTest(unittest.TestCase):
     def test_rejected_recommendation_stays_rejected(self):
         with tempfile.TemporaryDirectory() as d:
-            env = {**os.environ, "AZ_SEO_CLIENTS": d}
+            env = {**os.environ, "SEO_CLIENTS_DIR": d}
             cs = [sys.executable, str(ROOT / "scripts/state/client_state.py")]
             run = lambda *a: subprocess.run(cs + list(a), env=env, capture_output=True, text=True).stdout
             run("init", "t", "--name", "T", "--website", "https://a.com")

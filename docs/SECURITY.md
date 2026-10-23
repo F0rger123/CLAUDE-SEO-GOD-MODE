@@ -14,7 +14,7 @@
 |---|---|
 | Search Console | Add the service account as a **Full** user on only the properties you manage. Use Owner only if a write action returns 403. Read-only reporting works with **Restricted**. |
 | Bing Webmaster | One API key covers every site on the account. Use an agency account that holds only client sites. Regenerate the key if it leaks. |
-| Google Cloud | One project for Agency Zero SEO. Enable only Search Console API, PageSpeed Insights API, Chrome UX Report API. Restrict the API key to those APIs. |
+| Google Cloud | One project for your SEO work. Enable only Search Console API, PageSpeed Insights API, Chrome UX Report API. Restrict the API key to those APIs. |
 | Google Business Profile | Use Manager access, not Primary Owner, unless ownership transfer is the task. |
 | CMS | Prefer a dedicated user with Editor role (no plugin install, no user management). |
 
@@ -30,7 +30,7 @@ Claude must ask before each of these, every time:
 
 ## Client data
 
-- Client state, crawl output, and reports live in `$AZ_SEO_CLIENTS`, never in this repo.
+- Client state, crawl output, and reports live in `$SEO_CLIENTS_DIR`, never in this repo.
 - Search Console and Bing exports can include query data. Treat it as confidential client data.
 - Do not upload client data to third-party tools unless the client has agreed.
 

@@ -5,7 +5,7 @@ Guidance for any coding agent (Claude Code, Codex, Cursor, others) that uses or 
 ## Use
 
 1. Read `SKILL.md`. It routes each request to one workflow file.
-2. Client state lives outside the repo in `$AZ_SEO_CLIENTS` or `~/agency-zero-clients/<slug>/`. Use `python scripts/state/client_state.py` to read and write it.
+2. Client state lives outside the repo in `$SEO_CLIENTS_DIR` or `~/seo-clients/<slug>/`. Use `python scripts/state/client_state.py` to read and write it.
 3. Run deterministic scripts before reasoning about a site. Interpret their output; do not re-derive it by hand.
 
 ## Hard rules
@@ -14,7 +14,7 @@ Full text: `RULES.md`.
 
 - Do not fabricate metrics, rankings, reviews, clients, certifications, index status, or outcomes.
 - Tag every finding OBSERVED / INFERRED / RECOMMENDED / UNKNOWN.
-- Third-party skills in `skills/vendor/` keep their LICENSE and ATTRIBUTION.md; never present them as Agency Zero's work.
+- Third-party skills in `skills/vendor/` keep their LICENSE and ATTRIBUTION.md; never present them as this project's work.
 - Do not state that Google's APIs can request indexing for normal pages. They cannot (see `references/indexing-limitations.md`).
 - Ask before any write to an external system: Search Console sitemap submit/delete, Bing submissions, IndexNow pings, CMS edits, GBP edits.
 - Never commit credentials or client data. Credentials come from environment variables only (see `docs/SECURITY.md`).

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Client state manager: the memory that lets any Claude session resume a client.
 
-State lives in <clients>/<slug>/state.json (clients = $AZ_SEO_CLIENTS or ~/agency-zero-clients).
+State lives in <clients>/<slug>/state.json (clients = $SEO_CLIENTS_DIR or ~/seo-clients).
 
 Examples:
   client_state.py init d-hauss --name "D-Hauss Remodeling" --website https://example.com --area "York, PA"

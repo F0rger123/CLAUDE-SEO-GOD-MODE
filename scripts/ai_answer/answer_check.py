@@ -33,7 +33,7 @@ POLICY_BOTS = ["GPTBot", "ClaudeBot", "Google-Extended", "CCBot"]
 STOP = set("a an the and or of for to in on at by with is are be can do does how what why when where which who "
            "my i me you your near best vs".split())
 QUESTION_START = re.compile(r"^(how|what|why|when|where|which|who|can|do|does|is|are|should|will|much)\b", re.I)
-ANSWER_MIN, ANSWER_MAX = 40, 60   # Agency Zero house heuristic, NOT a Google requirement
+ANSWER_MIN, ANSWER_MAX = 40, 60   # this project's house heuristic, NOT a Google requirement
 
 
 class BlockParser(HTMLParser):

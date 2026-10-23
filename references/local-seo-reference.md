@@ -42,7 +42,7 @@ If it has none: do not build it. Mention the town on the service page or service
 4. Industry: Angi, HomeAdvisor, Houzz, Thumbtack, Porch (home services); Avvo, Justia (legal); Healthgrades, Zocdoc (medical).
 5. Local: chamber of commerce, local business associations, local news business directories.
 
-## York, Pennsylvania context (Agency Zero home market)
+## Example market: York, Pennsylvania
 
 Common service areas around York: York, West York, North York, York Township, Spring Garden Township, Springettsbury, Manchester, Dover, Red Lion, Dallastown, Shrewsbury, Hanover, Wrightsville, Hellam. Neighboring markets: Lancaster, Harrisburg, Gettysburg, northern Maryland. Use only the towns the client actually serves.
 

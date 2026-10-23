@@ -1,6 +1,6 @@
 # SEO audit — {{BUSINESS}}
 
-**Date:** YYYY-MM-DD  ·  **Site:** URL  ·  **Prepared by:** Agency Zero
+**Date:** YYYY-MM-DD  ·  **Site:** URL  ·  **Prepared by:** <your agency>
 **Data used:** crawl (N pages, date), Search Console (period or "not connected"), Bing (period or "not connected"), PageSpeed (URLs), manual GBP review (date)
 
 _Every finding below carries a tag: **OBSERVED** (measured), **INFERRED** (reasoned from observed data), **RECOMMENDED** (proposed action), **UNKNOWN** (not available). See RULES.md._

@@ -1,6 +1,7 @@
 # Client data never belongs in this repository
 clients/
 agency-zero-clients/
+seo-clients/
 data/
 audit-*/
 *.csv

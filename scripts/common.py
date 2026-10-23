@@ -1,4 +1,4 @@
-"""Shared helpers for Agency Zero SEO scripts. Standard library only."""
+"""Shared helpers for CLAUDE SEO GOD MODE scripts. Standard library only."""
 from __future__ import annotations
 
 import gzip
@@ -22,7 +22,8 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 def clients_dir() -> Path:
-    return Path(os.environ.get("AZ_SEO_CLIENTS", Path.home() / "agency-zero-clients")).expanduser()
+    env = os.environ.get("SEO_CLIENTS_DIR") or os.environ.get("AZ_SEO_CLIENTS")  # AZ_SEO_CLIENTS: legacy name
+    return Path(env or Path.home() / "seo-clients").expanduser()
 
 
 def client_dir(slug: str) -> Path:

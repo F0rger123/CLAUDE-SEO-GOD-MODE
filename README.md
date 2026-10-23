@@ -54,7 +54,7 @@ Then connect your data (all optional, everything else works without them):
 | `GSC_SERVICE_ACCOUNT_FILE` or `GSC_OAUTH_CLIENT_FILE` | Google Search Console |
 | `BING_WEBMASTER_API_KEY` | Bing Webmaster Tools |
 | `GOOGLE_API_KEY` | PageSpeed Insights and CrUX |
-| `AZ_SEO_CLIENTS` | Where client memory lives (default `~/agency-zero-clients`) |
+| `SEO_CLIENTS_DIR` | Where client memory lives (default `~/seo-clients`; legacy name `AZ_SEO_CLIENTS` also works) |
 | `SEO_GODMODE_ALLOW_WRITES=1` | Lets the MCP server submit sitemaps/URLs (each call still needs `confirm=true`) |
 
 Step-by-step: [docs/SETUP.md](docs/SETUP.md) · [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) · [docs/SECURITY.md](docs/SECURITY.md)
@@ -187,7 +187,7 @@ docs/             setup, integrations, MCP, security, architecture
 tests/            unit + MCP smoke tests         .claude-plugin/ plugin + marketplace
 ```
 
-Client data never lives in this repo. It lives in `$AZ_SEO_CLIENTS`, which you can make its own private repository.
+Client data never lives in this repo. It lives in `$SEO_CLIENTS_DIR`, which you can make its own private repository.
 
 ## Development
 
@@ -201,6 +201,8 @@ CI runs the unit tests, the MCP smoke test, and a JSON check of the plugin manif
 
 ## License
 
-Original files © Agency Zero, see [LICENSE](LICENSE). Vendored skills keep their own MIT licenses in `skills/vendor/*/`.
+MIT, see [LICENSE](LICENSE). Use it, fork it, ship it for your own clients. Vendored skills keep their own MIT licenses and attribution in `skills/vendor/*/`.
+
+Contributions welcome: open an issue or PR. Keep `RULES.md` intact (no fabricated data, evidence tags, attribution).
 
 <p align="center"><sub>Built by <a href="https://theagencyzero.com">Agency Zero</a> · York, PA</sub></p>

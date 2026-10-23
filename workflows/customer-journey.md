@@ -1,6 +1,6 @@
 # Workflow: Customer-journey query mapping
 
-Original Agency Zero workflow. Concept credit: the "customer journey" idea in Illyism/seo-skills (https://github.com/Illyism/seo-skills). That repository has no license, so none of its text is used here.
+Original workflow of this project. Concept credit: the "customer journey" idea in Illyism/seo-skills (https://github.com/Illyism/seo-skills). That repository has no license, so none of its text is used here.
 
 Goal: map the questions a local customer asks at each stage, on Google and in AI assistants, to pages that answer them. Output: `<client>/data/journey-map.csv`. Findings follow `RULES.md`.
 
