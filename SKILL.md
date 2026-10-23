@@ -9,7 +9,7 @@ Open-source SEO operating system for Claude. Works for any business, agency, or 
 
 ## Start here
 
-New session? Read `START_HERE.md` (two minutes), then run `python scripts/setup/connect.py status`. To connect Search Console, Bing, or PageSpeed, relay `docs/CONNECT.md` word for word and use `scripts/setup/connect.py`. Never ask for key-file contents in chat.
+New session? Read `START_HERE.md` (two minutes), then run `python scripts/setup/connect.py status`. To connect Search Console, Bing, or PageSpeed, relay `docs/CONNECT.md` word for word and use `scripts/setup/connect.py`. Never ask for key-file contents in chat. Listings and social profiles: `references/social-and-listings.md` and `workflows/listings-browser.md`.
 
 ## Hard rules first
 

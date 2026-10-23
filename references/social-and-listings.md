@@ -21,3 +21,19 @@ Why it matters for SEO/GEO: consistent profiles (`sameAs`), matching name/phone/
 2. For posting, propose the lowest-effort route: Buffer (one token covers FB, IG and GBP), or a Meta MCP server for FB and IG only. Explain the owner steps (developer app or Buffer token) in plain words, like `docs/CONNECT.md`.
 3. Draft posts from real jobs only (photo, town, what was installed). No invented results or reviews. Post only after the owner approves each one.
 4. Yelp, Nextdoor, Bing Places and Apple: give the owner the exact listing checklist (same name, phone, category, hours, website with UTM `?utm_source=<platform>&utm_medium=listing`) rather than promising automation that doesn't exist.
+
+## Beyond the APIs: legitimate ways to cover the gaps
+
+Checked 2026-10-23.
+
+| Route | Covers | Cost | Notes |
+|---|---|---|---|
+| **Browser-assisted management** (Claude in Chrome, in the owner's own logged-in browser) | Nextdoor, Bing Places, Apple Business Connect, Yelp for Business, the Google Business Profile UI, Facebook | Free | Claude fills forms and drafts replies on the real dashboards; the owner signs in and approves every submit. Workflow: `workflows/listings-browser.md`. |
+| **Listing aggregator with official partner APIs**: BrightLocal Active Sync, Yext, Synup, Uberall | Pushes name, phone, hours and categories to Google, Apple Maps, Bing Places, Facebook and Yelp from one place | Paid per location | The real fix for "partner-only" platforms. BrightLocal is the small-business option; Yext and Synup target agencies. |
+| **Google Business Profile API** | Review replies, posts, profile edits | Free; needs an access application to Google | Worth applying for one owned profile. Until approved, Buffer can post to GBP. |
+| **Review data**: OpenSEO `get_business_reviews`, Yelp official MCP, Outscraper MCP (paid scraping service) | Read reviews and track competitors | Credits | Read only. Replies happen on the platform. |
+| **Nextdoor Ads**: hosted MCP on Pipedream | Ad campaigns only | Nextdoor ad spend | Not for organic posts. |
+
+### Not recommended
+
+Unofficial or reverse-engineered APIs, scraping logged-in pages, or bots that post with a stored password on Nextdoor, Yelp, Google or Facebook. They break those platforms' terms and can get the listing suspended. A suspended Google Business Profile costs far more than any automation saves. Don't install or build them for a client.
