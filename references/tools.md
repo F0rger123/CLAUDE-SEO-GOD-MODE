@@ -30,6 +30,8 @@ Legend: **Core** = used by this skill's workflows. **Optional** = add when a cli
 
 ## Community MCP servers (optional)
 
+Updated comparison of open-source Google Search Console and Bing Webmaster MCP servers (2026-10-23): `docs/MCP.md`. This repo also ships its own MCP server (`mcp/server.py`).
+
 | Tool | URL | Purpose | State (2026-10-22) | Credentials | Why | Security notes |
 |---|---|---|---|---|---|---|
 | mcp-gsc | https://github.com/AminForou/mcp-gsc | GSC: analytics, URL inspection (incl. batch), sitemap submit/delete | Active, MIT, Python | OAuth or service account | Most complete GSC MCP reviewed; conversational analysis | Community. Use the local version, not the advertised hosted version, so tokens stay local. Pin a commit. Write tools exist (sitemap submit/delete): approve each call |

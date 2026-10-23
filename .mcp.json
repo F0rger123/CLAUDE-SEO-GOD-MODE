@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "seo-god-mode": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.py"],
+      "env": {
+        "GSC_SERVICE_ACCOUNT_FILE": "${GSC_SERVICE_ACCOUNT_FILE:-}",
+        "GSC_OAUTH_CLIENT_FILE": "${GSC_OAUTH_CLIENT_FILE:-}",
+        "BING_WEBMASTER_API_KEY": "${BING_WEBMASTER_API_KEY:-}",
+        "GOOGLE_API_KEY": "${GOOGLE_API_KEY:-}",
+        "AZ_SEO_CLIENTS": "${AZ_SEO_CLIENTS:-}",
+        "SEO_GODMODE_ALLOW_WRITES": "${SEO_GODMODE_ALLOW_WRITES:-0}"
+      }
+    }
+  }
+}

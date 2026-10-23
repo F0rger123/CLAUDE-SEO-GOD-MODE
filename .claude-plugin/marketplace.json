@@ -1,0 +1,15 @@
+{
+  "name": "seo-god-mode",
+  "description": "CLAUDE SEO GOD MODE by Agency Zero: SEO skills and an MCP server for Claude Code.",
+  "owner": {
+    "name": "Agency Zero",
+    "url": "https://theagencyzero.com"
+  },
+  "plugins": [
+    {
+      "name": "seo-god-mode",
+      "source": "./",
+      "description": "CLAUDE SEO GOD MODE: all-in-one SEO skills + MCP server for Claude Code."
+    }
+  ]
+}

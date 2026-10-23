@@ -1,22 +1,31 @@
 # Setup
 
-## 1. Install the skill
+## 1. Install
 
-Global install (available in every Claude Code session):
+**Option A: Claude Code plugin (skills + MCP server in one step)**
+
+```text
+/plugin marketplace add F0rger123/CLAUDE-SEO-GOD-MODE
+/plugin install seo-god-mode@seo-god-mode
+```
+
+Then install the MCP server's Python dependencies once: `pip install -r <plugin folder>/mcp/requirements.txt` (the folder is shown in `/plugin`). Plugin skills are namespaced (`/seo-god-mode:seo-god-mode`).
+
+**Option B: plain skill (git clone), available in every Claude Code session:**
 
 ```bash
-git clone https://github.com/F0rger123/master-seo-skill-set-for-claude ~/.claude/skills/master-seo-skill-set
+git clone https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE ~/.claude/skills/seo-god-mode
 ```
 
 Windows PowerShell:
 
 ```powershell
-git clone https://github.com/F0rger123/master-seo-skill-set-for-claude "$HOME\.claude\skills\master-seo-skill-set"
+git clone https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE "$HOME\.claude\skills\seo-god-mode"
 ```
 
-Update later with `git -C ~/.claude/skills/master-seo-skill-set pull`.
+Update later with `git -C ~/.claude/skills/seo-god-mode pull`.
 
-Project-only install: clone into `<project>/.claude/skills/master-seo-skill-set` instead.
+Project-only install: clone into `<project>/.claude/skills/seo-god-mode` instead.
 
 ## 2. Python
 
@@ -25,7 +34,7 @@ Python 3.10 or newer. Core scripts need nothing else.
 For Google Search Console:
 
 ```bash
-pip install -r ~/.claude/skills/master-seo-skill-set/scripts/requirements.txt
+pip install -r ~/.claude/skills/seo-god-mode/scripts/requirements.txt
 ```
 
 ## 3. Client data folder
@@ -61,7 +70,7 @@ IndexNow needs a per-site key file hosted on the client's site; it is generated 
 ## 5. Check it works
 
 ```bash
-cd ~/.claude/skills/master-seo-skill-set
+cd ~/.claude/skills/seo-god-mode
 python scripts/crawling/robots_check.py https://example.com
 python scripts/state/client_state.py list
 ```
@@ -71,7 +80,7 @@ python scripts/state/client_state.py list
 In Claude Code:
 
 ```text
-Use the Master SEO Skill Set for this new client.
+Use CLAUDE SEO GOD MODE for this new client.
 
 Business: <name>
 Website: <url>

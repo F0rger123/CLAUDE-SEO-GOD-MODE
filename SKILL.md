@@ -1,9 +1,9 @@
 ---
-name: master-seo-skill-set
-description: The Master SEO Skill Set for Claude (Agency Zero). Use when onboarding, auditing, optimizing, reporting on, or resuming SEO work for any client website, including technical SEO, local SEO, keyword research, rank tracking, content briefs, Google Search Console, Bing Webmaster Tools, indexing, schema, competitor analysis, AI search (AI Overviews, AI Mode, ChatGPT/Perplexity/Claude citations, AEO/GEO), and AI-referral measurement.
+name: seo-god-mode
+description: CLAUDE SEO GOD MODE (Agency Zero). Use when onboarding, auditing, optimizing, reporting on, or resuming SEO work for any client website, including technical SEO, local SEO, keyword research, rank tracking, content briefs, Google Search Console, Bing Webmaster Tools, indexing, schema, competitor analysis, AI search (AI Overviews, AI Mode, ChatGPT/Perplexity/Claude citations, AEO/GEO), and AI-referral measurement.
 ---
 
-# The Master SEO Skill Set for Claude
+# CLAUDE SEO GOD MODE
 
 Agency Zero's SEO operating system. Works for any business and any geography.
 
@@ -55,6 +55,8 @@ Client data never lives in this repository: `$AZ_SEO_CLIENTS` (default `~/agency
 | schema / JSON-LD | `workflows/schema.md` |
 | report | `workflows/reporting.md` |
 | recurring work | `workflows/recurring-maintenance.md` |
+
+MCP: if the `seo-god-mode` MCP server is connected, prefer its tools (`seo_*`, `gsc_*`, `bing_*`, `pagespeed`) over shelling out to scripts; they are the same code. Tool list: `docs/MCP.md`.
 
 Evidence layer for every route: `skills/vendor/seo-intelligence/rules/` (confidence labels, never-fake-data, safe changes). Its own audit modes are alternatives, not defaults. Full index and dedupe notes: `README.md`.
 

@@ -1,0 +1,10 @@
+{
+  "name": "seo-god-mode",
+  "version": "2.0.0",
+  "description": "CLAUDE SEO GOD MODE: all-in-one SEO operating system for Claude Code. Audits, local SEO, Google Search Console, Bing Webmaster, indexing, schema, keyword/rank/content workflows, Google AI Overviews readiness, GEO/AEO, AI-referral measurement, client memory, and a bundled MCP server.",
+  "author": { "name": "Agency Zero", "url": "https://theagencyzero.com" },
+  "homepage": "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE",
+  "repository": "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE",
+  "keywords": ["seo", "local-seo", "search-console", "bing-webmaster", "geo", "aeo", "ai-overviews", "schema", "mcp"],
+  "skills": ["./"]
+}

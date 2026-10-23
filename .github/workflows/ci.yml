@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile scripts
+        run: python -m compileall -q scripts mcp
+      - name: Unit tests
+        run: python -m unittest discover -s tests -p "test_core.py" -v
+      - name: Install MCP server dependencies
+        run: pip install -r mcp/requirements.txt
+      - name: MCP server smoke test
+        run: python tests/test_mcp_server.py
+      - name: Validate JSON manifests
+        run: python -c "import json; [json.load(open(f)) for f in ('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', '.mcp.json')]"

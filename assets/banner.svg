@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-label="CLAUDE SEO GOD MODE">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07070b"/>
+      <stop offset="0.55" stop-color="#14101f"/>
+      <stop offset="1" stop-color="#1d0d12"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#ffd7b0"/>
+      <stop offset="1" stop-color="#ff7a45"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.35" r="0.55">
+      <stop offset="0" stop-color="#ff6a3d" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ff6a3d" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="360" fill="url(#bg)"/>
+  <rect width="1200" height="360" fill="url(#grid)"/>
+  <rect width="1200" height="360" fill="url(#glow)"/>
+  <!-- rank bars -->
+  <g transform="translate(900 92)" fill="#ff7a45">
+    <rect x="0" y="120" width="34" height="60" rx="4" opacity="0.35"/>
+    <rect x="50" y="90" width="34" height="90" rx="4" opacity="0.5"/>
+    <rect x="100" y="55" width="34" height="125" rx="4" opacity="0.7"/>
+    <rect x="150" y="10" width="34" height="170" rx="4" opacity="0.95"/>
+    <path d="M17 112 L67 82 L117 47 L167 2" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="167" cy="2" r="7" fill="#ffffff"/>
+  </g>
+  <text x="64" y="92" fill="#ff9a6e" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" letter-spacing="6">AGENCY ZER0 // SEO OPERATING SYSTEM</text>
+  <text x="60" y="190" fill="url(#title)" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="92" font-weight="900" letter-spacing="-2">CLAUDE SEO</text>
+  <text x="60" y="280" fill="url(#title)" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="92" font-weight="900" letter-spacing="-2">GOD MODE</text>
+  <text x="64" y="326" fill="#b9b3c9" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="22">Audits · Local SEO · Search Console · Bing · AI Overviews · GEO/AEO · MCP server</text>
+</svg>
