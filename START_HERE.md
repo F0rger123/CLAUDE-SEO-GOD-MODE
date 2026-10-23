@@ -29,6 +29,12 @@ Read this first, then `RULES.md`, then `SKILL.md`. It is short on purpose: what 
 8. **Re-score, deploy, then notify:** IndexNow plus Bing `submit-urls` for changed pages. Google has no indexing API for normal pages; check Search Console in 2–6 weeks.
 9. **Write it up:** a plain-language report with OBSERVED/INFERRED/RECOMMENDED/UNKNOWN tags, plus owner tasks (reviews, citations/sameAs, GBP posts, real customer questions).
 
+## 2b. Index check (after Search Console is connected)
+
+- `python scripts/integrations/gsc.py inspect --site sc-domain:<domain> --urls-file urls.txt --out inspect.json`, with URLs taken from the live sitemap. Group by `coverage`.
+- "Discovered - currently not indexed" on a young site usually means low priority, not a penalty. Add contextual body links (not just the footer) from the homepage and money pages, make the page clearly unique, resubmit the sitemap (`gsc.py sitemaps submit`), then ask the owner to press **Request indexing** in URL Inspection for those URLs. There is no API for that button.
+- Bing: `bing.py crawl-stats` shows the index count; `bing.py submit-urls` (100 per day) pushes the pages directly.
+
 ## 3. Known false positives (check before you "fix")
 
 - **Long titles from SVG:** inline `<svg><title>` (maps, icons) used to be glued onto the page title. Fixed in `common.py` (SVG titles are ignored). If an old report shows a title over 100 characters, view the page source first.
