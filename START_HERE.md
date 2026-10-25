@@ -45,6 +45,8 @@ Once the one-time work is done, set up `workflows/seo-loop.md`: a `seo-loop.json
 - **"No Contact page":** a site may put contact details on `/quote` and redirect `/contact`. The rater now also accepts ContactPage/AboutPage schema.
 - **"No direct answer":** the rater takes the first `<p>` with 8 or more words. A byline ("By Company · Updated …") in a `<p>` counts as the opener. Put bylines in a `<div>`.
 - **Performance 100 "estimated":** without `GOOGLE_API_KEY` the speed score is a proxy. Say so.
+- **"http doesn't redirect to https" on Cloudflare-hosted sites (Workers/OpenNext/Pages): fix it in Cloudflare, never in app code.** Turn on SSL/TLS → Edge Certificates → **Always Use HTTPS** (the owner flips it, or ask for API access). Don't add a Next.js `redirects()` rule keyed on `x-forwarded-proto`: behind Cloudflare that header reads `http` on *every* request, and on OpenNext the `:path*` isn't substituted. On 2026-10-25 that took theagencyzero.com down (every page 308 to `/:path*`) for about 10 minutes until it was reverted.
+- **After any change that deploys:** load the live homepage and 2–3 pages and check for HTTP 200 within a few minutes of the deploy. A local `next start` build doesn't reproduce the CDN in front of the site.
 
 ## 4. Environment gotchas
 

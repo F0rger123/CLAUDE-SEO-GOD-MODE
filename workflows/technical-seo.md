@@ -17,7 +17,7 @@ Use for crawlability, indexability, and site health. Run `scripts/audit.py` firs
 | Internal links | `links.json` | See `on-page-seo.md` § Internal links. |
 | Images | images missing alt, no width/height | Descriptive alt for meaningful images, empty `alt=""` for decorative. Set dimensions. WebP/AVIF, lazy-load below the fold, never lazy-load the LCP image. |
 | Mobile | viewport missing | Add viewport meta. Check tap targets and font size on the rendered page. |
-| HTTPS/security | crawl final URLs | All pages HTTPS, valid cert, no mixed content. HSTS optional. |
+| HTTPS/security | crawl final URLs | All pages HTTPS, valid cert, no mixed content. HSTS optional. Make http→https at the CDN/host (Cloudflare: "Always Use HTTPS"), not with app-level header checks (see START_HERE §3). |
 | hreflang | crawl `hreflang` | Only for multi-language/region sites; must be reciprocal with self reference. |
 | Open Graph | og missing | `og:title`, `og:description`, `og:image` (1200×630) on key pages: helps shares, not rankings. |
 
