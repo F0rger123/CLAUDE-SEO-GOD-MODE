@@ -35,6 +35,10 @@ Read this first, then `RULES.md`, then `SKILL.md`. It is short on purpose: what 
 - "Discovered - currently not indexed" on a young site usually means low priority, not a penalty. Add contextual body links (not just the footer) from the homepage and money pages, make the page clearly unique, resubmit the sitemap (`gsc.py sitemaps submit`), then ask the owner to press **Request indexing** in URL Inspection for those URLs. There is no API for that button.
 - Bing: `bing.py crawl-stats` shows the index count; `bing.py submit-urls` (100 per day) pushes the pages directly.
 
+## 2c. Keep improving (the loop)
+
+Once the one-time work is done, set up `workflows/seo-loop.md`: a `seo-loop.json` in the site repo plus a weekly run. It scans Search Console for page-1-but-not-clicked, striking-distance, searched-but-unanswered, and cannibalized queries; changes up to 3 pages; records them; and after 28 days scores each change and re-weights what to try next. Most weeks it stops at `ACTIONABLE: 0`, which keeps usage low.
+
 ## 3. Known false positives (check before you "fix")
 
 - **Long titles from SVG:** inline `<svg><title>` (maps, icons) used to be glued onto the page title. Fixed in `common.py` (SVG titles are ignored). If an old report shows a title over 100 characters, view the page source first.

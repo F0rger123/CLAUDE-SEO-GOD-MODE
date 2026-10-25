@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0 (2026-10-25): self-learning SEO loop
+
+- `scripts/loop/seo_loop.py`: `scan` (CTR gap on page 1, striking distance 8-20, searched-but-unanswered, cannibalization, declines; prints `ACTIONABLE: n`), `record` (stores each change with its 28-day before-numbers), `evaluate` (after 28 days marks win, loss or flat and updates `learnings.json` weights per change type), `status`.
+- `workflows/seo-loop.md`: per-site `seo-loop.json` guardrails (allowed change types, never-change list, max 3 changes per run, cooldown, auto-deploy commands) and a weekly low-usage run that stops early when nothing is actionable.
+- Handles Git Bash path mangling (`C:/Program Files/Git/path`) in page arguments.
+- First live use: a local service business, with 8 changes recorded and evaluation due in 28 days.
+
 ## 2.4.0 (2026-10-25): Claude GEO SEO, claude-ads companion, Apple Maps
 
 | Added | Why / notes |

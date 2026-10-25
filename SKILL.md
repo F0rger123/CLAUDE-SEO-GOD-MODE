@@ -11,6 +11,10 @@ Open-source SEO operating system for Claude. Works for any business, agency, or 
 
 New session? Read `START_HERE.md` (two minutes), then run `python scripts/setup/connect.py status`. To connect Search Console, Bing, or PageSpeed, relay `docs/CONNECT.md` word for word and use `scripts/setup/connect.py`. Never ask for key-file contents in chat. Listings and social profiles: `references/social-and-listings.md` and `workflows/listings-browser.md`.
 
+## Continuous improvement
+
+For "keep improving the site", "optimize continuously", or "what gets searched but not clicked": use `workflows/seo-loop.md` with `scripts/loop/seo_loop.py`. It is a deterministic weekly scan that learns which changes work on each site and stops early when there is nothing to do.
+
 ## Hard rules first
 
 Read `RULES.md` once per session. In short: never invent data; tag every finding OBSERVED / INFERRED / RECOMMENDED / UNKNOWN; keep third-party attribution; never promise rankings or AI placement; ask before any external change.
