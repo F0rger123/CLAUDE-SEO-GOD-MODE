@@ -9,6 +9,7 @@ Everything under this folder is someone else's open-source work, copied unmodifi
 | `egeoagents/` | https://github.com/mverab/eGEOagents | MIT |
 | `geo-optimizer/` | https://github.com/Auriti-Labs/geo-optimizer-skill | MIT |
 | `seo-intelligence/` | https://github.com/Trementdv/seo-intelligence-skill | MIT |
+| `geo-seo-claude/` | https://github.com/zubair-trabzada/geo-seo-claude | MIT |
 
 ## Requested but not copied
 

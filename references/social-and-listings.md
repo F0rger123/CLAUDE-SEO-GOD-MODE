@@ -13,7 +13,7 @@ Why it matters for SEO/GEO: consistent profiles (`sameAs`), matching name/phone/
 | Yelp | Read only (Fusion API: search, business details, up to 3 review excerpts); no posting or listing edits | Official `Yelp/yelp-mcp` (Fusion AI) plus community `yelp-mcp-min` (Fusion v3) | Use to read your listing and competitors. Edit the listing in Yelp for Business. |
 | Nextdoor | Partner-only (application required): ads, publishing and display APIs | None public | Manage in the Nextdoor business app. Not automatable for a typical owner. |
 | Bing Places | Restricted to trusted partners managing many listings | None | Manage at bingplaces.com (import from Google Business Profile). Bing Webmaster (`scripts/integrations/bing.py`) covers the website side. |
-| Apple Business Connect | Listings API for approved partners only | None | Manage at businessconnect.apple.com. |
+| Apple Business Connect | Listings edits: Apple Business API for approved partners only. Presence checks: official Apple Maps Server API (read-only, needs an Apple Developer key) | `scripts/integrations/apple_maps.py`, MCP `apple_maps_check`; community MCPs `romanvrable/apple-maps-mcp`, `johnisanerd/apple-maps-mcp` (search only) | Claim and manage at businessconnect.apple.com: `workflows/apple-business-connect.md`. |
 
 ## What an agent should do
 

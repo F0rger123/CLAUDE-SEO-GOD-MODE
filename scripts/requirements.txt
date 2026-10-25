@@ -2,3 +2,5 @@
 google-api-python-client>=2.100
 google-auth>=2.23
 google-auth-oauthlib>=1.1
+# Apple Maps Server API token signing (scripts/integrations/apple_maps.py)
+cryptography>=42

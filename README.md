@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/actions/workflows/ci.yml"><img src="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/Claude%20Code-plugin%20%2B%20skill-ff7a45" alt="Claude Code plugin + skill">
-  <img src="https://img.shields.io/badge/MCP-27%20tools-5c4ee5" alt="MCP server: 27 tools">
+  <img src="https://img.shields.io/badge/MCP-29%20tools-5c4ee5" alt="MCP server: 29 tools">
   <img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/data-never%20fabricated-2ea44f" alt="Data never fabricated">
 </p>
@@ -74,7 +74,7 @@ From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_
 | 🤖 **AI search** | A Google-grounded workflow for AI Overviews and AI Mode, GEO/AEO audits, AI-readiness scoring, rewrite engine, and AI-referral measurement. |
 | 📍 **Local SEO** | Google Business Profile, NAP, service-area strategy, location pages that pass the doorway test, reviews, citations. |
 | 🧠 **Client memory** | Tasks, issues, recommendations (rejected ones stay rejected), checkpoints, recurring work. Any session can resume. |
-| 🔌 **MCP server** | 27 tools for Claude Code, Claude Desktop, Cursor, VS Code, and Codex. Write actions are locked by default. |
+| 🔌 **MCP server** | 29 tools for Claude Code, Claude Desktop, Cursor, VS Code, and Codex. Write actions are locked by default. |
 | 🧾 **Honest by design** | Every finding is tagged OBSERVED, INFERRED, RECOMMENDED, or UNKNOWN. No invented numbers, reviews, or rankings. |
 
 ## Quick start (people)
@@ -163,7 +163,7 @@ flowchart LR
     R --> S[skills/<br/>original + vendored]
     W --> X[scripts/<br/>deterministic tools]
     S --> X
-    M[MCP server<br/>27 tools] --> X
+    M[MCP server<br/>29 tools] --> X
     X --> G[(Google Search Console<br/>official API)]
     X --> B[(Bing Webmaster<br/>official API)]
     X --> P[(PageSpeed · CrUX · IndexNow)]
@@ -199,6 +199,13 @@ flowchart LR
 | `geo-loop`, `content-scoring`, `validation-doctor` | [mverab/eGEOagents](https://github.com/mverab/eGEOagents) | GEO rewrite engine (drafts for review) |
 | `geo-optimizer` | [Auriti-Labs/geo-optimizer-skill](https://github.com/Auriti-Labs/geo-optimizer-skill) | AI-readiness score 0–100 |
 | `seo-intelligence` | [Trementdv/seo-intelligence-skill](https://github.com/Trementdv/seo-intelligence-skill) | Evidence rules (OBSERVED/INFERRED/RECOMMENDED/UNKNOWN) and checklists |
+| `geo-citability`, `geo-brand-mentions`, `geo-platform-optimizer`, `geo-prospect`, `geo-proposal`, `geo-compare` | [zubair-trabzada/geo-seo-claude](https://github.com/zubair-trabzada/geo-seo-claude) | Passage citability scoring, off-site brand presence, per-AI-platform tips, and agency prospect/proposal/compare tools (caveats in its ATTRIBUTION.md) |
+
+### Companion plugin (installed alongside, not copied)
+
+| Plugin | Source | Role |
+|---|---|---|
+| `claude-ads` | [AgriciDaniel/claude-ads](https://github.com/AgriciDaniel/claude-ads) (MIT) | Paid media across 12 platforms, including Google, Meta and Apple Search Ads; read-only by default, with approval-gated changes. See [docs/ADS.md](docs/ADS.md). |
 
 Ideas from [Illyism/seo-skills](https://github.com/Illyism/seo-skills) (no license, so not copied) are credited in the original sprint and customer-journey workflows. Duplicate jobs have one primary skill: see [docs/INVENTORY.md](docs/INVENTORY.md) and `skills/vendor/README.md`.
 

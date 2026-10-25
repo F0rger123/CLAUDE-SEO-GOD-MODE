@@ -380,12 +380,34 @@ def indexnow_submit(host: str, key: str, urls: list[str], confirm: bool = False)
 
 
 @mcp.tool()
+def apple_maps_check(business_name: str, near: str = "", street_address: str = "", country: str = "US") -> str:
+    """Apple Maps presence check (official Apple Maps Server API, read-only): does the business appear near its
+    town, and with what name, address and category? Verdict FOUND / FOUND_ADDRESS_DIFFERS / NOT_FOUND. Needs
+    APPLE_MAPS_TEAM_ID, APPLE_MAPS_KEY_ID, APPLE_MAPS_KEY_FILE. Editing the listing happens in Apple Business
+    Connect (workflows/apple-business-connect.md), not through this tool."""
+    args = ["check", "--name", business_name, "--country", country] + (["--near", near] if near else []) + \
+           (["--address", street_address] if street_address else [])
+    return _run("integrations/apple_maps.py", *args)
+
+
+@mcp.tool()
+def geo_citability(url: str) -> str:
+    """Passage-level AI citability scores for one page (vendored geo-seo-claude scorer, MIT). Scores are INFERRED
+    heuristics (it favours 134-167 word self-contained passages); not a Google rule. Needs requests/beautifulsoup4."""
+    script = ROOT / "skills" / "vendor" / "geo-seo-claude" / "scripts" / "citability_scorer.py"
+    r = subprocess.run([sys.executable, "-I", str(script), url], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=300)
+    return _cap(r.stdout or r.stderr)
+
+
+@mcp.tool()
 def seo_status() -> str:
     """Which integrations are configured on this machine (checks env vars only; never prints secrets)."""
     checks = {
         "Search Console": bool(os.environ.get("GSC_SERVICE_ACCOUNT_FILE") or os.environ.get("GSC_OAUTH_CLIENT_FILE")),
         "Bing Webmaster": bool(os.environ.get("BING_WEBMASTER_API_KEY")),
         "PageSpeed/CrUX key": bool(os.environ.get("GOOGLE_API_KEY")),
+        "Apple Maps Server API": all(os.environ.get(k) for k in ("APPLE_MAPS_TEAM_ID", "APPLE_MAPS_KEY_ID", "APPLE_MAPS_KEY_FILE")),
         "Write tools enabled": os.environ.get("SEO_GODMODE_ALLOW_WRITES") == "1",
     }
     try:

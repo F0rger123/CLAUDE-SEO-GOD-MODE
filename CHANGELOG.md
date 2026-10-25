@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.0 (2026-10-25): Claude GEO SEO, claude-ads companion, Apple Maps
+
+| Added | Why / notes |
+|---|---|
+| Vendored 6 skills and 3 scripts from **geo-seo-claude** (MIT) | Passage citability scoring, off-site brand presence, per-AI-platform tips, and agency prospect/proposal/compare. The overlapping audit, schema, crawler, llms.txt and report parts were not copied (primary skills already exist). ATTRIBUTION.md flags its unverified market stats and placeholder brand checks. |
+| **claude-ads** as a companion plugin (`docs/ADS.md`) | 12 ad platforms, approval-gated changes. Installed alongside rather than copied (~430 files), with SEO↔ads overlap guidance. |
+| **Apple Maps**: `scripts/integrations/apple_maps.py`, MCP `apple_maps_check`, `connect.py apple`, `workflows/apple-business-connect.md` | Official Apple Maps Server API presence check (signed ES256 token, scope `server_api`, offline-tested). Editing stays in Apple Business Connect (browser-assisted). The Apple Business API is partner-only. |
+| MCP `geo_citability` | Wraps the vendored scorer; results are INFERRED. |
+
 ## 2.3.0 (2026-10-23): lessons from a live local-business engagement
 
 From a real engagement with a local service-area business (permanent lighting installer, York, PA):

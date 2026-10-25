@@ -30,6 +30,21 @@ What it unlocks: Bing traffic, crawl stats, index count, URL and sitemap submiss
 1. Same Google Cloud project: **APIs & Services > Credentials > Create credentials > API key**. Optionally restrict it to PageSpeed Insights API.
 2. Paste it to the agent: `python scripts/setup/connect.py pagespeed --key <key>`.
 
+## 4. Apple Maps presence check (optional; needs an Apple Developer membership)
+
+This only *checks* Apple Maps (name, address, category). Editing the listing is free and happens in Apple Business Connect (`workflows/apple-business-connect.md`). No developer account is needed for that.
+
+Tell the owner (or do it yourself if Agency Zero holds the developer account):
+1. Sign in at developer.apple.com > Account > Certificates, Identifiers & Profiles > **Identifiers** > + > **Maps IDs**. Create one, for example `maps.com.agencyzero.seo`.
+2. Go to **Keys** > + > name it "Maps Server" > tick **MapKit JS / Maps** and pick the Maps ID > Continue > Register > **Download** (the file is `AuthKey_XXXXXXXXXX.p8`; it can only be downloaded once).
+3. Note the **Key ID** shown on that page, and the **Team ID** from the Membership page.
+
+Then run:
+```bash
+python scripts/setup/connect.py apple --team <TEAM_ID> --key-id <KEY_ID> --key-file ~/Downloads/AuthKey_XXXXXXXXXX.p8
+```
+It moves the key out of Downloads, saves the settings, and tests the token.
+
 ## After connecting
 
 - Run `python scripts/setup/connect.py status`.

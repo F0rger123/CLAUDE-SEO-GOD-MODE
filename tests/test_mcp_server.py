@@ -18,7 +18,7 @@ except ImportError:  # SDK not installed: `pip install -r mcp-server/requirement
 ROOT = Path(__file__).resolve().parents[1]
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-EXPECTED = {"seo_status", "seo_rate_site", "seo_client_resume", "seo_audit", "seo_ai_answer_check", "gsc_search_analytics",
+EXPECTED = {"seo_status", "seo_rate_site", "apple_maps_check", "geo_citability", "seo_client_resume", "seo_audit", "seo_ai_answer_check", "gsc_search_analytics",
             "gsc_inspect_urls", "gsc_submit_sitemap", "bing_report", "bing_submit", "indexnow_submit", "pagespeed"}
 
 

@@ -11,6 +11,8 @@ Every command prints plain-language next steps an agent can relay word for word.
   connect.py gsc --test                list the Search Console properties the service account can read
   connect.py bing --key <key>          check the key against Bing and save it
   connect.py pagespeed --key <key>     save a Google API key for PageSpeed/CrUX
+  connect.py apple --team <ID> --key-id <ID> --key-file <AuthKey.p8>
+                                       store the Apple Maps key safely, save the settings, and test the token
 
 Settings are saved for the current user (Windows: user environment variables; macOS/Linux: ~/.config/seo-god-mode/env,
 which you source from your shell profile). New terminals and new Claude sessions pick them up; restart Claude Code so the
@@ -32,7 +34,8 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = Path.home() / ".config" / "seo-god-mode"
 SA_TARGET = CONFIG_DIR / "gsc-sa.json"
 ENV_FILE = CONFIG_DIR / "env"
-KEYS = ["GSC_SERVICE_ACCOUNT_FILE", "GSC_OAUTH_CLIENT_FILE", "BING_WEBMASTER_API_KEY", "GOOGLE_API_KEY"]
+KEYS = ["GSC_SERVICE_ACCOUNT_FILE", "GSC_OAUTH_CLIENT_FILE", "BING_WEBMASTER_API_KEY", "GOOGLE_API_KEY",
+        "APPLE_MAPS_TEAM_ID", "APPLE_MAPS_KEY_ID", "APPLE_MAPS_KEY_FILE"]
 
 
 def save_setting(name: str, value: str) -> str:
@@ -76,6 +79,8 @@ def cmd_status(_a) -> None:
         print("  --  Search Console: not connected. See docs/CONNECT.md section 1.")
     print(f"  {'OK ' if os.environ.get('BING_WEBMASTER_API_KEY') else '-- '} Bing Webmaster API key" + ("" if os.environ.get("BING_WEBMASTER_API_KEY") else ": see docs/CONNECT.md section 2"))
     print(f"  {'OK ' if os.environ.get('GOOGLE_API_KEY') else '-- '} PageSpeed/CrUX API key (optional)" + ("" if os.environ.get("GOOGLE_API_KEY") else ": see docs/CONNECT.md section 3"))
+    apple = all(os.environ.get(k) for k in ("APPLE_MAPS_TEAM_ID", "APPLE_MAPS_KEY_ID", "APPLE_MAPS_KEY_FILE"))
+    print(f"  {'OK ' if apple else '-- '} Apple Maps Server API (optional, presence checks)" + ("" if apple else ": see docs/CONNECT.md, Apple Maps"))
 
 
 def cmd_deps(_a) -> None:
@@ -150,6 +155,25 @@ def cmd_pagespeed(a) -> None:
     print(f"Saved to {where}. In Google Cloud, enable 'PageSpeed Insights API' (and 'Chrome UX Report API' for field data) on the same project.")
 
 
+def cmd_apple(a) -> None:
+    src = Path(a.key_file).expanduser()
+    if not src.exists() or b"PRIVATE KEY" not in src.read_bytes():
+        sys.exit(f"{src} is not an Apple .p8 key. Download it from developer.apple.com > Certificates, IDs & Profiles > Keys.")
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    target = CONFIG_DIR / src.name
+    if src.resolve() != target.resolve():
+        shutil.move(str(src), target)
+    if os.name != "nt":
+        os.chmod(target, 0o600)
+    save_setting("APPLE_MAPS_TEAM_ID", a.team.strip())
+    save_setting("APPLE_MAPS_KEY_ID", a.key_id.strip())
+    where = save_setting("APPLE_MAPS_KEY_FILE", str(target))
+    print(f"Key stored at {target}; settings saved to {where}.")
+    r = subprocess.run([sys.executable, str(ROOT / "scripts" / "integrations" / "apple_maps.py"), "token-test"],
+                       capture_output=True, text=True)
+    print((r.stdout + r.stderr).strip())
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -166,6 +190,11 @@ def main() -> None:
     p = sub.add_parser("pagespeed")
     p.add_argument("--key", required=True)
     p.set_defaults(fn=cmd_pagespeed)
+    ap_apple = sub.add_parser("apple")
+    ap_apple.add_argument("--team", required=True)
+    ap_apple.add_argument("--key-id", required=True)
+    ap_apple.add_argument("--key-file", required=True)
+    ap_apple.set_defaults(fn=cmd_apple)
     a = ap.parse_args()
     a.fn(a)
 

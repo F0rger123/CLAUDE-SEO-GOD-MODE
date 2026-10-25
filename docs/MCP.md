@@ -33,7 +33,7 @@ Claude Desktop / Cursor / other clients (`mcpServers` JSON):
 
 Credentials: environment variables only (`docs/INTEGRATIONS.md`). Call `seo_status` to see what's configured.
 
-### Tools (27)
+### Tools (29)
 
 | Group | Tools |
 |---|---|
@@ -42,6 +42,7 @@ Credentials: environment variables only (`docs/INTEGRATIONS.md`). Call `seo_stat
 | Google Search Console | `gsc_list_sites`, `gsc_search_analytics`, `gsc_compare_periods`, `gsc_list_sitemaps`, `gsc_inspect_urls`, `gsc_submit_sitemap`*, `gsc_delete_sitemap`* |
 | Bing Webmaster | `bing_report` (sites, traffic, queries, pages, crawl stats/issues, sitemaps, quota), `bing_url_info`, `bing_keyword`, `bing_submit`* |
 | IndexNow | `indexnow_submit`* |
+| Apple Maps / GEO | `apple_maps_check` (official Maps Server API, read-only), `geo_citability` (vendored scorer) |
 | Setup | `seo_status` |
 
 \* **Write tools** are off by default. They run only when the server has `SEO_GODMODE_ALLOW_WRITES=1` **and** the call passes `confirm=true` after the user approved that specific action.

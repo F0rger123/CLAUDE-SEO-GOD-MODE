@@ -2,7 +2,9 @@
   "mcpServers": {
     "seo-god-mode": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-server/server.py"
+      ],
       "env": {
         "GSC_SERVICE_ACCOUNT_FILE": "${GSC_SERVICE_ACCOUNT_FILE:-}",
         "GSC_OAUTH_CLIENT_FILE": "${GSC_OAUTH_CLIENT_FILE:-}",
@@ -10,7 +12,10 @@
         "GOOGLE_API_KEY": "${GOOGLE_API_KEY:-}",
         "SEO_CLIENTS_DIR": "${SEO_CLIENTS_DIR:-}",
         "AZ_SEO_CLIENTS": "${AZ_SEO_CLIENTS:-}",
-        "SEO_GODMODE_ALLOW_WRITES": "${SEO_GODMODE_ALLOW_WRITES:-0}"
+        "SEO_GODMODE_ALLOW_WRITES": "${SEO_GODMODE_ALLOW_WRITES:-0}",
+        "APPLE_MAPS_TEAM_ID": "${APPLE_MAPS_TEAM_ID:-}",
+        "APPLE_MAPS_KEY_ID": "${APPLE_MAPS_KEY_ID:-}",
+        "APPLE_MAPS_KEY_FILE": "${APPLE_MAPS_KEY_FILE:-}"
       }
     }
   }
