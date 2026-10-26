@@ -423,7 +423,9 @@ def main():
         kits.append({"title": "sameAs to add to your existing Organization/LocalBusiness JSON-LD", "lang": "json",
                      "body": json.dumps({"sameAs": same_as + ["[CONFIRM: Google Business Profile / Maps URL]", "[CONFIRM: LinkedIn URL]",
                                                               "[CONFIRM: Facebook or industry directory URL]"][:max(0, 4 - len(same_as))]}, indent=2)})
-    urls_l = " ".join(p["url"].lower() for p in pages)
+    # Sampled URLs plus the homepage's own links, so a sample that skips /contact doesn't report it missing.
+    home_links = " ".join(re.findall(r'href=["\']([^"\']+)["\']', home["body"], re.I)).lower()
+    urls_l = " ".join(p["url"].lower() for p in pages) + " " + home_links
     # A URL with the word, or the matching schema type (a contact page can live at /quote or /get-in-touch).
     trust = int("about" in urls_l or "AboutPage" in all_types) + int("contact" in urls_l or "ContactPage" in all_types)
     c.add("geo", "About and Contact pages exist", trust / 2, 10, f"found {trust}/2",
