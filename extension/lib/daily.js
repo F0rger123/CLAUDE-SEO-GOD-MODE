@@ -24,6 +24,17 @@ export async function syncOverlay(on) {
 }
 export const overlayRegistered = async () => (await chrome.scripting.getRegisteredContentScripts({ ids: [OVERLAY_ID] }).catch(() => [])).length > 0;
 
+/**
+ * The version on disk, when it's newer than the code Chrome is running (files replaced by an update, extension not
+ * reloaded yet). Chrome keeps running the old code until a reload, so callers reload or offer a button.
+ */
+export async function staleCode() {
+  try {
+    const disk = await (await fetch(chrome.runtime.getURL("manifest.json"), { cache: "no-store" })).json();
+    return disk.version && disk.version !== chrome.runtime.getManifest().version ? disk.version : null;
+  } catch { return null; }
+}
+
 /** Tracked sites not scanned within the reminder window. */
 export async function dueSites(days) {
   const due = [];

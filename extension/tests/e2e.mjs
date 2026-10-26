@@ -318,7 +318,7 @@ await cp.click('#mode [data-mode="track"]');
 await cp.waitForSelector(".tcard");
 const sectionsText = await cp.$eval("#view", (e) => e.textContent);
 assert.match(sectionsText, /Your businesses/); assert.match(sectionsText, /Competitors/); assert.match(sectionsText, /vs 127\.0\.0\.1/);
-await cp.click(`.tcard[data-open="${badBase}"]`);
+await cp.click(`[data-open="${badBase}"]`);
 await cp.waitForSelector("svg.chart");
 assert.match(await cp.$eval("#view", (e) => e.textContent), /You vs competitors/);
 await cp.click("#rescangroup");
@@ -331,7 +331,10 @@ await cp.waitForFunction(() => /Cloudflare \(CDN\)/.test(document.querySelector(
 await cp.click("#editbtn");
 await cp.selectOption("#editrole", "client");
 await cp.click("#saverole");
-await cp.waitForFunction(() => /Client \(I manage its SEO\)/.test(document.querySelector("#view").textContent));
+// The save must reach storage (the role options are always on the page, so their text proves nothing).
+const roleOf = () => cp.evaluate(async (o) => (await chrome.storage.local.get("tracked")).tracked.find((t) => t.origin === o)?.role, badBase);
+for (let i = 0; i < 50 && (await roleOf()) !== "client"; i++) await cp.waitForTimeout(200);
+assert.equal(await roleOf(), "client", "role saved as client");
 const detail = await cp.$eval("#view", (e) => e.textContent);
 assert.match(detail, /roof repair york pa/); assert.match(detail, /#4/);
 const perfect = await cp.evaluate(async () => { const m = await import("./lib/summary.js");
@@ -343,6 +346,10 @@ const exported = JSON.parse(await cp.evaluate(async () => (await import("./lib/t
 assert.ok(exported.data.tracked.length === 2 && exported.data.tracked.some((t) => t.role === "competitor" && t.competitorOf === badBase) && Object.keys(exported.data).some((k) => k.startsWith("kwpos:")), "export has sites and positions");
 await noToast(); await cp.waitForTimeout(300);
 await cp.screenshot({ path: path.join(repo, "assets", "extension-track.png") });
+// Delete one tracked keyword: it goes from the list and its positions go too.
+await cp.click('[data-delkw="hi roofing york"]');
+await cp.waitForFunction(() => !document.querySelector('[data-delkw="hi roofing york"]'));
+assert.ok(!(await cp.evaluate(async (o) => (await chrome.storage.local.get("tracked")).tracked.find((t) => t.origin === o).keywords.includes("hi roofing york"), badBase)), "keyword deleted");
 await noClaude(cp, "compete and track views");
 await bs.site.goto(badBase + "/", { waitUntil: "load" });
 await cp.click('#mode [data-mode="site"]');
@@ -390,6 +397,15 @@ assert.match(html, /proof/i); assert.match(html, /fixed/); assert.match(html, /w
 console.log("proof report:", download.suggestedFilename(), html.length, "bytes");
 await bs.panel.evaluate(() => window.scrollTo(0, 0));
 await bs.panel.screenshot({ path: path.join(repo, "assets", "extension-proof.png") });
+
+// Stop tracking the competitor from the list: two steps, and its history goes with it.
+await bs.panel.click('#mode [data-mode="track"]');
+await bs.panel.click("#back").catch(() => {});
+await bs.panel.click(`[data-del="${rival}"]`);
+await bs.panel.click(".tcard .confirm [data-yes]");
+await bs.panel.waitForFunction((o) => !document.querySelector(`[data-open="${o}"]`), rival);
+const left = await bs.panel.evaluate(async (o) => { const all = await chrome.storage.local.get(null); return { sites: all.tracked.map((t) => t.origin), trend: !!all["trend:" + o], linked: all.tracked.filter((t) => t.competitorOf === o).length }; }, rival);
+assert.deepEqual(left.sites, [badBase]); assert.equal(left.trend, false, "competitor's history deleted");
 
 await ctx.close(); s1.close(); s2.close();
 assert.deepEqual(panelErrors, [], "no script errors in the panel");

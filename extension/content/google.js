@@ -45,16 +45,18 @@
 
   // ---- styles shared by every shadow root
   const CSS = `:host{all:initial}*{box-sizing:border-box;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif}
-  .w{--bg:#fff;--fg:#000;--mut:#6b6b6b;--rule:#e3e3e3;--rule2:#cfcfcf;--wash:#f4f4f4}
-  .w.dark{--bg:#1f1f1f;--fg:#fff;--mut:#a8a8a8;--rule:#3a3a3a;--rule2:#555;--wash:#2a2a2a}
+  .w{--bg:#fff;--fg:#000;--mut:#6b6b6b;--rule:#e3e3e3;--rule2:#cfcfcf;--wash:#f4f4f4;--g:#15803d;--y:#b7791f;--r:#dc2626}
+  .w.dark{--bg:#1f1f1f;--fg:#fff;--mut:#a8a8a8;--rule:#3a3a3a;--rule2:#555;--wash:#2a2a2a;--g:#4ade80;--y:#facc15;--r:#f87171}
+  .good{--c:var(--g)}.mid{--c:var(--y)}.bad{--c:var(--r)}
+  .chip i{width:7px;height:7px;border-radius:50%;background:var(--c,var(--fg))}
   .chipline{display:block;margin:0 0 6px}
   .chip{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:99px;font:700 11.5px/1.5 "Segoe UI",system-ui,sans-serif;border:1.5px solid var(--fg)}
   .chip.solid{background:var(--fg);color:var(--bg)}.chip.outline{background:transparent;color:var(--fg)}
   .card{position:fixed;z-index:2147483647;width:390px;max-height:78vh;overflow:auto;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.25);font-size:13px;line-height:1.45}
   .top{display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--rule)}
-  .ring{width:62px;height:62px;border-radius:50%;border:5px solid var(--fg);display:grid;place-content:center;text-align:center;font:800 21px/1 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;letter-spacing:-.03em}
+  .ring{width:62px;height:62px;border-radius:50%;border:5px solid var(--c,var(--fg));color:var(--c,var(--fg));display:grid;place-content:center;text-align:center;font:800 21px/1 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;letter-spacing:-.03em}
   .ring small{display:block;font:600 9px/1.2 "Segoe UI",system-ui,sans-serif;letter-spacing:0;color:var(--mut)}
-  .ring.mid{border-color:var(--fg) var(--fg) var(--rule2) var(--rule2)}.ring.bad{border-color:var(--fg) var(--rule2) var(--rule2) var(--rule2)}
+  
   .host{font:750 14.5px/1.25 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif}
   .muted{color:var(--mut);font-size:12px}
   .in{padding:2px 14px 14px}
@@ -62,14 +64,15 @@
   .h{font-weight:750;font-size:12.5px;margin:14px 0 6px}
   ul{margin:0;padding-left:16px}li{margin:3px 0}
   table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--rule)}
-  th{color:var(--mut);font-weight:650}td.me{font-weight:750}tr.behind td:first-child{font-weight:750}tr.behind td.me{text-decoration:underline;text-decoration-thickness:2px}
+  th{color:var(--mut);font-weight:650}td.me{font-weight:750}tr.behind td:first-child{font-weight:750}tr.behind td.me{color:var(--r)}
   .gap b{display:block;font-size:12.5px}.gap p{margin:1px 0 8px;color:var(--mut);font-size:12px}
   .btns{display:grid;grid-template-columns:1fr 1.3fr;gap:8px;margin-top:14px}
   button{font:650 12.5px "Segoe UI",system-ui,sans-serif;border:1px solid var(--rule2);border-radius:99px;padding:9px 12px;background:transparent;color:var(--fg);cursor:pointer;width:100%}
   button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}button:hover{border-color:var(--fg)}
   .launch{position:fixed;right:18px;bottom:18px;z-index:2147483646;display:flex;align-items:center;gap:9px;background:var(--fg);color:var(--bg);border-radius:99px;padding:10px 16px;font:700 13px "Segoe UI",system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);cursor:pointer;border:0;width:auto}
   .launch i{width:10px;height:10px;transform:rotate(45deg);border-radius:2px;background:var(--bg)}
-  .launch b{background:var(--bg);color:var(--fg);border-radius:99px;padding:0 8px}`;
+  .launch b{background:var(--bg);color:var(--fg);border-radius:99px;padding:0 8px}.launch b.good,.launch b.mid,.launch b.bad{background:var(--c);color:#000}`;
+  const posCls = (p) => (p <= 3 ? "good" : p <= 10 ? "mid" : "bad");
   const shadowHost = (tag = "span") => { const h = document.createElement(tag); const root = h.attachShadow({ mode: "open" }); const st = document.createElement("style"); st.textContent = CSS; root.append(st); return [h, root]; };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const wrap = (child) => { const w = el("div", "w" + (dark ? " dark" : "")); w.append(child); return w; };
@@ -164,7 +167,9 @@
         h.dataset.sgm = "chip";
         h.style.display = "block";
         const line = el("div", "chipline");
-        line.append(el("span", "chip " + look, `${label} · #${i + 1}`));
+        const chip = el("span", "chip " + look + " " + posCls(i + 1));
+        chip.append(el("i"), document.createTextNode(`${label} · #${i + 1}`));
+        line.append(chip);
         root.append(wrap(line));
         // Its own line above the result, outside Google's link, so it never sits inside or over the title.
         r.block.prepend(h);
@@ -177,7 +182,7 @@
     const launch = el("button", "launch");
     launch.append(el("i"), el("span", "", "SEO God Mode"));
     const own = tracked.filter((s) => s.role !== "competitor");
-    if (own.length) launch.append(el("b", "", mine ? `${mine.name}: #${mine.pos}` : `${own[0].name}: not in top ${list.length}`));
+    if (own.length) launch.append(el("b", mine ? posCls(mine.pos) : "bad", mine ? `${mine.name}: #${mine.pos}` : `${own[0].name}: not in top ${list.length}`));
     launch.title = "Who ranks for this search and why";
     launch.addEventListener("click", () => open(null));
     lroot.append(wrap(launch));

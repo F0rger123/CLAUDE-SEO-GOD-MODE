@@ -8,7 +8,7 @@
  * Messages are only accepted from this extension's own pages and content scripts.
  */
 import { recordPositions, trackedSites } from "./lib/track.js";
-import { getSettings as settings, runDaily, syncOverlay } from "./lib/daily.js";
+import { getSettings as settings, runDaily, staleCode, syncOverlay } from "./lib/daily.js";
 import { history } from "./lib/proof.js";
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -52,6 +52,8 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
         const s = await settings();
         const organic = cleanOrganic(msg.organic);
         const recorded = s.autoPositions ? await recordPositions({ query: String(msg.query || ""), organic, readAt: new Date().toISOString() }) : [];
+        // Files updated on disk but old code still running: reload after answering, so the next search uses the new version.
+        staleCode().then((v) => v && setTimeout(() => chrome.runtime.reload(), 1500));
         return { recorded, tracked: await trackedSites() };
       }
       case "open": {
@@ -73,7 +75,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 });
 
 // ---------------------------------------------------------------- daily: updates and rescan reminders (lib/daily.js)
-chrome.alarms.onAlarm.addListener((a) => a.name === "daily" && runDaily());
+chrome.alarms.onAlarm.addListener(async (a) => { if (a.name !== "daily") return; if (await staleCode()) return chrome.runtime.reload(); runDaily(); });
 chrome.notifications?.onClicked.addListener(async (id) => {
   if (!id.startsWith("sgm-")) return;
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });

@@ -9,6 +9,7 @@ import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
 import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
 import { focusResult, renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
+import { staleCode } from "./lib/daily.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -385,7 +386,14 @@ async function setMode(mode) {
     if (got.openMode?.focus && Date.now() - got.openMode.at < 15000) focusResult(got.openMode.focus);
   } catch {}
   await setMode(mode);
-  updateBanner($("updbar"), helpers);
+  // Files already updated but Chrome still runs the old code: one button finishes the update.
+  const stale = await staleCode();
+  if (stale) {
+    const bar = $("updbar");
+    bar.hidden = false;
+    bar.innerHTML = `Version ${esc(stale)} is installed. Reload to finish updating. <button class="linkish" id="finishupd">Reload now</button>`;
+    $("finishupd").onclick = () => chrome.runtime.reload();
+  } else updateBanner($("updbar"), helpers);
 })();
 // Re-read the page when the user switches tabs or a Google page finishes loading, so Compete stays current.
 chrome.tabs.onActivated.addListener(() => state.mode === "compete" && renderCompete(helpers));

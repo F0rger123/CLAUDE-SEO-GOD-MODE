@@ -28,6 +28,7 @@ const v = { sub: null, google: null, rank: null, ideas: null, biz: null, kw: "",
 let ui; // helpers passed in by sidepanel.js: toast, copy, notice, download, activeTab, setMode
 
 const status = (n) => (n == null ? "" : n >= 85 ? "s-pass" : n >= 65 ? "s-part" : "s-fail");
+const posCls = (p) => (!p ? "" : p <= 3 ? "s-pass" : p <= 10 ? "s-part" : "s-fail");
 const okCls = (ok) => (ok === true ? "s-pass" : ok === false ? "s-fail" : "");
 const busy = (on, label) => { document.body.classList.toggle("busy", on); const b = document.querySelector("#view .run"); if (b) { b.disabled = on; if (label) b.textContent = label; } };
 
@@ -99,7 +100,7 @@ async function renderCompeteHome(onGoogle) {
   const serp = v.google?.kind === "serp" ? v.google : null;
   const ranks = me ? await rankings(me.origin) : [];
   const rankRow = (r) => { const d = r.pos && r.prev ? r.prev - r.pos : null;
-    return `<tr><td>${esc(r.q)}</td><td class="num">${r.pos ? "#" + r.pos : `<span class="muted">not top ${r.of || 10}</span>`}</td><td class="num ${d > 0 ? "up" : d < 0 ? "down" : ""}">${d ? (d > 0 ? "▲" : "▼") + Math.abs(d) : ""}</td><td class="muted">${ago(r.t)}</td><td><button class="linkish" data-search="${esc(r.q)}">Search</button></td></tr>`; };
+    return `<tr><td>${esc(r.q)}</td><td class="num ${posCls(r.pos)}">${r.pos ? "#" + r.pos : `<span class="muted">not top ${r.of || 10}</span>`}</td><td class="num ${d > 0 ? "up" : d < 0 ? "down" : ""}">${d ? (d > 0 ? "▲" : "▼") + Math.abs(d) : ""}</td><td class="muted">${ago(r.t)}</td><td><button class="linkish" data-search="${esc(r.q)}">Search</button></td></tr>`; };
   el.innerHTML = `<p class="lede">Choose a tool. Each one opens by itself; “‹ Compete” brings you back here.</p>
     ${await siteSelect()}
     <div class="tiles">${Object.entries(TOOLS).map(([id, [t, d]]) => `<button class="tile" data-sub="${id}"><b>${t}</b><small>${id === "rank" && serp ? `For “${esc(serp.query)}”, open in this tab` : d}</small></button>`).join("")}</div>
@@ -166,7 +167,7 @@ async function renderRank(onGoogle, tab) {
   const pos = me ? g.organic.find((o) => sameDomain(o.url, me.origin)) : null;
   const r = v.rank?.query === g.query && v.rank?.site === me?.origin ? v.rank : null;
   s.innerHTML = `<div class="serphead"><div><span>${v.stale ? "Last search you opened" : "Search"}</span><b>${esc(g.query)}</b></div>
-      <div class="pos"><span>${me ? esc(me.name) : "Your site"}</span><b>${pos ? "#" + pos.position : me ? "Not in top " + g.organic.length : "–"}</b></div></div>
+      <div class="pos ${pos ? posCls(pos.position) : me ? "s-fail" : ""}"><span>${me ? esc(me.name) : "Your site"}</span><b>${pos ? "#" + pos.position : me ? "Not in top " + g.organic.length : "–"}</b></div></div>
     ${g.blocked ? `<p class="notice">Google is showing a robot check. Solve it in the tab, then press Compare again.</p>` : ""}
     ${await siteSelect()}
     <p class="lede">Tap a result to see why it ranks there and what it does differently from the pages above it.</p>
@@ -389,9 +390,10 @@ async function card(s, list) {
   const d = last && prev ? last.overall - prev.overall : null;
   const rivals = T.competitorsOf(s.origin, list).length;
   const of = s.competitorOf && list.find((x) => x.origin === s.competitorOf);
-  return `<button class="tcard" data-open="${esc(s.origin)}"><div class="thead"><div><b>${esc(s.name)}</b><small>${last ? "Scanned " + when(last.t) : "Not scanned yet"} · ${s.keywords.length} keyword${s.keywords.length === 1 ? "" : "s"}${rivals ? ` · ${rivals} competitor${rivals === 1 ? "" : "s"}` : ""}${of ? ` · vs ${esc(of.name)}` : ""}</small></div>
-    <div class="tscore">${last ? last.overall : "–"}${d ? `<i class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}</i>` : ""}</div></div>
-    ${h.length > 1 ? T.lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }], { height: 54, label: s.name + " score history" }) : ""}</button>`;
+  return `<div class="tcard"><button class="topen" data-open="${esc(s.origin)}"><div class="thead"><div><b>${esc(s.name)}</b><small>${last ? "Scanned " + when(last.t) : "Not scanned yet"} · ${s.keywords.length} keyword${s.keywords.length === 1 ? "" : "s"}${rivals ? ` · ${rivals} competitor${rivals === 1 ? "" : "s"}` : ""}${of ? ` · vs ${esc(of.name)}` : ""}</small></div>
+    <div class="tscore ${status(last?.overall)}">${last ? last.overall : "–"}${d ? `<i class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}</i>` : ""}</div></div>
+    ${h.length > 1 ? T.lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }], { height: 54, label: s.name + " score history" }) : ""}</button>
+    <button class="tdel" data-del="${esc(s.origin)}" data-name="${esc(s.name)}" title="Stop tracking ${esc(s.name)}" aria-label="Stop tracking ${esc(s.name)}">×</button></div>`;
 }
 
 export async function renderTrack(helpers) {
@@ -411,6 +413,7 @@ export async function renderTrack(helpers) {
       : `<div class="emptybox"><b>Nothing tracked yet</b><p>Add your own site first, then its competitors. History, rankings and hosting details build up from there.</p></div>`}`;
   $("tracknew").onclick = () => startWizard();
   el.querySelectorAll("[data-open]").forEach((c) => (c.onclick = () => { v.detail = c.dataset.open; renderTrack(ui); }));
+  el.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => confirmRemove(b.closest(".tcard"), b.dataset.del, b.dataset.name, () => renderTrack(ui))));
   const ra = $("rescanall"); if (ra) ra.onclick = () => rescan(list.map((s) => s.origin));
 }
 
@@ -514,7 +517,7 @@ async function rescan(origins, { quiet = false } = {}) {
   }
   if (quiet) return ui.toast(`Scanned ${origins.map(hostOf).join(", ")}`);
   busy(false); ui.toast("Rescan done");
-  if (document.body.dataset.mode === "track" && !v.wizard) v.detail ? renderSiteDetail(v.detail) : renderTrack(ui);
+  if (document.body.dataset.mode === "track" && !v.wizard && !v.editing) v.detail ? renderSiteDetail(v.detail) : renderTrack(ui);
 }
 
 /** Latest full whole-site scan saved for an origin (from a Site scan or a Track rescan). */
@@ -577,17 +580,18 @@ async function renderSiteDetail(origin) {
   el.innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Track</button><span>${esc(s.name)}</span></nav>
     <div class="hero"><div><b>${esc(s.name)}</b><small>${esc(T.ROLES[s.role])}${of ? ` of <button class="linkish" id="goof">${esc(of.name)}</button>` : ""} · since ${when(s.addedAt)}</small>
       <small><a href="${esc(origin)}/" target="_blank" rel="noopener">${esc(hostOf(origin))}</a></small></div>
-      <div class="bignum"><b>${lastScan?.overall ?? "–"}</b><span>${lastScan ? "overall, " + ago(lastScan.t) : "not scanned"}</span></div></div>
-    <div class="btns"><button id="rescan1" class="primary run">Rescan now</button><button id="opensite">Open site</button><button id="editbtn">Edit</button></div>
+      <div class="bignum ${status(lastScan?.overall)}"><b>${lastScan?.overall ?? "–"}</b><span>${lastScan ? "overall, " + ago(lastScan.t) : "not scanned"}</span></div></div>
+    <div class="btns"><button id="rescan1" class="primary run">Rescan now</button><button id="opensite">Open site</button><button id="editbtn">Edit</button><button id="removesite" class="danger">Stop tracking</button></div>
+    <div id="removebox"></div>
     <div id="editbox" ${v.editing === origin ? "" : "hidden"}><div class="field"><label for="rename">Name</label><input id="rename" class="search" value="${esc(s.name)}"></div>
-      ${roleSelect("editrole", s.role, owned, s.competitorOf)}<div class="btns"><button id="saverole" class="primary">Save</button><button id="untrack" class="linkish danger">Stop tracking</button></div></div>
+      ${roleSelect("editrole", s.role, owned, s.competitorOf)}<div class="btns"><button id="saverole" class="primary">Save</button></div></div>
     <h2 class="sec">Score history <small>${h.length} scan${h.length === 1 ? "" : "s"}</small></h2>
     ${T.lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }, { name: "SEO", cls: "k1", points: h.map((p) => ({ t: p.t, v: p.seo })) },
       { name: "AEO", cls: "k2", points: h.map((p) => ({ t: p.t, v: p.aeo })) }, { name: "GEO", cls: "k3", points: h.map((p) => ({ t: p.t, v: p.geo })) }], { label: "Score history" })}
     <h2 class="sec">What it ranks for <small>lower is better</small></h2>
     ${topK.length ? T.lineChart(topK.map((q, i) => ({ name: q, cls: cls[i], points: pos.filter((p) => p.q === q).map((p) => ({ t: p.t, v: p.pos })) })), { min: 1, max: maxPos, invert: true, label: "Keyword positions" }) : ""}
-    ${kws.length ? `<table class="mini ranks"><tr><th>Search</th><th>Now</th><th></th><th></th></tr>${kws.map((q) => { const r = byQ[q]; const d = r?.pos && r?.prev ? r.prev - r.pos : null;
-      return `<tr><td>${esc(q)}</td><td class="num">${r ? (r.pos ? "#" + r.pos : "–") : "?"}</td><td class="num ${d > 0 ? "up" : d < 0 ? "down" : ""}">${d ? (d > 0 ? "▲" : "▼") + Math.abs(d) : ""}</td><td><a href="https://www.google.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener" title="Search it on Google to record the position">Check</a></td></tr>`; }).join("")}</table>`
+    ${kws.length ? `<table class="mini ranks"><tr><th>Search</th><th>Now</th><th></th><th></th><th></th></tr>${kws.map((q) => { const r = byQ[q]; const d = r?.pos && r?.prev ? r.prev - r.pos : null;
+      return `<tr><td>${esc(q)}</td><td class="num ${posCls(r?.pos)}">${r ? (r.pos ? "#" + r.pos : "–") : "?"}</td><td class="num ${d > 0 ? "up" : d < 0 ? "down" : ""}">${d ? (d > 0 ? "▲" : "▼") + Math.abs(d) : ""}</td><td><a href="https://www.google.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener" title="Search it on Google to record the position">Check</a></td><td><button class="kwdel" data-delkw="${esc(q)}" title="Stop tracking “${esc(q)}”" aria-label="Stop tracking ${esc(q)}">×</button></td></tr>`; }).join("")}</table>`
       : `<p class="lede">No searches yet. Search one on Google, or add keywords below.</p>`}
     <form id="kwadd" class="field"><label for="kwnew">Add keywords (comma separated)</label><div class="row2"><input id="kwnew" class="search" placeholder="roof repair york pa, metal roofing"><button>Add</button></div></form>
     <p class="unknowns">“?” not searched yet, “–” not in the results shown. Positions are recorded when you search on Google; the extension never searches by itself.</p>
@@ -607,7 +611,8 @@ async function renderSiteDetail(origin) {
   const ac = $("addcomp"); if (ac) ac.onclick = () => startWizard({ role: "competitor", of: origin, back: origin });
   $("opensite").onclick = () => chrome.tabs.create({ url: origin + "/" });
   $("kwadd").onsubmit = async (e) => { e.preventDefault(); await T.setKeywords(origin, [...s.keywords, ...$("kwnew").value.split(",")]); renderSiteDetail(origin); };
-  $("untrack").onclick = async () => { if (!confirm(`Stop tracking ${s.name}? Its history stays until you clear the extension's data.`)) return; await T.untrackSite(origin); v.detail = null; renderTrack(ui); };
+  $("removesite").onclick = () => confirmRemove($("removebox"), origin, s.name, () => { v.detail = null; renderTrack(ui); });
+  el.querySelectorAll("[data-delkw]").forEach((b) => (b.onclick = async () => { await T.removeKeyword(origin, b.dataset.delkw); ui.toast(`Stopped tracking “${b.dataset.delkw}”`); renderSiteDetail(origin); }));
   showTech($("techout"), origin);
 }
 
@@ -648,7 +653,8 @@ export async function renderGoogle(helpers) {
     </div>
     <div id="updatecard"></div>
     <h2 class="sec">Your data</h2><div class="btns"><button id="export">Export history</button><label class="btn">Import history<input id="import" type="file" accept="application/json" hidden></label></div>
-    <p class="unknowns">History is saved in Chrome on this computer and survives updates. Export it to back it up or move it to another computer.</p>`;
+    <p class="unknowns">History is saved in Chrome on this computer and survives updates. Export it to back it up or move it to another computer.</p>
+    <div class="btns"><button id="deleteall" class="danger">Delete all tracked sites and history</button></div><div id="deletebox"></div>`;
   $("s-overlay").onchange = async (e) => {
     if (e.target.checked && !(await access([...GOOGLE, ...ALL_SITES], "Turning this on needs access to Google and the sites you hover. Turn it on again and choose Allow."))) { e.target.checked = false; return; }
     await saveSettings({ overlay: e.target.checked });
@@ -668,7 +674,24 @@ export async function renderGoogle(helpers) {
   $("export").onclick = async () => ui.download(await T.exportAll(), `seo-god-mode-history-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
   $("import").onchange = async (e) => { const f = e.target.files[0]; if (!f) return;
     try { const n = await T.importAll(await f.text()); ui.toast(`Imported ${n} item${n === 1 ? "" : "s"}`); } catch (err) { ui.notice(esc(err.message)); } };
+  $("deleteall").onclick = () => {
+    const box = $("deletebox");
+    box.innerHTML = `<div class="confirm"><p><b>Delete every tracked site and all history?</b> Scores, positions and saved scans go. Settings stay. Export first if you might want it back.</p><div class="btns"><button id="delyes" class="danger solid">Delete everything</button><button id="delno">Cancel</button></div></div>`;
+    box.querySelector("#delno").onclick = () => (box.innerHTML = "");
+    box.querySelector("#delyes").onclick = async () => { await T.deleteAll(); v.detail = null; ui.toast("Deleted all tracking data"); box.innerHTML = ""; };
+  };
   renderUpdateCard($("updatecard"));
+}
+
+/** Two-step remove for a tracked site: the first click shows what goes, the second deletes it. */
+function confirmRemove(box, origin, name, done) {
+  const keep = box.innerHTML;
+  const panel = document.createElement("div");
+  panel.className = "confirm";
+  panel.innerHTML = `<p><b>Stop tracking ${esc(name)}?</b> Its score history, keyword positions and saved scans are deleted. Competitors linked to it stay, unlinked.</p><div class="btns"><button class="danger solid" data-yes>Stop tracking and delete</button><button data-no>Cancel</button></div>`;
+  if (box.classList.contains("tcard")) { box.innerHTML = ""; box.append(panel); } else box.replaceChildren(panel);
+  panel.querySelector("[data-no]").onclick = () => { if (box.classList.contains("tcard")) done(); else box.innerHTML = keep; };
+  panel.querySelector("[data-yes]").onclick = async () => { await T.untrackSite(origin); ui.toast(`Stopped tracking ${name}`); done(); };
 }
 
 // ====================================================================== updates

@@ -46,8 +46,31 @@ export async function renameSite(origin, name) {
 
 export const competitorsOf = (origin, list) => list.filter((s) => roleOf(s) === "competitor" && s.competitorOf === origin);
 
+/** Stop tracking a site and delete its history (scores, positions, saved scans). Its competitors are unlinked, not deleted. */
 export async function untrackSite(origin) {
-  await chrome.storage.local.set({ [LIST]: (await trackedSites()).filter((s) => s.origin !== origin) });
+  const list = (await trackedSites()).filter((s) => s.origin !== origin);
+  list.forEach((s) => { if (s.competitorOf === origin) s.competitorOf = null; });
+  await chrome.storage.local.set({ [LIST]: list });
+  await chrome.storage.local.remove([trendKey(origin), posKey(origin), "sitescans:" + origin, "baseline:sitescans:" + origin]);
+  const { mySite } = await chrome.storage.local.get("mySite");
+  if (mySite === origin) await chrome.storage.local.remove("mySite");
+}
+
+/** Stop tracking one keyword for a site and delete its recorded positions. */
+export async function removeKeyword(origin, q) {
+  const list = await trackedSites();
+  const s = list.find((x) => x.origin === origin);
+  if (s) s.keywords = s.keywords.filter((k) => k !== q);
+  await chrome.storage.local.set({ [LIST]: list });
+  const k = posKey(origin);
+  const rows = (await chrome.storage.local.get(k))[k] || [];
+  await chrome.storage.local.set({ [k]: rows.filter((r) => r.q !== q) });
+}
+
+/** Delete every tracked site and all history (scores, positions, saved scans). Settings are kept. */
+export async function deleteAll() {
+  const all = await chrome.storage.local.get(null);
+  await chrome.storage.local.remove(Object.keys(all).filter((k) => k === LIST || k === "mySite" || /^(trend|kwpos|scans|sitescans|baseline):/.test(k)));
 }
 
 export async function setKeywords(origin, keywords) {

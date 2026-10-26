@@ -34,7 +34,7 @@ The first scan of each site asks for access to that site (both its `www` and non
 - **Track:** the websites you follow, with score history, keyword positions, hosting and tech. **Track new site** adds one step by step.
 - **Settings:** SEO God Mode on Google results (below), reminders, updates, and export/import.
 
-The panel is black and white. How complete a check is shows as how filled its mark is: solid means passing, half means partial, hollow means failing.
+The panel is black and white, with colour only for ratings: green for good (85+, passing, top 3 on Google), amber for fair, red for poor. Marks also differ in fill (solid passing, half partial, hollow failing), so they read without colour too. Any tracked site or keyword has a × to stop tracking it and delete its history.
 
 ## Hosting and tech
 

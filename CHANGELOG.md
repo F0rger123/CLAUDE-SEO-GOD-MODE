@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.15.0 (2026-10-26): extension 1.10: rating colours, delete what you track, finishes its own updates
+
+- **Rating colours on the black and white base:** green for good (85+, passing, top 3), amber for fair (65 to 84, partial, 4 to 10), red for poor (under 65, failing, below 10). Scores, bars, dials, check marks, search positions, the hover card's score and the labels and launcher on Google use them. Everything else stays black and white.
+- **Delete what you track:** a × on each tracked site (with a confirm step) stops tracking it and deletes its score history, positions and saved scans; competitors linked to it are kept, unlinked. A × on each keyword deletes it and its positions. Settings → Your data → **Delete all tracked sites and history**.
+- **Finishes its own updates:** when new files are on disk but Chrome is still running the old code (the cause of old colours showing after an update), the panel says so with a **Reload now** button, and the background reloads itself after the next Google search or daily check.
+- **Fixed:** a scan finishing in the background redrew the site page while you were editing its name or role, closing the form or resetting your choice.
+
 ## 2.14.0 (2026-10-26): extension 1.9: full breakdown of any Google result, compared with the pages above it
 
 - **Hover cards are a real breakdown now**, not a rough estimate. The page and up to three results ranking above it (or, for #1, right below it) are read and compared on the same 21 on-page factors as Compete. The card shows a search match score, the site's full rating if it was scanned, why it ranks there, a side-by-side table with those pages, what they do differently, **Copy fix prompt** and **See full breakdown** (was "Compare all results in SEO God Mode").
