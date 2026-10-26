@@ -292,3 +292,16 @@ label.btn { position: relative; }
 .addcomp { font-size: 12px; white-space: nowrap; }
 .addform { display: grid; gap: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 4px 12px 12px; margin: 10px 0; }
 .potential.done p { grid-column: 2 / -1; align-self: center; }
+
+.scope { display: inline-flex; gap: 2px; margin: -4px 0 10px; padding: 2px; background: var(--wash); border-radius: 8px; }
+.scope button { border: 0; background: transparent; padding: 3px 10px; font-size: 12px; color: var(--muted); border-radius: 6px; }
+.scope button[aria-pressed="true"] { background: var(--panel); color: var(--ink); font-weight: 650; }
+.detected { margin-top: 10px; }
+.ideas .acts { display: inline-flex; gap: 10px; align-items: center; white-space: nowrap; }
+.ideas .acts small { color: var(--muted); }
+.settings { display: grid; gap: 8px; margin: 10px 0; }
+.settog { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 10px 12px; cursor: pointer; }
+.settog input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--action); }
+.settog small { display: block; color: var(--muted); font-size: 12px; }
+.settog select { grid-column: 1 / -1; }
+.muted { color: var(--muted); }

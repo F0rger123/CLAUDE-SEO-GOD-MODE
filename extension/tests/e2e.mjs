@@ -95,7 +95,7 @@ async function scanVia(url, mode) {
   await panel.setViewportSize({ width: 420, height: 860 });
   await panel.goto(`chrome-extension://${extId}/sidepanel.html?tabId=${tabId}`);
   await panel.waitForTimeout(300);
-  await panel.click(`#mode [data-mode="${mode}"]`);
+  await panel.click(mode === "page" ? '#scope [data-scope="page"]' : '#mode [data-mode="site"]');
   await panel.waitForTimeout(200);
   await panel.click("#scan");
   await panel.waitForSelector(".dial .n", { timeout: 60000 }).catch(async (e) => { console.log("notice:", await panel.$eval("#notice", (n) => n.textContent)); throw e; });
@@ -234,9 +234,15 @@ await cp.waitForSelector("#addsite");
 await cp.fill("#newsite", badBase);
 await cp.click("#addsite button");
 await cp.waitForSelector(".tcard");
-await cp.click("#rescanall");
+// Adding a site scans it straight away (no Rescan click needed).
 await cp.waitForFunction(() => /\d/.test(document.querySelector(".tcard .tscore")?.textContent || ""), null, { timeout: 60000 });
 assert.match(await cp.$eval("#updatecard", (e) => e.textContent), /9\.9\.0 is out/);
+await cp.click("#upcheck");
+await cp.waitForFunction(() => /Checked just now · newest release on GitHub: 9\.9\.0/.test(document.querySelector("#updatecard").textContent));
+// What does a site try to rank for? Detected from its own pages.
+const detected = await cp.evaluate(async (u) => (await import("./lib/compete.js")).detectTargets(u), goodBase + "/");
+console.log("detected targets:", detected.keywords.map((k) => k.keyword), detected.places);
+assert.ok(detected.keywords.some((k) => /roof/.test(k.keyword) && /york pa/.test(k.keyword)), "detects a roofing + York PA keyword");
 // Open the stand-in results page in the site tab and analyze it.
 await bs.site.goto("https://www.google.com/search?q=roof+repair+york+pa", { waitUntil: "load" });
 await cp.click('#mode [data-mode="compete"]');
@@ -303,6 +309,29 @@ assert.ok(exported.data.tracked.length === 2 && exported.data.tracked.some((t) =
 await noToast(); await cp.waitForTimeout(300);
 await cp.screenshot({ path: path.join(repo, "assets", "extension-track.png") });
 await noClaude(cp, "compete and track views");
+await bs.site.goto(badBase + "/", { waitUntil: "load" });
+await cp.click('#mode [data-mode="site"]');
+await cp.waitForSelector(".dial .n");
+
+// ================================================================ On Google: overlay on the results page
+await cp.click('#mode [data-mode="google"]');
+await cp.waitForSelector("#s-overlay");
+await cp.check("#s-overlay");
+await cp.waitForFunction(() => document.querySelector("#s-overlay")?.checked && !document.querySelector("#s-hover").disabled, null, { timeout: 10000 });
+await bs.site.goto("https://www.google.com/search?q=roof+repair+york+pa", { waitUntil: "load" });
+await bs.site.waitForSelector('[data-sgm="launcher"]', { state: "attached", timeout: 15000 });
+const launcherText = await bs.site.$eval('[data-sgm="launcher"]', (h) => h.shadowRoot.textContent);
+assert.match(launcherText, /127\.0\.0\.1: #4/);
+const chips = await bs.site.$$eval('[data-sgm="chip"]', (hs) => hs.map((h) => h.shadowRoot.querySelector(".chip").textContent));
+assert.ok(chips.some((c) => /Client · #4/.test(c)) && chips.some((c) => /Competitor · #2/.test(c)), "labels the client and its competitor: " + chips);
+await bs.site.bringToFront();
+await bs.site.hover('#rso .g:nth-of-type(2) h3');
+await bs.site.waitForFunction(() => /\d/.test(document.querySelector('[data-sgm="card"]')?.shadowRoot.querySelector(".ring")?.textContent || ""), null, { timeout: 20000 });
+const cardText = await bs.site.$eval('[data-sgm="card"]', (h) => h.shadowRoot.textContent);
+console.log("hover card:", cardText.slice(0, 200));
+assert.match(cardText, /Keywords it targets/); assert.match(cardText, /Why it shows for/);
+await bs.site.screenshot({ path: path.join(repo, "assets", "extension-ongoogle.png") });
+await cp.bringToFront();
 await bs.site.goto(badBase + "/", { waitUntil: "load" });
 await cp.click('#mode [data-mode="site"]');
 await cp.waitForSelector(".dial .n");

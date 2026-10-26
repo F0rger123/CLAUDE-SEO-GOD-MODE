@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.12.0 (2026-10-26): extension 1.7: SEO God Mode on Google, detected keywords, auto-rescan, notifications, verified updates
+
+- **On Google** view (replaces the Page button; single-page scans moved to Site → "Just this page"). Once turned on, Google results get role labels with positions, hover cards (quick 0–100 rating, keywords the page targets, why it shows for the search, gaps), a launcher that opens Compete, and automatic position recording for tracked sites. Built in a Shadow DOM with text only; nothing fetched is injected as HTML.
+- **Compete detects what your site targets** from its own titles, headings and schema ("roof repair york pa") with one-click Search, Ideas and Track.
+- **Track:** adding a site (or "+ Track" in Compete) scans it straight away.
+- **Notifications and badge:** a daily check for a new version and for tracked sites due a rescan (3/7/14/30 days), shown as an icon badge and, if allowed, a Chrome notification.
+- **Updates:** "Check again" visibly asks GitHub and shows when it last checked and the newest version; errors are shown instead of silence. The one-click updater now picks the release through the GitHub API, follows redirects only to GitHub hosts, and verifies GitHub's SHA-256 checksum before writing anything.
+
 ## 2.11.0 (2026-10-26): extension 1.6: business / client / competitor roles and competitor comparison
 
 - Track: every site is **My business**, **Client (I manage its SEO)** or **Competitor** (linked to a business). The list is grouped by role; the role and name can be edited.

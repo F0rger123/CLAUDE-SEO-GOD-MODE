@@ -19,6 +19,7 @@ It only ever writes inside the extension folder you installed it for, and only f
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -33,6 +34,8 @@ from pathlib import Path
 HOST = "com.agencyzero.seogodmode_updater"
 RAW = "https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/scripts/updater/install_updater.py"
 ZIP = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"
+API = "https://api.github.com/repos/F0rger123/CLAUDE-SEO-GOD-MODE/releases?per_page=15"
+ALLOWED_HOSTS = ("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
 VERSION = "1.0"
 HOME = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / ("SEOGodMode" if os.name == "nt" else ".seo-god-mode")
 CONFIG = HOME / "config.json"
@@ -80,11 +83,42 @@ def newer(a: str, b: str) -> bool:
     return pa + [0] * (3 - len(pa)) > pb + [0] * (3 - len(pb))
 
 
-def update(folder: Path, current: str, source: str) -> dict:
+def latest_asset() -> tuple[str, str | None]:
+    """The newest extension release's zip URL and GitHub's SHA-256 digest for it (from the GitHub API)."""
+    req = urllib.request.Request(API, headers={"User-Agent": "seo-god-mode-updater", "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        releases = json.loads(r.read().decode("utf-8"))
+    rel = next(x for x in releases if str(x.get("tag_name", "")).startswith("extension-v") and not x.get("draft") and not x.get("prerelease"))
+    asset = next(a for a in rel["assets"] if a["name"] == "seo-god-mode-extension.zip")
+    digest = (asset.get("digest") or "").removeprefix("sha256:") or None
+    return asset["browser_download_url"], digest
+
+
+def download(url: str) -> bytes:
+    """HTTPS download that only follows redirects to GitHub's own hosts."""
+    from urllib.parse import urlparse
+    class Guard(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            if urlparse(newurl).scheme != "https" or not urlparse(newurl).hostname.endswith(ALLOWED_HOSTS):
+                raise ValueError(f"refusing redirect to {urlparse(newurl).hostname}")
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+    if urlparse(url).scheme != "https" or not urlparse(url).hostname.endswith(ALLOWED_HOSTS):
+        raise ValueError("refusing to download from outside GitHub")
+    with urllib.request.build_opener(Guard).open(urllib.request.Request(url, headers={"User-Agent": "seo-god-mode-updater"}), timeout=90) as r:
+        return r.read(50_000_000)
+
+
+def update(folder: Path, current: str, source: str | None = None) -> dict:
     if not is_extension_dir(folder):
         return {"ok": False, "error": f"{folder} doesn't look like the SEO God Mode extension folder."}
-    with urllib.request.urlopen(urllib.request.Request(source, headers={"User-Agent": "seo-god-mode-updater"}), timeout=60) as r:
-        blob = r.read()
+    if source:  # tests: a local zip URL, no digest
+        with urllib.request.urlopen(urllib.request.Request(source, headers={"User-Agent": "seo-god-mode-updater"}), timeout=60) as r:
+            blob, digest = r.read(), None
+    else:
+        url, digest = latest_asset()
+        blob = download(url)
+        if digest and hashlib.sha256(blob).hexdigest() != digest:
+            return {"ok": False, "error": "The download doesn't match GitHub's checksum, so nothing was changed."}
     z = zipfile.ZipFile(io.BytesIO(blob))
     names = z.namelist()
     if "manifest.json" not in names or any(n.startswith(("/", "\\")) or ".." in Path(n).parts for n in names):
@@ -102,7 +136,7 @@ def update(folder: Path, current: str, source: str) -> dict:
                 dst = folder / src.relative_to(tmp)
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dst)
-    return {"ok": True, "updated": True, "version": latest, "previous": current}
+    return {"ok": True, "updated": True, "version": latest, "previous": current, "verified": bool(digest)}
 
 
 def host_main(origin: str):
@@ -116,7 +150,7 @@ def host_main(origin: str):
         elif msg.get("cmd") == "ping":
             send({"ok": True, "version": VERSION, "folder": folder})
         elif msg.get("cmd") == "update":
-            send(update(Path(folder), str(msg.get("current", "0")), cfg.get("source") or ZIP))
+            send(update(Path(folder), str(msg.get("current", "0")), cfg.get("source")))
         else:
             send({"ok": False, "error": "Unknown command."})
     except Exception as e:

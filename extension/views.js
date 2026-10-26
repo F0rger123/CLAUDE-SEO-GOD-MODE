@@ -5,7 +5,7 @@
  *  Track:   websites you follow, their score history and keyword positions over time, export/import, and updates.
  */
 import { readGoogle } from "./lib/google.js";
-import { auditBusiness, DIRECTORIES, keywordIdeas, sameDomain, whyTheyRank } from "./lib/compete.js";
+import { auditBusiness, detectTargets, DIRECTORIES, keywordIdeas, sameDomain, whyTheyRank } from "./lib/compete.js";
 import { rateSite, siteOrigins } from "./lib/siterate.js";
 import { grade } from "./lib/rubric.js";
 import { history, saveScan } from "./lib/proof.js";
@@ -18,7 +18,7 @@ const when = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "shor
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
 const ALL_SITES = ["https://*/*", "http://*/*"];
 const GOOGLE = ["https://www.google.com/*", "https://google.com/*", "https://maps.google.com/*"];
-const v = { sub: "rank", google: null, rank: null, ideas: null, biz: null, kw: "", detail: null };
+const v = { sub: "rank", google: null, rank: null, ideas: null, biz: null, kw: "", detail: null, detected: {} };
 let ui; // helpers passed in by sidepanel.js: toast, copy, notice, download, activeTab
 
 const status = (n) => (n == null ? "" : n >= 85 ? "s-pass" : n >= 65 ? "s-part" : "s-fail");
@@ -70,6 +70,34 @@ export async function renderCompete(helpers) {
   else await renderBiz(onGoogle, tab);
 }
 
+/** What your site seems to target, detected from its own pages, with one-click actions. Cached per site for the session. */
+async function detectedBlock(me, mode) {
+  if (!me) return `<p class="unknowns">Add your website to get keyword suggestions detected from its pages.</p>`;
+  const d = v.detected[me.origin];
+  if (!d) return `<div id="detected" class="detected"><p class="lede">Reading ${esc(me.name)} to work out what it's trying to rank for…</p></div>`;
+  if (!d.keywords?.length) return `<div class="detected"><p class="unknowns">Couldn't work out target keywords for ${esc(me.name)}${d.error ? ` (${esc(d.error)})` : ""}. Type one above.</p></div>`;
+  const tracked = new Set(me.keywords);
+  return `<div class="detected"><h2 class="sec">Suggested for ${esc(me.name)} <small>detected from ${d.pagesRead} page${d.pagesRead === 1 ? "" : "s"}</small></h2>
+    <ul class="ideas">${d.keywords.map((k) => `<li><span title="${esc(k.why)}">${esc(k.keyword)}</span><span class="acts">
+      ${mode === "ideas" ? `<button class="linkish" data-use="${esc(k.keyword)}">Ideas</button>` : `<button class="linkish" data-search="${esc(k.keyword)}">Search</button>`}
+      ${tracked.has(k.keyword) ? `<small>tracked</small>` : `<button class="linkish" data-trackkw="${esc(k.keyword)}">+ Track</button>`}</span></li>`).join("")}</ul>
+    <p class="unknowns">Worked out from your page titles, headings and schema (services${d.places.length ? ` × ${esc(d.places.join(", "))}` : ""}). Hover a keyword to see why. No search volumes.</p></div>`;
+}
+function bindDetected(me, rerender) {
+  const box = $("sub");
+  box.querySelectorAll("[data-use]").forEach((b) => (b.onclick = () => { $("kw").value = b.dataset.use; $("kwf").requestSubmit(); }));
+  box.querySelectorAll("[data-search]").forEach((b) => (b.onclick = async () => { const tab = await ui.activeTab(); chrome.tabs.update(tab.id, { url: "https://www.google.com/search?q=" + encodeURIComponent(b.dataset.search) }); }));
+  box.querySelectorAll("[data-trackkw]").forEach((b) => (b.onclick = async () => { await T.setKeywords(me.origin, [...me.keywords, b.dataset.trackkw]); me.keywords.push(b.dataset.trackkw); b.replaceWith(Object.assign(document.createElement("small"), { textContent: "tracked" })); ui.toast("Keyword tracked"); }));
+  if (me && !v.detected[me.origin] && $("detected")) {
+    v.detected[me.origin] = null;
+    (async () => {
+      if (!(await chrome.permissions.contains({ origins: siteOrigins(me.origin + "/") }))) { v.detected[me.origin] = { keywords: [], error: "no access to the site yet; press a Compare or Rescan button once" }; return rerender(); }
+      v.detected[me.origin] = await detectTargets(me.origin).catch((e) => ({ keywords: [], error: e.message }));
+      rerender();
+    })();
+  }
+}
+
 function searchBox(label, placeholder, value = "") {
   return `<form id="gsearch" class="field"><label for="gq">${label}</label><div class="row2"><input id="gq" class="search" placeholder="${esc(placeholder)}" value="${esc(value)}"><button class="primary">Search Google</button></div></form>`;
 }
@@ -86,8 +114,9 @@ async function renderRank(onGoogle, tab) {
   if (!g || g.kind !== "serp") {
     s.innerHTML = `<p class="lede">Search what you want to rank for, then this shows who ranks, why, and what to change. It reads the results page you open; it never searches on its own.</p>
       ${searchBox("What do you want to rank for?", "roof repair york pa", v.kw)}${await siteSelect()}
-      ${onGoogle && !(await chrome.permissions.contains({ origins: GOOGLE })) ? `<button id="allowg" class="primary run">Allow reading Google results</button>` : ""}`;
-    bindSearch(); bindSite(() => renderCompete(ui));
+      ${onGoogle && !(await chrome.permissions.contains({ origins: GOOGLE })) ? `<button id="allowg" class="primary run">Allow reading Google results</button>` : ""}
+      ${await detectedBlock(me, "rank")}`;
+    bindSearch(); bindSite(() => renderCompete(ui)); bindDetected(me, () => v.sub === "rank" && renderCompete(ui));
     const ag = $("allowg"); if (ag) ag.onclick = async () => { if (await access(GOOGLE, "Allow access to google.com so the extension can read the results you open.")) { v.google = null; renderCompete(ui); } };
     return;
   }
@@ -105,7 +134,8 @@ async function renderRank(onGoogle, tab) {
   bindSite(() => renderCompete(ui));
   s.querySelectorAll("[data-comp]").forEach((b) => (b.onclick = async () => {
     await T.trackSite(b.dataset.comp, hostOf(b.dataset.comp), "competitor", me.origin);
-    b.textContent = "Tracked"; b.disabled = true; ui.toast(`Tracking ${hostOf(b.dataset.comp)} as a competitor of ${me.name}`);
+    b.textContent = "Tracked"; b.disabled = true; ui.toast(`Tracking ${hostOf(b.dataset.comp)} as a competitor of ${me.name}; scanning it now`);
+    rescan([b.dataset.comp], { quiet: true });
   }));
   $("cmp").onclick = async () => {
     if (!me) return ui.notice("Add your website first (the box above), so there's something to compare.");
@@ -169,7 +199,8 @@ async function renderIdeas() {
   s.innerHTML = `<p class="lede">Type what you want to rank for. You get the ways people search it, questions to answer, and the changes your page needs.</p>
     <form id="kwf" class="field"><label for="kw">Keyword</label><input id="kw" class="search" placeholder="roof repair york pa" value="${esc(kw)}">
     <label for="kwpage">Your page for it</label><input id="kwpage" class="search" placeholder="https://yoursite.com/roof-repair/" value="${esc(r?.myUrl || (me ? me.origin + "/" : ""))}">
-    <button class="primary run">Find keyword ideas</button></form><div id="ideasout"></div>`;
+    <button class="primary run">Find keyword ideas</button></form>${r ? "" : await detectedBlock(me, "ideas")}<div id="ideasout"></div>`;
+  bindDetected(me, () => v.sub === "ideas" && renderCompete(ui));
   $("kwf").onsubmit = async (e) => {
     e.preventDefault();
     const k = $("kw").value.trim(), page = $("kwpage").value.trim();
@@ -272,7 +303,11 @@ export async function renderTrack(helpers) {
   bindRole("newrole");
   $("addsite").onsubmit = async (e) => { e.preventDefault(); const val = $("newsite").value.trim(); if (!val) return;
     const role = $("newrole").value, of = role === "competitor" ? $("newrole-of").value || null : null;
-    try { const o = await T.trackSite(val, "", role, of); ui.toast(`Tracking ${hostOf(o)} as ${T.ROLES[role].toLowerCase()}`); renderTrack(ui); } catch { ui.notice("That doesn't look like a website address."); } };
+    let o;
+    try { o = await T.trackSite(val, "", role, of); } catch { return ui.notice("That doesn't look like a website address."); }
+    ui.toast(`Tracking ${hostOf(o)} as ${T.ROLES[role].toLowerCase()}; scanning it now`);
+    await renderTrack(ui);
+    rescan([o]); };
   el.querySelectorAll("[data-open]").forEach((c) => (c.onclick = () => { v.detail = c.dataset.open; renderTrack(ui); }));
   const ra = $("rescanall"); if (ra) ra.onclick = () => rescan(list.map((s) => s.origin));
   $("export").onclick = async () => ui.download(await T.exportAll(), `seo-god-mode-history-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
@@ -281,20 +316,24 @@ export async function renderTrack(helpers) {
   renderUpdateCard($("updatecard"));
 }
 
-async function rescan(origins) {
-  if (!(await access(origins.flatMap((o) => siteOrigins(o + "/")), "Rescanning needs access to these sites. Press Rescan again and choose Allow."))) return;
+/** Rescan tracked sites. quiet: run in the background without redrawing the view (used right after adding a site elsewhere). */
+async function rescan(origins, { quiet = false } = {}) {
+  if (!(await access(origins.flatMap((o) => siteOrigins(o + "/")), "Scanning needs access to these sites. Press the button again and choose Allow."))) return;
+  const show = (on, t) => !quiet && busy(on, t);
   for (const [i, o] of origins.entries()) {
-    busy(true, `Scanning ${hostOf(o)} (${i + 1}/${origins.length})…`);
+    show(true, `Scanning ${hostOf(o)} (${i + 1}/${origins.length})…`);
     try {
       const { psiKey = "" } = await chrome.storage.local.get("psiKey");
-      const r = await rateSite(o + "/", { psiKey, onProgress: (t) => busy(true, `${hostOf(o)}: ${t}`) });
+      const r = await rateSite(o + "/", { psiKey, onProgress: (t) => show(true, `${hostOf(o)}: ${t}`) });
       const page = { url: r.site, origin: new URL(r.site).origin, platform: "Unknown", scannedAt: new Date().toISOString(), jsonld: [], pageless: true };
       const scan = await saveScan({ mode: "site", page, site: null, scores: r.scores, results: r.checks, priority: r.priority, kits: r.kits, unknown: r.unknown,
         pagesRated: r.pages_rated, hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages });
       await T.addScorePoint(o, scan);
     } catch (e) { ui.notice(`${esc(hostOf(o))}: ${esc(e.message || e)}`); }
   }
-  busy(false); ui.toast("Rescan done"); v.detail ? renderSiteDetail(v.detail) : renderTrack(ui);
+  if (quiet) return ui.toast(`Scanned ${origins.map(hostOf).join(", ")}`);
+  busy(false); ui.toast("Rescan done");
+  if (document.body.dataset.mode === "track") v.detail ? renderSiteDetail(v.detail) : renderTrack(ui);
 }
 
 /** Latest full whole-site scan saved for an origin (from a Site scan or a Track rescan). */
@@ -381,21 +420,75 @@ async function renderSiteDetail(origin) {
   const rg = $("rescangroup"); if (rg) rg.onclick = () => rescan([origin, ...T.competitorsOf(origin, list).map((r) => r.origin)]);
   const cc = $("cmpcopy"); if (cc) cc.onclick = () => ui.copy(comparePrompt(v.cmp), "Fix prompt copied");
   const ac = $("addcomp"); if (ac) ac.onsubmit = async (e) => { e.preventDefault(); const val = $("compnew").value.trim(); if (!val) return;
-    try { const o = await T.trackSite(val, "", "competitor", origin); await T.setRole(o, "competitor", origin); ui.toast(`Tracking ${hostOf(o)} as a competitor`); renderSiteDetail(origin); } catch { ui.notice("That doesn't look like a website address."); } };
+    let o;
+    try { o = await T.trackSite(val, "", "competitor", origin); await T.setRole(o, "competitor", origin); } catch { return ui.notice("That doesn't look like a website address."); }
+    ui.toast(`Tracking ${hostOf(o)} as a competitor; scanning it now`); await renderSiteDetail(origin); rescan([o]); };
   $("opensite").onclick = () => chrome.tabs.create({ url: origin + "/" });
   $("kwadd").onsubmit = async (e) => { e.preventDefault(); await T.setKeywords(origin, [...s.keywords, ...$("kwnew").value.split(",")]); renderSiteDetail(origin); };
   $("untrack").onclick = async () => { if (!confirm(`Stop tracking ${s.name}? Its history stays until you clear the extension's data.`)) return; await T.untrackSite(origin); v.detail = null; renderTrack(ui); };
 }
 
+// ====================================================================== ON GOOGLE
+const SETTINGS_DEFAULT = { overlay: false, hover: true, autoPositions: true, notify: true, rescanDays: 7 };
+export async function getSettings() { return { ...SETTINGS_DEFAULT, ...((await chrome.storage.local.get("settings")).settings || {}) }; }
+async function saveSettings(patch) { await chrome.storage.local.set({ settings: { ...(await getSettings()), ...patch } }); }
+
+export async function renderGoogle(helpers) {
+  ui = helpers;
+  const el = $("view");
+  const s = await getSettings();
+  const registered = (await chrome.scripting.getRegisteredContentScripts({ ids: ["sgm-google"] }).catch(() => [])).length > 0;
+  const notifyOk = await chrome.permissions.contains({ permissions: ["notifications"] });
+  const tog = (id, on, title, desc, disabled = false) => `<label class="settog"><input type="checkbox" id="${id}" ${on ? "checked" : ""} ${disabled ? "disabled" : ""}><span><b>${title}</b><small>${desc}</small></span></label>`;
+  el.innerHTML = `<p class="lede">Show SEO God Mode right on Google. Search anything and every result gets a hover card with a quick rating, the keywords that page targets and why it shows up. Your businesses, clients and competitors are labelled with their position.</p>
+    <div class="settings">
+      ${tog("s-overlay", s.overlay && registered, "Show on Google results", "Adds labels, hover cards and a button to open the full comparison. Needs access to google.com and to the sites you hover.")}
+      ${tog("s-hover", s.hover, "Hover cards", "Quick rating, keywords, why it shows, and gaps for the result under your mouse.", !s.overlay)}
+      ${tog("s-pos", s.autoPositions, "Record my positions automatically", "Every Google search saves where your tracked sites rank, for the charts in Track.", !s.overlay)}
+      ${tog("s-notify", s.notify && notifyOk, "Notify me", "When a new version is out, or tracked sites are due a rescan. A badge on the icon shows it too.")}
+      <label class="settog"><span><b>Rescan reminder</b><small>Remind me when a tracked site hasn't been scanned for</small></span>
+        <select id="s-days" class="search">${[3, 7, 14, 30].map((d) => `<option value="${d}" ${d === s.rescanDays ? "selected" : ""}>${d} days</option>`).join("")}</select></label>
+    </div>
+    <div class="btns stack"><button id="trygoogle" class="primary">Try it: search on Google</button><button id="checknow">Check for updates and due rescans now</button></div>
+    <div id="checkout"></div>
+    <h2 class="sec">Scan a single page</h2><p class="lede">The full 78-check page scan now lives under Site: press "Just this page" there.</p>`;
+  $("s-overlay").onchange = async (e) => {
+    if (e.target.checked && !(await access([...GOOGLE, ...ALL_SITES], "Turning this on needs access to Google and the sites you hover. Turn it on again and choose Allow."))) { e.target.checked = false; return; }
+    await saveSettings({ overlay: e.target.checked });
+    const r = await chrome.runtime.sendMessage({ type: "syncOverlay", on: e.target.checked });
+    ui.toast(r?.on ? "On. Search on Google to see it" : "Off");
+    renderGoogle(ui);
+  };
+  $("s-hover").onchange = (e) => saveSettings({ hover: e.target.checked });
+  $("s-pos").onchange = (e) => saveSettings({ autoPositions: e.target.checked });
+  $("s-notify").onchange = async (e) => {
+    if (e.target.checked && !(await chrome.permissions.request({ permissions: ["notifications"] }))) { e.target.checked = false; return; }
+    await saveSettings({ notify: e.target.checked });
+  };
+  $("s-days").onchange = (e) => saveSettings({ rescanDays: Number(e.target.value) });
+  $("trygoogle").onclick = async () => { const me = await mySite(); const kw = me?.keywords?.[0] || v.detected[me?.origin]?.keywords?.[0]?.keyword || "seo audit";
+    const tab = await ui.activeTab(); chrome.tabs.update(tab.id, { url: "https://www.google.com/search?q=" + encodeURIComponent(kw) }); };
+  $("checknow").onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = "Checking…";
+    const r = await chrome.runtime.sendMessage({ type: "checkNow" }).catch((err) => ({ error: err.message }));
+    e.target.disabled = false; e.target.textContent = "Check for updates and due rescans now";
+    $("checkout").innerHTML = r?.error ? `<p class="notice">${esc(r.error)}</p>` : `<div class="upd"><p>${r.update?.available ? `<b>Version ${esc(r.update.latest)} is out.</b> Update from the Track view.` : r.update?.error ? esc(r.update.error) : `<b>Extension up to date (${esc(r.update?.current || "")}).</b>`}<br>
+      ${r.due?.length ? `${r.due.length} tracked site${r.due.length === 1 ? " is" : "s are"} due a rescan: ${r.due.map(esc).join(", ")}.` : "No tracked site is due a rescan."}<br><small class="muted">Checked just now.</small></p></div>`;
+  };
+}
+
 // ====================================================================== updates
 export async function renderUpdateCard(el, force = false) {
   if (!el) return;
+  if (force) { const b = el.querySelector("#upcheck"); if (b) { b.disabled = true; b.textContent = "Checking GitHub…"; } }
   const u = await U.checkUpdate(force);
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+  const checked = u.at ? `Checked ${ago(u.at)}${u.latest ? ` · newest release on GitHub: ${esc(u.latest)}` : ""}.` : "";
   const store = u.installType === "normal";
   if (store) { el.innerHTML = `<h2 class="sec">Updates</h2><p class="lede">Version ${esc(u.current)}. Installed from the Chrome Web Store, so Chrome updates it automatically.</p>`; return; }
   const helper = await U.helperStatus();
   el.innerHTML = `<h2 class="sec">Updates <small>version ${esc(u.current)}</small></h2>
-    <div class="upd ${u.available ? "on" : ""}"><p>${u.available ? `<b>Version ${esc(u.latest)} is out.</b>` : u.latest ? "You're on the latest version." : esc(u.error || "")}</p>
+    <div class="upd ${u.available ? "on" : ""}" aria-live="polite"><p>${u.available ? `<b>Version ${esc(u.latest)} is out.</b>` : u.error ? `<b>${esc(u.error)}</b>` : `<b>You're up to date (${esc(u.current)}).</b>`}<br><small class="muted">${checked}</small></p>
     <div class="btns">${u.available && helper.installed ? `<button id="upnow" class="primary">Update now</button>` : ""}
       ${u.available && !helper.installed ? `<a class="btn primary" href="${U.ZIP}" target="_blank" rel="noopener">Download update</a>` : ""}
       <button id="upcheck">Check again</button><button id="reload">Reload extension</button></div>
@@ -403,11 +496,13 @@ export async function renderUpdateCard(el, force = false) {
     ${!helper.installed ? `<details class="json"><summary>Turn on one-click updates</summary><div class="pad"><p class="lede">One time: ${helper.permission ? "" : "allow the updater, then "}paste this into a terminal (needs Python 3). After that, "Update now" downloads and installs new versions for you.</p>
       ${helper.permission ? `<pre>${esc(U.installCommand())}</pre><button id="copycmd">Copy command</button>` : `<button id="allowhelper" class="primary">Allow the updater</button>`}</div></details>` : `<p class="unknowns">One-click updates are on (${esc(helper.folder || "")}).</p>`}</div>`;
   const b = (id, fn) => { const x = el.querySelector("#" + id); if (x) x.onclick = fn; };
-  b("upcheck", () => renderUpdateCard(el, true));
+  b("upcheck", async () => { await renderUpdateCard(el, true); ui.toast("Checked for updates"); });
   b("reload", () => chrome.runtime.reload());
   b("copycmd", () => ui.copy(U.installCommand(), "Command copied"));
   b("allowhelper", async () => { if (await U.askHelperPermission()) renderUpdateCard(el); });
-  b("upnow", async () => { try { ui.toast("Updating…"); const r = await U.runOneClickUpdate(); ui.toast(r.updated ? `Updated to ${r.version}. Reloading…` : "Already up to date"); } catch (e) { ui.notice(esc(e.message)); } });
+  b("upnow", async (ev) => { ev.target.disabled = true; ev.target.textContent = "Downloading and checking…";
+    try { const r = await U.runOneClickUpdate(); ui.toast(r.updated ? `Updated to ${r.version}${r.verified ? " (checksum verified)" : ""}. Reloading…` : "Already up to date"); }
+    catch (e) { ui.notice(esc(e.message)); ev.target.disabled = false; ev.target.textContent = "Update now"; } });
 }
 
 /** Small header banner when an update is out (checked at most once a day). */

@@ -234,3 +234,76 @@ export function auditBusiness(b, { keyword = "", mySite = "", local = [] } = {})
   const score = known.length ? Math.round(100 * known.reduce((a, c) => a + (c.ok ? c.weight : 0), 0) / known.reduce((a, c) => a + c.weight, 0)) : null;
   return { name: b.name, score, checks, peers, measured: known.length, total: checks.length };
 }
+
+// ---------------------------------------------------------------- what a site is trying to rank for
+
+const GENERIC = new Set("home homepage welcome services service contact about company team blog news page official site website best top quality professional trusted local inc llc ltd corp co free call today get".split(" "));
+const US = { alabama: "al", alaska: "ak", arizona: "az", arkansas: "ar", california: "ca", colorado: "co", connecticut: "ct", delaware: "de", florida: "fl", georgia: "ga", hawaii: "hi", idaho: "id", illinois: "il", indiana: "in", iowa: "ia", kansas: "ks", kentucky: "ky", louisiana: "la", maine: "me", maryland: "md", massachusetts: "ma", michigan: "mi", minnesota: "mn", mississippi: "ms", missouri: "mo", montana: "mt", nebraska: "ne", nevada: "nv", ohio: "oh", oklahoma: "ok", oregon: "or", pennsylvania: "pa", tennessee: "tn", texas: "tx", utah: "ut", vermont: "vt", virginia: "va", washington: "wa", wisconsin: "wi", wyoming: "wy" };
+
+/**
+ * Work out what a site is trying to rank for from its own pages: services from page titles, H1s and Service schema,
+ * places from LocalBusiness schema (areaServed, address) and titles. Returns keyword suggestions with where they came
+ * from. INFERRED from the site's content; it doesn't know search volumes.
+ */
+export async function detectTargets(siteUrl, { maxPages = 10 } = {}) {
+  const origin = new URL(siteUrl).origin;
+  const home = await fetchPage(origin + "/");
+  if (home.status !== 200) return { origin, services: [], places: [], keywords: [], error: `Homepage returned ${home.status ?? home.error}` };
+  const hp = parsePage(home.html);
+  const { items } = parseJsonld(hp.jsonld);
+  const entity = items.find((i) => schemaTypes(i).some((t) => /LocalBusiness|Organization|Contractor|Service$|Store|Restaurant|Plumber|Electrician|Roofing|HVAC|Dentist|Legal/.test(t)));
+  const brand = new Set(terms(entity?.name || hp.og["og:site_name"] || ""));
+  // Places: schema first, then "Town, ST" / "Town ST" patterns in titles.
+  const places = new Map();
+  const addPlace = (p) => { const s = String(p || "").replace(/\s+/g, " ").trim(); if (s && s.length < 40) places.set(s.toLowerCase(), (places.get(s.toLowerCase()) || 0) + 1); };
+  const loc = entity?.address && typeof entity.address === "object" ? entity.address : null;
+  if (loc?.addressLocality) addPlace(`${loc.addressLocality} ${(US[String(loc.addressRegion || "").toLowerCase()] || loc.addressRegion || "")}`);
+  [].concat(entity?.areaServed || []).forEach((a) => addPlace(typeof a === "string" ? a.replace(",", "") : a?.name?.replace(",", "")));
+  // Service pages: internal links from the homepage, skipping utility pages.
+  const links = [...new Set(hp.links.map((l) => { try { const u = new URL(l.href, origin); u.hash = ""; u.search = ""; return u.origin === origin ? u.href : null; } catch { return null; } }).filter(Boolean))]
+    .filter((u) => { const p = new URL(u).pathname; return p !== "/" && p.split("/").filter(Boolean).length <= 2 && !/about|contact|blog|news|privacy|terms|cart|login|account|careers|jobs|faq|reviews|gallery|team|wp-|feed|tag|category|author|sitemap/i.test(p); })
+    .slice(0, maxPages);
+  const pages = [{ url: origin + "/", p: hp }, ...(await pLimit(links, 4, async (u) => { const r = await fetchPage(u); return r.status === 200 ? { url: u, p: parsePage(r.html) } : null; })).filter(Boolean)];
+  const placeWords = () => new Set([...places.keys()].flatMap((k) => terms(k)));
+  for (const { p } of pages) for (const m of `${p.title} ${p.headings.filter((h) => h[0] === 1).map((h) => h[1]).join(" ")}`.matchAll(/\b(?:in|serving)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+)?),?\s+([A-Z]{2})\b/g)) addPlace(`${m[1]} ${m[2]}`);
+  // Services: title segments and H1s with brand, place and generic words removed.
+  const phrases = new Map();
+  const add = (text, path, weight) => {
+    // "Roof Repair & Replacement" is two services; "Roof Replacement and Repair Services" too.
+    const parts = String(text || "").split(/\s+(?:&|and|\+)\s+|,\s*/i);
+    if (parts.length > 1) {
+      const head = terms(parts[0]);
+      // Carry the shared noun across: "Roof Repair & Replacement" -> "roof repair", "roof replacement".
+      return parts.forEach((part, i) => { const t = terms(part); addOne(i && head.length > 1 && t.length === 1 ? `${head.slice(0, -1).join(" ")} ${t[0]}` : part, path, weight); });
+    }
+    addOne(text, path, weight);
+  };
+  const addOne = (text, path, weight) => {
+    const pw = placeWords();
+    const w = terms(text).filter((x) => !brand.has(x) && !pw.has(x) && !GENERIC.has(x) && !US[x] && !Object.values(US).includes(x));
+    if (w.length < 1 || w.length > 4) return;
+    const k = w.join(" ");
+    const e = phrases.get(k) || { phrase: k, score: 0, from: new Set() };
+    e.score += weight; e.from.add(path); phrases.set(k, e);
+  };
+  for (const { url, p } of pages) {
+    const path = new URL(url).pathname;
+    p.title.split(/\s[|–—:-]\s|\s\|\s|[|–—]/).forEach((seg) => add(seg, path, path === "/" ? 1 : 2));
+    p.headings.filter((h) => h[0] === 1).forEach((h) => add(h[1], path, 2));
+    p.headings.filter((h) => h[0] === 2).slice(0, 6).forEach((h) => !QUESTION.test(h[1]) && add(h[1], path, 0.5));
+    parseJsonld(p.jsonld).items.filter((i) => schemaTypes(i).includes("Service")).forEach((i) => add(i.name || i.serviceType, path, 3));
+  }
+  // Prefer specific multi-word services ("roof repair") over single words ("roof"), and drop phrases contained in a stronger one.
+  for (const e of phrases.values()) if (e.phrase.split(" ").length === 1) e.score *= 0.4;
+  for (const e of phrases.values()) if ([...phrases.values()].some((o) => o !== e && o.score >= e.score && (" " + o.phrase + " ").includes(" " + e.phrase + " "))) e.score = 0;
+  const services = [...phrases.values()].filter((e) => e.score > 0).sort((a, b) => b.score - a.score || a.phrase.length - b.phrase.length).slice(0, 8);
+  const topPlaces = [...places.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k).slice(0, 3);
+  const keywords = [];
+  for (const s of services.slice(0, 6)) {
+    if (topPlaces[0]) keywords.push({ keyword: `${s.phrase} ${topPlaces[0]}`, why: `"${s.phrase}" appears on ${[...s.from].slice(0, 3).join(", ")}; you serve ${topPlaces[0]}` });
+    keywords.push({ keyword: topPlaces[0] ? `${s.phrase} near me` : s.phrase, why: `"${s.phrase}" appears on ${[...s.from].slice(0, 3).join(", ")}` });
+  }
+  for (const pl of topPlaces.slice(1)) if (services[0]) keywords.push({ keyword: `${services[0].phrase} ${pl}`, why: `another area you list: ${pl}` });
+  return { origin, services: services.map((s) => ({ phrase: s.phrase, pages: [...s.from] })), places: topPlaces,
+    keywords: [...new Map(keywords.map((k) => [k.keyword, k])).values()].slice(0, 12), pagesRead: pages.length };
+}

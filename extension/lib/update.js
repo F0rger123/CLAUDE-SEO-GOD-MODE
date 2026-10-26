@@ -22,13 +22,14 @@ export async function checkUpdate(force = false) {
   const { updateCheck } = await chrome.storage.local.get("updateCheck");
   if (!force && updateCheck && Date.now() - updateCheck.at < DAY) return { ...base, ...updateCheck, available: newer(updateCheck.latest || "0.0.0", current) };
   try {
-    const r = await fetch(API, { headers: { Accept: "application/vnd.github+json" }, signal: AbortSignal.timeout(10000) });
+    const r = await fetch(API, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store", signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error(r.status === 403 ? "GitHub's rate limit was hit; try again in an hour." : `GitHub answered ${r.status}.`);
     const rel = (await r.json()).find((x) => /^extension-v\d/.test(x.tag_name) && !x.draft && !x.prerelease);
     const info = { at: Date.now(), latest: rel ? rel.tag_name.replace("extension-v", "") : current, notes: (rel?.body || "").slice(0, 600), url: rel?.html_url || "" };
     await chrome.storage.local.set({ updateCheck: info });
     return { ...base, ...info, available: newer(info.latest, current) };
   } catch (e) {
-    return { ...base, latest: null, available: false, error: "Couldn't reach GitHub to check for updates." };
+    return { ...base, at: Date.now(), latest: updateCheck?.latest || null, available: false, error: `Couldn't check GitHub: ${e.message || e}` };
   }
 }
 

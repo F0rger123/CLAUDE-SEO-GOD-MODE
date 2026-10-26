@@ -8,7 +8,7 @@ import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proo
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
 import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
-import { renderCompete, renderTrack, updateBanner } from "./views.js";
+import { renderCompete, renderGoogle, renderTrack, updateBanner } from "./views.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -321,6 +321,9 @@ document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => show
 addEventListener("resize", moveInk);
 $("scan").onclick = scan;
 document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
+document.querySelectorAll("#scope button").forEach((b) => (b.onclick = () => setMode(b.dataset.scope)));
+// The background asks for a view (from a click on Google or a notification) by writing openMode.
+chrome.storage.onChanged.addListener((c) => { if (c.openMode?.newValue?.mode && c.openMode.newValue.mode !== state.mode) setMode(c.openMode.newValue.mode); });
 
 function scanLabel() {
   const again = state.scan && state.scan.mode === state.mode;
@@ -332,18 +335,21 @@ const helpers = { toast, copy: (t, m) => copy(t, m), notice, download, activeTab
 
 async function setMode(mode) {
   state.mode = mode;
-  document.querySelectorAll("#mode button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+  document.body.dataset.mode = mode;
+  document.querySelectorAll("#mode button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode || (b.dataset.mode === "site" && mode === "page"))));
+  document.querySelectorAll("#scope button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scope === mode)));
   try { await chrome.storage.local.set({ mode }); } catch {}
   notice("");
-  const extra = mode === "compete" || mode === "track";
+  const extra = mode === "compete" || mode === "track" || mode === "google";
+  $("scope").hidden = extra;
   document.body.classList.toggle("viewmode", extra);
   $("view").hidden = !extra;
   for (const id of ["scan", "empty", "scores", "summary", "tabs"]) if (extra) $(id).hidden = true;
   document.querySelectorAll(".tab").forEach((t) => extra && (t.hidden = true));
   if (extra) {
     $("scan").hidden = true;
-    $("url").textContent = mode === "compete" ? "Who ranks, why, and what to change" : "Your sites over time";
-    return mode === "compete" ? renderCompete(helpers) : renderTrack(helpers);
+    $("url").textContent = { compete: "Who ranks, why, and what to change", track: "Your businesses, clients and competitors over time", google: "SEO God Mode right on Google results" }[mode];
+    return mode === "compete" ? renderCompete(helpers) : mode === "track" ? renderTrack(helpers) : renderGoogle(helpers);
   }
   $("scan").hidden = false;
   showTab(document.querySelector("#tabs button.on")?.dataset.tab || "overview");

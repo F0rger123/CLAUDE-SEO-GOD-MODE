@@ -12,6 +12,8 @@ One request goes to a third party: a whole-site scan asks **Google PageSpeed Ins
 
 **Compete view (only when you use it):** it reads the Google search results page or Google Maps page you have open (what's on screen), loads the web pages ranking there to compare them with yours, and sends the keyword you type to Google autocomplete (`suggestqueries.google.com`) for keyword ideas. It never runs Google searches by itself.
 
+**On Google overlay (only if you turn it on):** it reads the Google results pages you open, and when you hover a result it loads that one page to rate it. If "record my positions" is on, it saves where your tracked sites rank for that search, on your computer. Notifications, if you allow them, are shown by Chrome on your computer.
+
 **Updates:** once a day it asks GitHub for the latest release number. If you turn on one-click updates, a small helper on your computer downloads the release zip from GitHub into the extension folder you chose. Nothing about you is sent.
 
 ## What it stores
