@@ -8,28 +8,43 @@
 </head>
 <body>
   <header>
-    <div class="brand"><span class="mark" aria-hidden="true"></span>SEO God Mode</div>
+    <div class="top">
+      <div class="brand"><span class="mark" aria-hidden="true"></span>SEO God Mode</div>
+      <span id="platform" class="platform" hidden></span>
+    </div>
     <div id="url" class="url">Open a website, then scan it.</div>
-    <button id="scan" class="primary">Scan this page</button>
+    <button id="scan" class="primary scan"><span class="label">Scan this page</span></button>
+    <div class="progress" aria-hidden="true"><span></span></div>
   </header>
 
   <div id="notice" class="notice" role="status" hidden></div>
 
+  <section id="empty" class="empty">
+    <div class="empty-art" aria-hidden="true"><span></span><span></span><span></span></div>
+    <h1>Check any page for search and AI visibility</h1>
+    <p>78 checks across SEO, answer engines (AEO) and AI search (GEO), with step-by-step fixes, prompts for Claude, and before/after proof.</p>
+  </section>
+
   <section id="scores" class="scores" aria-label="Scores" hidden></section>
 
   <nav id="tabs" class="tabs" role="tablist" hidden>
-    <button data-tab="fix" class="on" role="tab">To fix</button>
-    <button data-tab="passed" role="tab">Passing</button>
-    <button data-tab="proof" role="tab">Before/after</button>
+    <button data-tab="overview" class="on" role="tab">Overview</button>
+    <button data-tab="issues" role="tab">Issues</button>
+    <button data-tab="tools" role="tab">Tools</button>
+    <button data-tab="proof" role="tab">Proof</button>
     <button data-tab="prompt" role="tab">Claude</button>
+    <span class="ink" aria-hidden="true"></span>
   </nav>
 
   <main>
-    <section id="tab-fix" class="tab"></section>
-    <section id="tab-passed" class="tab" hidden></section>
+    <section id="tab-overview" class="tab"></section>
+    <section id="tab-issues" class="tab" hidden></section>
+    <section id="tab-tools" class="tab" hidden></section>
     <section id="tab-proof" class="tab" hidden></section>
     <section id="tab-prompt" class="tab" hidden></section>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <footer>Scans run in your browser and nothing is sent anywhere. Scores rate page health and AI-search readiness, not rankings.
     Part of <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE" target="_blank" rel="noopener">CLAUDE SEO GOD MODE</a>.</footer>

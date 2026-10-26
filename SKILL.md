@@ -62,6 +62,11 @@ Client data never lives in this repository: `$SEO_CLIENTS_DIR` (default `~/seo-c
 | Apple Maps, Siri, Apple Business Connect | `workflows/apple-business-connect.md` (`apple_maps.py check`) |
 | paid ads (Google, Meta, LinkedIn, TikTok, Apple Search Ads…) | companion plugin **claude-ads** (`docs/ADS.md`) |
 | citability of a page, brand mentions, per-AI-platform tips | `skills/vendor/geo-seo-claude/` (`geo-citability`, `geo-brand-mentions`, `geo-platform-optimizer`) |
+| site structure, URLs, nav (new site or redesign) | `skills/vendor/marketingskills/site-architecture` |
+| pages at scale (service × town, comparisons) | `skills/vendor/marketingskills/programmatic-seo` (doorway test first) |
+| earn links / PR | `skills/vendor/marketingskills/link-building` |
+| write or tighten page copy; more calls and quotes | `skills/vendor/marketingskills/copywriting`, `copy-editing`, `cro` |
+| launch a software product (directories) | `skills/vendor/marketingskills/directory-submissions` |
 | prospects, proposals, month-over-month client deltas | `skills/vendor/geo-seo-claude/` (`geo-prospect`, `geo-proposal`, `geo-compare`) |
 | titles, headings, service pages, internal links | `workflows/on-page-seo.md` |
 | Search Console data | `workflows/search-console.md` |

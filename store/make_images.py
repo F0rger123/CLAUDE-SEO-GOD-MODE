@@ -77,8 +77,12 @@ def promo():
 def main():
     OUT.mkdir(exist_ok=True)
     a = ROOT / "assets"
-    shot(["See what's holding", "a page back"], ["33 SEO, AEO and GEO checks on the live page", "Biggest wins first, with points for each fix",
-                                                 "Fix steps for WordPress, Shopify, Wix, Next.js and more"], a / "extension-fix.png", "screenshot-1.png")
+    shot(["See what's holding", "a page back"], ["78 SEO, AEO and GEO checks on the live page", "Biggest wins first, with points for each fix",
+                                                 "A map of every check by area"], a / "extension-overview.png", "screenshot-1.png")
+    shot(["Fix it step", "by step"], ["Steps for WordPress, Shopify, Wix, Next.js and more", "Filter by SEO, AEO or GEO, or search",
+                                       "Links to the full guide for every check"], a / "extension-fix.png", "screenshot-4.png")
+    shot(["Tools built", "in"], ["Google result preview, measured in pixels", "Schema inspector and 17-crawler access table",
+                                 "Links, images, page facts and quick links"], a / "extension-tools.png", "screenshot-5.png")
     shot(["Hand the fixes", "to Claude"], ["One prompt per issue, or one for everything", "No invented facts: unknowns are marked to confirm",
                                            "Links to the full guide for each fix"], a / "extension-claude.png", "screenshot-2.png")
     shot(["Prove the", "before and after"], ["Save a before scan, fix, scan again", "See every check that was fixed or slipped",

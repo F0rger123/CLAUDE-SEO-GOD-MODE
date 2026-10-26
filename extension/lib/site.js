@@ -4,6 +4,8 @@
  * Allow wins ties, '*' and '$' wildcards. Mirrors scripts/common.py Robots.
  */
 export const SEARCH_BOTS = ["Googlebot", "Bingbot", "OAI-SearchBot", "PerplexityBot", "Claude-SearchBot"];
+export const OTHER_BOTS = ["ChatGPT-User", "Claude-User", "Perplexity-User", "Applebot", "DuckDuckBot"];
+export const TRAINING_BOTS = ["GPTBot", "ClaudeBot", "Google-Extended", "Applebot-Extended", "CCBot", "Bytespider", "meta-externalagent"];
 
 export function parseRobots(text) {
   const groups = [];
@@ -64,23 +66,34 @@ export async function collectSiteFacts(pageUrl) {
   const origin = page.origin;
   const [robots, raw, llms, bogus] = await Promise.all([
     get(origin + "/robots.txt"),
-    get(pageUrl),
-    get(origin + "/llms.txt", { method: "HEAD" }),
+    get(pageUrl, { redirect: "manual" }),
+    get(origin + "/llms.txt"),
     get(origin + "/zz-" + Math.random().toString(36).slice(2, 9) + "-not-a-page"),
   ]);
+  const rawFollow = raw.type === "opaqueredirect" ? await get(pageUrl) : raw;
   const groups = robots.status === 200 ? parseRobots(robots.text) : robots.status >= 400 && robots.status < 500 ? [] : [[["*"], [[false, "/"]]]];
-  const bots = Object.fromEntries(SEARCH_BOTS.map((b) => [b, robotsAllows(groups, b, pageUrl)]));
+  const allBots = [...SEARCH_BOTS, ...OTHER_BOTS, ...TRAINING_BOTS];
+  const bots = Object.fromEntries(allBots.map((b) => [b, robotsAllows(groups, b, pageUrl)]));
   const sitemaps = robots.status === 200 ? [...robots.text.matchAll(/^\s*sitemap:\s*(\S+)/gim)].map((m) => m[1]) : [];
   const smUrl = sitemaps[0] || origin + "/sitemap.xml";
-  const sm = await get(smUrl, { method: "GET" });
+  const sm = await get(smUrl);
+  const smText = sm.text || "";
+  const isIndex = /<sitemapindex/i.test(smText);
+  const bare = (u) => u.replace(/\/$/, "");
   let httpVariant = null;
   if (page.protocol === "https:") {
     const v = await get("http://" + page.host + "/", { redirect: "manual" });
     httpVariant = v.status === null ? "unreachable" : v.type === "opaqueredirect" || (v.status >= 300 && v.status < 400) ? "redirects" : "serves-content";
   }
+  const h = (k) => rawFollow.headers?.get(k) || "";
   return {
-    robotsStatus: robots.status, bots, sitemapUrl: smUrl, sitemapOk: sm.status === 200 && /<(urlset|sitemapindex)/i.test(sm.text || ""),
-    rawStatus: raw.status, xRobotsTag: raw.headers?.get("x-robots-tag") || "", rawTextWords: htmlText(raw.text).split(" ").filter(Boolean).length,
-    llmsTxt: llms.status === 200, soft404Status: bogus.status, httpVariant,
+    robotsStatus: robots.status, robotsDeclaresSitemap: sitemaps.length > 0, bots,
+    sitemapUrl: smUrl, sitemapOk: sm.status === 200 && /<(urlset|sitemapindex)/i.test(smText), sitemapIsIndex: isIndex,
+    pageInSitemap: sm.status === 200 && !isIndex ? (smText.includes(`<loc>${pageUrl}</loc>`) || smText.includes(`<loc>${bare(pageUrl)}</loc>`) || smText.includes(`<loc>${bare(pageUrl)}/</loc>`)) : null,
+    rawStatus: raw.type === "opaqueredirect" ? 301 : raw.status, pageRedirects: raw.type === "opaqueredirect",
+    xRobotsTag: h("x-robots-tag"), rawTextWords: htmlText(rawFollow.text).split(" ").filter(Boolean).length,
+    compressed: /gzip|br|zstd|deflate/i.test(h("content-encoding")) || null, cacheControl: h("cache-control"), hsts: !!h("strict-transport-security"),
+    contentType: h("content-type"), llmsTxt: llms.status === 200 && !/<html/i.test(llms.text || ""), llmsBytes: (llms.text || "").length,
+    soft404Status: bogus.status, httpVariant,
   };
 }

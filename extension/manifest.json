@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SEO God Mode: SEO, AEO & GEO Checker",
   "short_name": "SEO God Mode",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Check any page for SEO, AEO and AI-search (GEO) issues, get step-by-step fixes and Claude prompts, and prove the before/after.",
   "minimum_chrome_version": "116",
   "action": {

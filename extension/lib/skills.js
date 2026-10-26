@@ -24,6 +24,15 @@ export const SKILL_MAP = {
   aibots: GEO, sources: GEO, eeat: GEO,
   bing: { guide: "workflows/bing-webmaster.md", cmd: "python scripts/integrations/bing.py url-info --site <site> --url {url}" },
   sameas: { guide: "workflows/apple-business-connect.md" }, where: LOCAL, contact: LOCAL,
+  status: TECH, sitemapdecl: { guide: "workflows/indexing.md" }, insitemap: { guide: "workflows/indexing.md", cmd: "python scripts/sitemap/sitemap_check.py <sitemap url>" },
+  canonicalself: TECH, mixed: TECH, refresh: TECH, hreflang: TECH, url: { guide: "skills/vendor/marketingskills/site-architecture/SKILL.md" },
+  titlebrand: ONPAGE, h1title: ONPAGE, emptyh: ONPAGE, lang: TECH, basics: TECH, twitter: ONPAGE, textratio: TECH,
+  internal: { guide: "workflows/on-page-seo.md", cmd: "python scripts/links/link_check.py <crawl.json>" }, anchors: ONPAGE, nofollowint: ONPAGE,
+  imgformat: TECH, imgresp: TECH, cls: TECH, ttfb: TECH, lcplazy: TECH, weight: TECH, compression: TECH, zoom: TECH,
+  schemaany: SCHEMA, breadcrumb: SCHEMA, website: SCHEMA, article: SCHEMA, selfreview: SCHEMA, entityfields: SCHEMA, authority: GEO,
+  imagepreview: ANSWER, definition: ANSWER, passages: { guide: "skills/vendor/geo-seo-claude/geo-citability/SKILL.md" }, longparas: ANSWER,
+  lists: ANSWER, reading: { guide: "skills/vendor/marketingskills/copy-editing/SKILL.md" }, freshness: { guide: "workflows/content-strategy.md" },
+  userbots: GEO, aboutcontact: LOCAL, authoritylinks: GEO, stats: GEO, proof: { guide: "workflows/local-seo.md" }, llms: GEO,
 };
 
 export const guideUrl = (id) => (SKILL_MAP[id]?.guide ? doc(SKILL_MAP[id].guide) : REPO);

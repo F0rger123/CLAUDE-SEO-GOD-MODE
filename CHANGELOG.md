@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.7.0 (2026-10-26): extension 1.2: 78 checks, Tools tab, animated UI; marketingskills
+
+- **78 checks** (was 33). SEO 50: crawl/index, on-page, links and images, speed, structured data. AEO 12. GEO 16. Ideas drawn from claude-seo, geo-optimizer (citability), marketingskills `ai-seo`, and Google's AI features guide.
+- **Tools tab:** Google result preview with pixel-measured title width, share preview, heading outline, schema inspector (Rich Results and schema.org links), a 17-crawler access table, links, images, page facts, quick links.
+- **UI:** Overview tab (biggest wins, a per-area segment map, page facts), filterable and searchable Issues, sliding tab indicator, count-up scores, dial and bar animations, staggered rows, smooth expand, toast confirmations, staged scan progress, an empty state. Reduced motion respected.
+- **Exports:** scan JSON, checks CSV, issue list.
+- **A live run caught false positives, now fixed:** brand-in-title ignores "Co./LLC/Inc"; knowledge-graph profiles accept maps.google/g.page/Yelp/BBB; text-to-code ratio excludes scripts; quotable paragraphs needs 3 (not 30%); the definition check reads the first paragraphs and the description; compression is UNKNOWN when the browser hides it.
+- **Skill:** vendored 9 skills from coreyhaines31/marketingskills (MIT): site-architecture, programmatic-seo, link-building, directory-submissions, copywriting, copy-editing, cro, competitor-profiling, ai-seo. Ryze and geo-optimizer were re-checked with no content changes. Illyism still has no license and stays uncopied.
+
 ## 2.6.0 (2026-10-26): extension 1.1: new look, download button, skill links, Web Store kit
 
 - New design: fog, navy and ultramarine palette (no orange). One overall dial plus SEO/AEO/GEO bars, a segmented tab control, quiet issue rows, and evidence labels in plain words (Measured, Estimate, Not measured). Light and dark modes. The proof report, rating report and README banner share the palette.

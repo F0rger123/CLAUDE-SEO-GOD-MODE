@@ -3,7 +3,9 @@
 A side panel that scans the page you're on for **SEO, AEO (answer engines) and GEO (AI search)**, explains each problem with step-by-step fixes for your platform, writes **ready-to-paste Claude prompts** to fix them, and keeps **before/after proof** you can hand to a client.
 
 <p>
-  <img src="../assets/extension-fix.png" alt="Scan results with fix steps" width="300">
+  <img src="../assets/extension-overview.png" alt="Overview" width="260">
+  <img src="../assets/extension-fix.png" alt="Issues with fix steps" width="260">
+  <img src="../assets/extension-tools.png" alt="Tools: search preview" width="260">
   <img src="../assets/extension-proof.png" alt="Before and after proof" width="300">
   <img src="../assets/extension-claude.png" alt="Claude prompt" width="300">
 </p>
@@ -17,22 +19,26 @@ A side panel that scans the page you're on for **SEO, AEO (answer engines) and G
 
 The first scan of each site asks for access to that site. The extension needs it to read the page, `robots.txt` and the sitemap. It works with Chrome 116+ and other Chromium browsers (Edge, Brave, Arc).
 
-## What it checks (33 checks)
+## What it checks (78 checks)
 
 | Area | Checks |
 |---|---|
-| **SEO** | title, meta description, one H1, heading order, canonical, noindex, viewport and lang, image alt text and dimensions, social share tags, HTTPS, http→https redirect, robots.txt (Googlebot/Bingbot), sitemap, real 404s, valid JSON-LD, content depth, load speed in this visit (LCP, CLS), render-blocking scripts |
-| **AEO** | snippet eligibility (Google's AI Overviews requirement), question-style headings, a direct answer near the top, FAQ content that matches its schema, scannable sections, content present in raw HTML (not JavaScript-only) |
-| **GEO** | AI search crawlers allowed (OAI-SearchBot, PerplexityBot, Claude-SearchBot, Googlebot, Bingbot), business/organization schema, sameAs profiles, location or service area, contact details, cited sources, author/date signals, Bing access |
+| **SEO** (50) | **Crawl & index:** noindex, HTTP status, robots.txt, sitemap (exists, listed in robots.txt, includes this page), real 404s, canonical (present, single, self-referencing), HTTPS, http→https, mixed content, meta refresh, raw-HTML content, hreflang. **On-page:** title length and brand, meta description, one H1, H1/title match, heading order, empty headings, clean URL, lang, doctype/charset/favicon, Open Graph, Twitter card, content depth, text-to-code ratio. **Links & images:** internal links, descriptive anchors, nofollow on internal links, alt text, dimensions, WebP/AVIF, srcset. **Speed:** LCP, CLS, TTFB, lazy-loaded hero image, render-blocking scripts, requests and DOM size, compression, mobile viewport. **Structured data:** valid JSON-LD, any schema, breadcrumbs, WebSite, complete Article, no self-serving review stars |
+| **AEO** (12) | Snippet eligibility, large image previews, a direct answer up top, a definition sentence ("X is a…"), question headings, FAQ matching its schema, quotable paragraphs, no walls of text, H2 sections, lists/tables, plain-language reading level, freshness |
+| **GEO** (16) | AI search crawlers, AI user-fetch agents, Bing access, business schema, complete entity details, sameAs, knowledge-graph profiles (Maps, LinkedIn, Wikidata), location, contact details, About/Contact links, author/date, outside sources, authoritative sources, specific figures, reviews/testimonials, llms.txt (info only) |
 
 Scores are out of 100 per area. **Overall = 60% SEO + 20% AEO + 20% GEO**, the same weighting as the repo's `rate_site.py`. Every result is tagged **OBSERVED** (measured on the live page), **INFERRED** (a stated heuristic) or **UNKNOWN** (couldn't measure). Nothing is guessed.
 
 ## Tabs
 
-- **Fix:** failed checks ranked by how many points each one is worth. Open a check to see why it matters, steps tailored to the detected platform (WordPress, Shopify, Wix, Squarespace, Webflow, Next.js, Astro), and a **Copy Claude prompt** button.
+- **Overview:** the five biggest wins, a per-area breakdown (one bar segment per check; tap a row to jump to those issues), and quick page facts.
+- **Issues:** every failed check grouped by area, with SEO/AEO/GEO filters, search, and a "show passing" toggle.
+- **Tools:** Google result preview (title width measured in pixels), share preview, heading outline, schema inspector with Rich Results and schema.org links, a 17-crawler access table (search, user-fetch and AI-training bots), links table, images table, page facts, and quick links (PageSpeed, `site:` searches, ask ChatGPT/Perplexity about the brand, Apple Maps).
+
+- **Fix steps:** failed checks ranked by how many points each one is worth. Open a check to see why it matters, steps tailored to the detected platform (WordPress, Shopify, Wix, Squarespace, Webflow, Next.js, Astro), and a **Copy Claude prompt** button.
 - **Passed:** what to keep.
 - **Before / after:** mark a scan as **BEFORE**, make the fixes, scan again. The tab shows score changes and every check that was fixed, improved or regressed. **Download proof report** saves a dated, self-contained HTML page for the client.
-- **Claude prompt:** one "fix everything" prompt in priority order, with built-in rules: no invented facts (`[CONFIRM]` placeholders), keep the design, verify the live page after deploying, and do CDN-level HTTPS changes in the CDN settings rather than in code.
+- **Claude:** exports (scan JSON, checks CSV, issue list) plus one "fix everything" prompt in priority order, with built-in rules: no invented facts (`[CONFIRM]` placeholders), keep the design, verify the live page after deploying, and do CDN-level HTTPS changes in the CDN settings rather than in code.
 
 ## Privacy
 

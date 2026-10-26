@@ -26,11 +26,13 @@ const good = (base) => ({
 <link rel="canonical" href="${base}/"><meta property="og:title" content="Summit Ridge Roofing"><meta property="og:description" content="Roofing in York, PA">
 <meta property="og:image" content="${base}/og.webp"><meta name="author" content="Sam Ridge">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "RoofingContractor", name: "Summit Ridge Roofing",
-  telephone: "+1-717-555-0142", areaServed: ["York, PA"], sameAs: ["https://www.facebook.com/x", "https://www.linkedin.com/company/x", "https://maps.apple.com/?q=x"] })}</script>
+  url: `${base}/`, logo: `${base}/logo.png`, description: "Roofing contractor in York, PA.", telephone: "+1-717-555-0142", areaServed: ["York, PA"], sameAs: ["https://www.facebook.com/x", "https://www.linkedin.com/company/x", "https://maps.apple.com/?q=x"] })}</script>
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: [{ "@type": "Question", name: "How much does a roof replacement cost?", acceptedAnswer: { "@type": "Answer", text: "It depends." } }] })}</script>
 </head><body><main><h1>Summit Ridge Roofing</h1>
 <p>Summit Ridge Roofing is a roofing contractor in York, PA that repairs and replaces residential roofs for homeowners across York County, with free inspections, written estimates and a ten-year workmanship warranty.</p>
-<h2>How much does a roof replacement cost?</h2><p>${words}</p><h2>What areas do you serve?</h2><p>${words}</p>
+<nav><a href="/about/">About us</a> <a href="/contact/">Contact</a> <a href="/services/">Roof services</a></nav>
+<p>Updated <time datetime="${new Date().toISOString().slice(0, 10)}">recently</time>. Over 15 years in business and 1,200 roofs replaced; read our 300 reviews.</p>
+<h2>How much does a roof replacement cost?</h2><p>${words}</p><ul><li>Inspection</li><li>Written estimate</li><li>Installation</li></ul><h2>What areas do you serve?</h2><p>${words}</p>
 <img src="/roof.webp" alt="New roof" width="800" height="600"><a href="tel:+17175550142">Call</a> <a href="https://www.energystar.gov/">Source</a></main></body></html>`,
 });
 const bad = {
@@ -84,22 +86,41 @@ const { srv: s2, base: badBase } = await serve((b) => (state === "bad" ? bad : g
 const g = await scanVia(goodBase + "/");
 const b = await scanVia(badBase + "/");
 console.log("good", g.scores, "bad", b.scores);
+const gFails = await g.panel.$$eval("#tab-issues .issue", (els) => els.map((e) => e.querySelector(".name").textContent + " | " + e.querySelector(".sub").textContent));
+console.log("good fails:", gFails);
 for (const k of ["overall", "seo", "aeo", "geo"]) assert.ok(g.scores[k] > b.scores[k] + 15, `good beats bad on ${k}`);
 assert.ok(g.scores.geo >= 85, "good GEO >= 85");
 
 // issues and prompts
-const fixNames = await b.panel.$$eval("#tab-fix .issue .name", (els) => els.map((e) => e.textContent));
-for (const want of ["Title tag 25–60 characters", "Exactly one H1", "AI search crawlers allowed", "Business/organization schema"]) assert.ok(fixNames.includes(want), `bad lists "${want}"`);
+await b.panel.click('#tabs button[data-tab="issues"]');
+const fixNames = await b.panel.$$eval("#tab-issues .issue .name", (els) => els.map((e) => e.textContent));
+for (const want of ["Title tag 25–60 characters", "Exactly one H1", "AI search crawlers allowed", "Business/organization schema", "Says what it is ('X is…')", "Canonical tag present", "Lists or tables", "Links to About and Contact"]) assert.ok(fixNames.includes(want), `bad lists "${want}"`);
 const prompt = await b.panel.$eval("#tab-prompt pre", (e) => e.textContent);
+// tools render
+for (const t of ["serp", "outline", "schema", "crawlers", "links", "images", "facts", "quick"]) {
+  await b.panel.click('#tabs button[data-tab="tools"]'); await b.panel.click(`[data-tool="${t}"]`);
+  assert.ok(await b.panel.$(".tool"), `tool ${t} renders`);
+}
+await g.panel.bringToFront(); await g.panel.click('#tabs button[data-tab="tools"]'); await g.panel.click('[data-tool="serp"]');
+await g.panel.waitForTimeout(600);
+await g.panel.evaluate(() => document.querySelector("#tab-tools").scrollIntoView());
+await g.panel.screenshot({ path: path.join(here, "..", "..", "assets", "extension-tools.png") });
+await b.panel.click('[data-tool="crawlers"]');
+assert.match(await b.panel.$eval(".tool", (e) => e.textContent), /OAI-SearchBot\s*search\s*blocked/);
 assert.match(prompt, /\[CONFIRM/); assert.match(prompt, /AI search crawlers allowed/); assert.match(prompt, /Cloudflare/);
 
 // screenshot: Claude prompt tab
 await b.panel.click('#tabs button[data-tab="prompt"]');
 await b.panel.screenshot({ path: path.join(here, "..", "..", "assets", "extension-claude.png") });
-await b.panel.click('#tabs button[data-tab="fix"]');
 
+// screenshot: overview
+await b.panel.click('#tabs button[data-tab="overview"]');
+await b.panel.waitForTimeout(1100);
+await b.panel.screenshot({ path: path.join(here, "..", "..", "assets", "extension-overview.png") });
 // screenshot: issues with the first one expanded
-await b.panel.click("#tab-fix .issue summary");
+await b.panel.click('#tabs button[data-tab="issues"]');
+await b.panel.click("#tab-issues .issue summary");
+await b.panel.waitForTimeout(600);
 await b.panel.screenshot({ path: path.join(here, "..", "..", "assets", "extension-fix.png") });
 
 // before/after proof: set baseline, fix the site, rescan

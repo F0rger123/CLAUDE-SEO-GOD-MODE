@@ -64,10 +64,12 @@ From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_
 
 ## 🧩 Chrome extension: scan any page, fix it, prove it
 
-A side panel with 33 SEO, AEO and GEO checks for the page you're on. It gives fix steps for your platform, a **Copy Claude prompt** button on every issue, a "fix everything" prompt, and **before/after proof** with a downloadable report for clients. It runs locally and sends no data anywhere.
+A side panel with 78 SEO, AEO and GEO checks for the page you're on, plus 8 tools (Google result preview, heading outline, schema inspector, AI-crawler table, links, images, page facts, quick links). It gives fix steps for your platform, a **Copy Claude prompt** button on every issue, a "fix everything" prompt, and **before/after proof** with a downloadable report for clients. It runs locally and sends no data anywhere.
 
 <p>
-  <img src="assets/extension-fix.png" alt="Extension: issues with fix steps" width="280">
+  <img src="assets/extension-overview.png" alt="Extension: overview" width="240">
+  <img src="assets/extension-fix.png" alt="Extension: issues with fix steps" width="240">
+  <img src="assets/extension-tools.png" alt="Extension: tools" width="240">
   <img src="assets/extension-proof.png" alt="Extension: before and after proof" width="280">
 </p>
 
@@ -215,6 +217,7 @@ flowchart LR
 | `geo-optimizer` | [Auriti-Labs/geo-optimizer-skill](https://github.com/Auriti-Labs/geo-optimizer-skill) | AI-readiness score 0–100 |
 | `seo-intelligence` | [Trementdv/seo-intelligence-skill](https://github.com/Trementdv/seo-intelligence-skill) | Evidence rules (OBSERVED/INFERRED/RECOMMENDED/UNKNOWN) and checklists |
 | `geo-citability`, `geo-brand-mentions`, `geo-platform-optimizer`, `geo-prospect`, `geo-proposal`, `geo-compare` | [zubair-trabzada/geo-seo-claude](https://github.com/zubair-trabzada/geo-seo-claude) | Passage citability scoring, off-site brand presence, per-AI-platform tips, and agency prospect/proposal/compare tools (caveats in its ATTRIBUTION.md) |
+| `site-architecture`, `programmatic-seo`, `link-building`, `directory-submissions`, `copywriting`, `copy-editing`, `cro`, `competitor-profiling`, `ai-seo` | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) | Site structure, pages at scale, link building, software directories, copy and conversion, competitor profiles, multi-platform AI SEO |
 
 ### Companion plugin (installed alongside, not copied)
 

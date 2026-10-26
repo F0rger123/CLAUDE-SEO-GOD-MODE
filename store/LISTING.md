@@ -13,7 +13,8 @@ Everything to paste into the Chrome Web Store Developer Dashboard. Upload file: 
 ```
 Find out why a page isn't showing up in Google or AI answers, fix it, and prove it worked.
 
-SEO God Mode scans the page you're on with 33 checks across three areas:
+SEO God Mode scans the page you're on with 78 checks across three areas, and adds 8 tools: a Google result preview, share preview, heading outline, schema inspector, AI-crawler access table, links and images tables, and quick links.
+
 • SEO: title, meta description, headings, canonical, indexing, robots.txt, sitemap, real 404s, HTTPS, image alt text, social share tags, load speed in your visit.
 • AEO (answer engines): whether Google can quote the page, question-style headings, a direct answer near the top, FAQ content that matches its schema, and content that's readable without JavaScript.
 • GEO (AI search): whether ChatGPT, Perplexity and Claude search crawlers can reach the page, business details, profile links, location, contact details, sources, author and date.
