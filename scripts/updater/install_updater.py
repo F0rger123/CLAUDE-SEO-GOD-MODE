@@ -83,12 +83,26 @@ def newer(a: str, b: str) -> bool:
     return pa + [0] * (3 - len(pa)) > pb + [0] * (3 - len(pb))
 
 
+def vkey(tag: str) -> list[int]:
+    """Version from a tag like extension-v1.10.0, as numbers (so 1.10.0 sorts above 1.8.0)."""
+    try:
+        return [int(x) for x in str(tag).removeprefix("extension-v").split(".")]
+    except ValueError:
+        return [-1]
+
+
+def pick_release(releases: list) -> dict:
+    """The highest extension release by version number. GitHub's list order isn't by version."""
+    ok = [x for x in releases if str(x.get("tag_name", "")).startswith("extension-v") and not x.get("draft") and not x.get("prerelease")]
+    return max(ok, key=lambda x: vkey(x["tag_name"]))
+
+
 def latest_asset() -> tuple[str, str | None]:
     """The newest extension release's zip URL and GitHub's SHA-256 digest for it (from the GitHub API)."""
     req = urllib.request.Request(API, headers={"User-Agent": "seo-god-mode-updater", "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=30) as r:
         releases = json.loads(r.read().decode("utf-8"))
-    rel = next(x for x in releases if str(x.get("tag_name", "")).startswith("extension-v") and not x.get("draft") and not x.get("prerelease"))
+    rel = pick_release(releases)
     asset = next(a for a in rel["assets"] if a["name"] == "seo-god-mode-extension.zip")
     digest = (asset.get("digest") or "").removeprefix("sha256:") or None
     return asset["browser_download_url"], digest

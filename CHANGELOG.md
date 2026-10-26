@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.15.1 (2026-10-26): extension 1.10.1: updates find the real newest version
+
+- **Fixed:** the one-click updater and the extension's "Check again" took the first release in GitHub's list as the newest. GitHub listed 1.8.0 above 1.10.0, so both reported 1.8.0 and never offered 1.10. They now compare version numbers.
+
 ## 2.15.0 (2026-10-26): extension 1.10: rating colours, delete what you track, finishes its own updates
 
 - **Rating colours on the black and white base:** green for good (85+, passing, top 3), amber for fair (65 to 84, partial, 4 to 10), red for poor (under 65, failing, below 10). Scores, bars, dials, check marks, search positions, the hover card's score and the labels and launcher on Google use them. Everything else stays black and white.

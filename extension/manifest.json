@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SEO God Mode - Free Agentic SEO, AEO & GEO Audit",
   "short_name": "SEO God Mode",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "description": "Rate a site for SEO, AEO and AI search (GEO): plain summary, step-by-step fixes, a fix prompt to copy, and before/after proof.",
   "minimum_chrome_version": "116",
   "action": {

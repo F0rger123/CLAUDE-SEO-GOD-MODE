@@ -76,6 +76,10 @@ class UpdaterTest(unittest.TestCase):
         self.assertFalse((d.parent / "escape.txt").exists())
         self.assertFalse(self.m.update(Path(self.tmp.name), "1.0.0", self.base + "/new.zip")["ok"], "refuses a folder that isn't the extension")
 
+    def test_picks_highest_version_not_list_order(self):
+        rels = [{"tag_name": "extension-v1.8.0"}, {"tag_name": "extension-v1.10.0"}, {"tag_name": "extension-v1.9.0", "draft": True}, {"tag_name": "v2.0.0"}]
+        self.assertEqual(self.m.pick_release(rels)["tag_name"], "extension-v1.10.0")
+
     def test_native_messaging_protocol(self):
         d = self.ext()
         home = Path(tempfile.mkdtemp(dir=self.tmp.name))
