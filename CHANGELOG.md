@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.10.1 (2026-10-26): extension 1.5.1: Compete checked against real Google pages
+
+Ran the reader on a live Google results page, a business panel and a Google Maps place page (in a normal Chrome session) and fixed what didn't match:
+- Review count on the search panel read 9522 instead of 522 (Google prints "4.9522 Google reviews" with the rating glued on); it now reads the element that holds only the count.
+- Category on the panel included the rating text; now just the category ("Roofing contractor").
+- "Own this business?" was treated as unclaimed, but Google shows it on claimed profiles too. Only "Claim this business" now counts as unclaimed.
+- The description came from the service-area field; it now reads the owner's description. Posts, booking links and social profiles are read from the panel's own fields.
+- Map pack entries hidden under "more places" had names and categories run together; review counts like "3K" now read as 3000.
+- Icon glyphs before addresses are stripped.
+Confirmed correct on the live pages: organic results (ads skipped), People also ask, related searches, map pack ratings and counts, and every Maps field (rating, reviews, category, address, phone, website, hours, photos, posts, booking).
+
 ## 2.10.0 (2026-10-26): extension 1.5: Compete, Business Profile audit, Track with history charts, one-click updates
 
 - **Compete view:** reads the Google results page you open (it never searches by itself): your position, the top results with directories and ads skipped, the map pack. **Compare** fetches the top pages and compares 21 on-page factors with yours, then lists where they're ahead with fixes, topic gaps, questions to answer (People also ask and their headings), a content brief, and a fix prompt. Backlinks and domain age are listed as not measured.
