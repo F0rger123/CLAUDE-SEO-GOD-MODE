@@ -1,5 +1,6 @@
 // End-to-end test: loads the real extension in Chromium and scans a GOOD and a BAD local fixture site through the
-// side panel UI, in both views (whole site and this page). It also checks that the whole-site rating matches the
+// side panel UI, in both views (whole site and this page), then the Compete view on a stand-in Google results page and
+// Maps-style business panel (served locally; the real Google is never contacted), the Track view and the update check. It also checks that the whole-site rating matches the
 // skill's own `python scripts/rate_site.py` score for score and check for check, then fixes the bad site and checks
 // the before/after proof.
 //
@@ -74,7 +75,7 @@ function serve(pagesFor, { blockUA = () => false } = {}) {
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sgm-ext-"));
 fs.cpSync(extSrc, path.join(tmp, "ext"), { recursive: true, filter: (s) => !s.includes(`${path.sep}tests`) });
 const mf = JSON.parse(fs.readFileSync(path.join(tmp, "ext", "manifest.json"), "utf8"));
-mf.host_permissions = ["http://127.0.0.1/*", "https://127.0.0.1/*"];
+mf.host_permissions = ["https://*/*", "http://*/*"];
 fs.writeFileSync(path.join(tmp, "ext", "manifest.json"), JSON.stringify(mf));
 const ctx = await chromium.launchPersistentContext(path.join(tmp, "profile"), {
   channel: "chromium", headless: true,
@@ -197,6 +198,93 @@ await b.panel.click('#tabs button[data-tab="issues"]');
 await b.panel.click("#tab-issues .issue summary");
 await b.panel.waitForTimeout(600);
 await b.panel.screenshot({ path: path.join(repo, "assets", "extension-fix.png") });
+
+// ================================================================ Compete: stand-in Google pages (routed locally)
+const rival = goodBase.replace("127.0.0.1", "localhost");
+const serpHtml = `<!doctype html><html><head><title>roof repair york pa - Google Search</title></head><body>
+<div id="tads"><div data-text-ad="1"><a href="https://ads.example.com/"><h3>Sponsored roofer</h3></a></div></div>
+<div id="search"><div id="rso">
+ <div class="g" data-hveid="1"><a href="https://www.yelp.com/search?find_desc=roofers"><h3>Top 10 Roofers in York, PA - Yelp</h3></a><div class="VwiC3b">Directory</div></div>
+ <div class="g" data-hveid="2"><a href="${rival}/"><h3>Summit Ridge Roofing: Roof Repair &amp; Replacement, York PA</h3></a><div class="VwiC3b">Roof repair in York.</div></div>
+ <div class="g" data-hveid="3"><a href="${rival}/services/"><h3>Roof Replacement and Repair Services in York, PA</h3></a></div>
+ <div class="g" data-hveid="4"><a href="${badBase}/"><h3>Hi</h3></a></div>
+ <div jsname="x"><div class="related-question-pair" data-q="How much does roof repair cost in York PA?"></div><div class="related-question-pair" data-q="How long does a roof repair take?"></div></div>
+</div>
+<div class="VkpGBb"><div role="heading">Summit Ridge Roofing</div><span role="img" aria-label="Rated 4.9 out of 5,"></span> (212) · Roofing contractor</div>
+<div class="VkpGBb"><div role="heading">Keystone Roofers</div><span role="img" aria-label="Rated 4.6 out of 5,"></span> (87) · Roofing contractor</div>
+</div>
+<div id="rhs"><div data-attrid="title">Hi Roofing</div><div data-attrid="subtitle">Roofing contractor</div>
+ <span role="img" aria-label="Rated 3.9 out of 5"></span><span>14 Google reviews</span>
+ <div data-attrid="kc:/location/location:address">Address: 1 Main St, York, PA</div><div data-attrid="kc:/collection/knowledge_panels/has_phone:phone">Phone: (717) 555-0100</div>
+ <a href="${badBase}/">Website</a><a href="#">Claim this business</a></div>
+<div id="botstuff"><a href="/search?q=roof+repair+cost">roof repair cost</a><a href="/search?q=emergency+roof+repair">emergency roof repair</a></div>
+</body></html>`;
+await ctx.route("https://www.google.com/search*", (route) => route.fulfill({ status: 200, contentType: "text/html", body: serpHtml }));
+await ctx.route("https://suggestqueries.google.com/**", (route) => { const q = new URL(route.request().url()).searchParams.get("q");
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([q, q.startsWith("how much") ? ["how much does roof repair york pa cost", "how much does roof repair cost per square"] : [q + " near me", "is " + q + " covered by insurance"]]) }); });
+await ctx.route("https://api.github.com/repos/**", (route) => route.fulfill({ status: 200, contentType: "application/json",
+  body: JSON.stringify([{ tag_name: "extension-v9.9.0", draft: false, prerelease: false, body: "Test release", html_url: "https://example.com" }]) }));
+
+const cp = bs.panel;
+await cp.bringToFront();
+await cp.evaluate(() => chrome.storage.local.remove("updateCheck"));
+// Track the bad site first, so Compete knows "your website" and records its position.
+await cp.click('#mode [data-mode="track"]');
+await cp.waitForSelector("#addsite");
+await cp.fill("#newsite", badBase);
+await cp.click("#addsite button");
+await cp.waitForSelector(".tcard");
+await cp.click("#rescanall");
+await cp.waitForFunction(() => /\d/.test(document.querySelector(".tcard .tscore")?.textContent || ""), null, { timeout: 60000 });
+assert.match(await cp.$eval("#updatecard", (e) => e.textContent), /9\.9\.0 is out/);
+// Open the stand-in results page in the site tab and analyze it.
+await bs.site.goto("https://www.google.com/search?q=roof+repair+york+pa", { waitUntil: "load" });
+await cp.click('#mode [data-mode="compete"]');
+await cp.waitForSelector(".serphead", { timeout: 15000 });
+const head = await cp.$eval(".serphead", (e) => e.textContent);
+assert.match(head, /roof repair york pa/); assert.match(head, /#4/);
+assert.equal(await cp.$$eval(".serplist li.dir", (e) => e.length), 1, "Yelp marked as a directory");
+assert.doesNotMatch(await cp.$eval(".serplist", (e) => e.textContent), /Sponsored/, "ads skipped");
+await cp.click("#cmp");
+await cp.waitForSelector("#rankout .factor, #rankout .lede", { timeout: 60000 });
+const behind = await cp.$$eval("#rankout .factor b", (els) => els.map((e) => e.textContent));
+console.log("why they rank: behind on", behind);
+for (const want of ["Search words in the title", "Question headings answered", "Business schema (LocalBusiness/Organization)"]) assert.ok(behind.includes(want), `behind on ${want}`);
+assert.match(await cp.$eval("#rankout", (e) => e.textContent), /How much does roof repair cost in York PA\?/);
+const noToast = () => cp.evaluate(() => document.getElementById("toast").classList.remove("on"));
+await cp.evaluate(() => window.scrollTo(0, 0)); await noToast(); await cp.waitForTimeout(400);
+await cp.screenshot({ path: path.join(repo, "assets", "extension-compete.png") });
+// Keyword ideas
+await cp.click('[data-sub="ideas"]');
+await cp.waitForSelector("#kwf");
+assert.equal(await cp.$eval("#kw", (e) => e.value), "roof repair york pa");
+await cp.click("#kwf button");
+await cp.waitForSelector("#ideasout .ideas", { timeout: 30000 });
+const ideasText = await cp.$eval("#ideasout", (e) => e.textContent);
+assert.match(ideasText, /Questions people ask/); assert.match(ideasText, /how much does roof repair york pa cost/); assert.match(ideasText, /Title/);
+assert.match(ideasText, /emergency roof repair/, "related searches from the results page are included");
+// Business profile from the panel beside the results
+await cp.click('[data-sub="biz"]');
+await cp.waitForSelector(".bizhead");
+const biz = await cp.$eval("#sub", (e) => e.textContent);
+assert.match(biz, /Hi Roofing/); assert.match(biz, /Claim this business/); assert.match(biz, /14 reviews vs map pack median/);
+await noToast(); await cp.waitForTimeout(300);
+await cp.screenshot({ path: path.join(repo, "assets", "extension-business.png") });
+// Track detail: score chart and the recorded keyword position
+await cp.click('#mode [data-mode="track"]');
+await cp.waitForSelector(".tcard");
+await cp.click(".tcard");
+await cp.waitForSelector("svg.chart");
+const detail = await cp.$eval("#view", (e) => e.textContent);
+assert.match(detail, /roof repair york pa/); assert.match(detail, /#4/);
+const exported = JSON.parse(await cp.evaluate(async () => (await import("./lib/track.js")).exportAll()));
+assert.ok(exported.data.tracked.length === 1 && Object.keys(exported.data).some((k) => k.startsWith("kwpos:")), "export has sites and positions");
+await noToast(); await cp.waitForTimeout(300);
+await cp.screenshot({ path: path.join(repo, "assets", "extension-track.png") });
+await noClaude(cp, "compete and track views");
+await bs.site.goto(badBase + "/", { waitUntil: "load" });
+await cp.click('#mode [data-mode="site"]');
+await cp.waitForSelector(".dial .n");
 
 // ================================================================ before/after proof (whole site)
 await bs.panel.bringToFront();

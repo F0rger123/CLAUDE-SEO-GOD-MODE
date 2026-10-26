@@ -7,6 +7,8 @@ import { potentials, summaryText } from "./lib/summary.js";
 import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proof.js";
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
+import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
+import { renderCompete, renderTrack, updateBanner } from "./views.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -62,6 +64,7 @@ async function scan() {
       scan = { mode, page, site, ...score(page, site) };
     }
     state.scan = await saveScan(scan);
+    if (mode === "site" && (await trackedFor(page.origin))) await addScorePoint((await trackedFor(page.origin)).origin, state.scan);
     state.fresh = true;
     render();
   } catch (e) {
@@ -135,9 +138,15 @@ function renderSummary() {
   const text = summaryText(s);
   $("summary").hidden = false;
   $("summary").innerHTML = `<p id="say" class="say" aria-label="${esc(text)}"></p>
-    <div class="btns">${n ? `<button id="fixall" class="primary">Copy fix prompt</button>` : ""}<button id="seeall">${n ? `See all ${n} fixes` : "See every check"}</button></div>`;
+    <div class="btns">${n ? `<button id="fixall" class="primary">Copy fix prompt</button>` : ""}<button id="seeall">${n ? `See all ${n} fixes` : "See every check"}</button><span id="trackbtn"></span></div>`;
   typeOut($("say"), text);
   if (n) $("fixall").onclick = () => copy(fixAllPrompt(s), "Fix prompt copied");
+  if (isSite()) trackedFor(s.page.origin).then((t) => {
+    const el = $("trackbtn"); if (!el) return;
+    el.innerHTML = t ? `<button class="linkish" id="seetrack">Tracked: see history</button>` : `<button id="dotrack">Track this site</button>`;
+    if (t) $("seetrack").onclick = () => setMode("track");
+    else $("dotrack").onclick = async () => { const o = await trackSite(s.page.origin); await addScorePoint(o, s); toast("Tracking this site"); renderSummary(); };
+  });
   $("seeall").onclick = () => { state.showPassing = !n; state.fresh = false; renderIssues(); showTab("issues"); $("tabs").scrollIntoView({ behavior: reduced ? "auto" : "smooth" }); };
 }
 
@@ -207,6 +216,7 @@ function renderIssues() {
 
 function renderTools() {
   const { page, site } = state.scan;
+  if (page.pageless || !site) { $("tab-tools").innerHTML = `<p class="lede">This scan ran from the Track view, so the page tools are empty. Open the site and scan it to use them.</p>`; return; }
   const tool = TOOLS.find((t) => t[0] === state.tool) || TOOLS[0];
   $("tab-tools").innerHTML = `<div class="subnav">${TOOLS.map(([id, label]) => `<button data-tool="${id}" class="${id === tool[0] ? "on" : ""}">${label}</button>`).join("")}</div>${tool[2](page, site)}`;
   $("tab-tools").querySelectorAll("[data-tool]").forEach((b) => (b.onclick = () => { state.tool = b.dataset.tool; renderTools(); }));
@@ -317,11 +327,25 @@ function scanLabel() {
 }
 
 /** Switch between whole site and this page, and show the last saved scan for that view. */
+const helpers = { toast, copy: (t, m) => copy(t, m), notice, download, activeTab, setMode: (m) => setMode(m) };
+
 async function setMode(mode) {
   state.mode = mode;
   document.querySelectorAll("#mode button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
   try { await chrome.storage.local.set({ mode }); } catch {}
   notice("");
+  const extra = mode === "compete" || mode === "track";
+  document.body.classList.toggle("viewmode", extra);
+  $("view").hidden = !extra;
+  for (const id of ["scan", "empty", "scores", "summary", "tabs"]) if (extra) $(id).hidden = true;
+  document.querySelectorAll(".tab").forEach((t) => extra && (t.hidden = true));
+  if (extra) {
+    $("scan").hidden = true;
+    $("url").textContent = mode === "compete" ? "Who ranks, why, and what to change" : "Your sites over time";
+    return mode === "compete" ? renderCompete(helpers) : renderTrack(helpers);
+  }
+  $("scan").hidden = false;
+  showTab(document.querySelector("#tabs button.on")?.dataset.tab || "overview");
   const tab = await activeTab();
   if (!tab?.url || !/^https?:/i.test(tab.url)) { scanLabel(); return; }
   $("url").textContent = mode === "site" ? new URL(tab.url).origin : tab.url;
@@ -341,4 +365,8 @@ async function setMode(mode) {
   let mode = "site";
   try { mode = (await chrome.storage.local.get("mode")).mode || "site"; } catch {}
   await setMode(mode);
+  updateBanner($("updbar"), helpers);
 })();
+// Re-read the page when the user switches tabs or a Google page finishes loading, so Compete stays current.
+chrome.tabs.onActivated.addListener(() => state.mode === "compete" && renderCompete(helpers));
+chrome.tabs.onUpdated.addListener((id, info) => info.status === "complete" && state.mode === "compete" && renderCompete(helpers));

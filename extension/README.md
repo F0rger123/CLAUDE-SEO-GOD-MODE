@@ -10,6 +10,9 @@ The whole-site rating is the skill's own `rate_site.py` rubric, ported to the br
   <img src="../assets/extension-tools.png" alt="Tools: search preview" width="260">
   <img src="../assets/extension-proof.png" alt="Before and after proof" width="260">
   <img src="../assets/extension-prompt.png" alt="Fix prompt" width="260">
+  <img src="../assets/extension-compete.png" alt="Compete: why they rank" width="260">
+  <img src="../assets/extension-business.png" alt="Business profile audit" width="260">
+  <img src="../assets/extension-track.png" alt="Track: score and keyword history" width="260">
 </p>
 
 ## Install (2 minutes, no store needed)
@@ -21,10 +24,29 @@ The whole-site rating is the skill's own `rate_site.py` rubric, ported to the br
 
 The first scan of each site asks for access to that site (both its `www` and non-`www` address, so the redirect check works). It works with Chrome 116+ and other Chromium browsers (Edge, Brave, Arc).
 
-## Two views
+## Four views
 
-- **Whole site** (default): crawls up to 30 pages the way the skill does, then scores 39 checks with rubric v2.0. Fixes are ranked the same way as the skill (points gained × impact) and list the affected pages.
-- **This page:** 78 detailed checks on the page you're viewing, plus 8 tools.
+- **Site** (default): crawls up to 30 pages the way the skill does, then scores 39 checks with rubric v2.0. Fixes are ranked the same way as the skill (points gained × impact) and list the affected pages. Shows your score now and your potential score after the fixes.
+- **Page:** 78 detailed checks on the page you're viewing, plus 8 tools.
+- **Compete:** why other pages outrank you, keyword ideas, and a Google Business Profile audit (below).
+- **Track:** the websites you follow, with score history and keyword positions over time.
+
+## Compete
+
+Search what you want to rank for on Google as normal, open the panel and pick **Compete**. The extension reads the results page you opened; it never runs searches by itself.
+
+- **Why they rank:** where your site sits ("#4" or "not in the top 10"), the top results with directories (Yelp, Angi, Houzz…) and ads skipped, and the map pack. **Compare** reads the top pages and puts each factor side by side with yours: search words in the title, H1, opening paragraph, subheadings, description and URL; depth, sections, questions, lists; business, FAQ, review and breadcrumb schema; internal and source links; phone link; alt text; server speed; HTTPS; text readable without JavaScript. You get "where they're ahead" with the fix for each, topics they cover that you don't, questions to answer (People also ask plus their headings), a **content brief** (target length and sections, topics, questions, schema), and a **Copy fix prompt**. Backlinks, domain age and clicks are listed as not measured.
+- **Keyword ideas:** type a keyword and your page. It expands the keyword with Google autocomplete (plus People also ask and related searches when you're on that results page), groups ideas into questions, buyer searches, comparisons and related, shows whether your title, headings and body cover each one, and lists the changes to make. Ideas show what people type, not volumes.
+- **Business profile:** open your business on Google Maps, or search its name so the panel shows beside the results. It checks whether the profile is claimed, the primary category, rating and review count against the map pack, website link, phone, address or service area, hours, photos, description, posts, Q&A, and keyword-stuffed names, then gives a fix prompt. Anything not visible on screen shows grey instead of a guess.
+
+## Track
+
+Add any website (yours or a competitor's) and press **Rescan**. Every whole-site scan of a tracked site adds a point to its score chart (overall, SEO, AEO, GEO), and every Google search you analyze in Compete records where each tracked site ranks, so you get a keyword position chart too. Click a site for its full history, keywords and scans. History is stored in Chrome on your computer (with unlimited storage) and survives updates; **Export history** backs it up and **Import history** merges it on another computer.
+
+## Updates
+
+- **From the Chrome Web Store:** Chrome updates it automatically.
+- **Unpacked (Load unpacked):** the Track view shows when a new version is out. Either download the zip, unzip it over your extension folder and press **Reload extension**, or turn on **one-click updates** once: allow the updater, paste the command it shows into a terminal (needs Python 3). After that, **Update now** downloads the release, installs it into the same folder and reloads. Your history is kept either way, because it lives in Chrome's storage, not in the folder. Remove the helper with `python "%LOCALAPPDATA%/SEOGodMode/updater.py" --uninstall` (macOS/Linux: `~/.seo-god-mode/updater.py`).
 
 ## The summary
 
@@ -60,7 +82,7 @@ Scores are out of 100 per area. **Overall = 60% SEO + 20% AEO + 20% GEO.** Every
 
 ## Privacy
 
-Scans run in your browser and history stays in `chrome.storage.local` on your device. The extension requests pages only from the site you scan, except one call: a whole-site scan asks **Google PageSpeed Insights** to test the homepage URL (skipped for local addresses). The CDN/firewall check briefly sets a crawler user-agent on requests to that homepage. There's no analytics and no account. Full policy: [docs/PRIVACY.md](../docs/PRIVACY.md).
+Scans run in your browser and history stays in `chrome.storage.local` on your device. Outside the site you scan, it only contacts: Google PageSpeed Insights (the homepage URL, on whole-site scans), the Google results or Maps page you open (read on screen, only when you use Compete), the pages ranking there (to compare them), Google autocomplete (the keyword you type, for keyword ideas), and GitHub (to check for updates). The CDN/firewall check briefly sets a crawler user-agent on requests to that homepage. There's no analytics and no account. Full policy: [docs/PRIVACY.md](../docs/PRIVACY.md).
 
 ## Limits
 
@@ -69,6 +91,7 @@ Scans run in your browser and history stays in `chrome.storage.local` on your de
 
 ## Develop
 
+- Compete and Track: `views.js`, `lib/google.js` (reads results pages and business panels), `lib/compete.js` (comparisons, keyword ideas, profile audit), `lib/track.js` (history and charts), `lib/update.js` and `scripts/updater/install_updater.py` (updates).
 - Code: `lib/siterate.js` (whole-site rating, a port of `scripts/rate_site.py`), `lib/pyparse.js` (HTML facts read the way the skill's Python parsers read them), `lib/collect.js` (runs in the page), `lib/site.js` (robots.txt with Google's matching rules), `lib/rubric.js` (page checks), `lib/summary.js` (typed summary), `lib/prompts.js`, `lib/proof.js`, `sidepanel.*`.
 - **Change a whole-site check:** change `scripts/rate_site.py` and `lib/siterate.js` together. The parity test fails until they agree.
 - **Add a page check:** one entry in `CHECKS` in `lib/rubric.js`, then extend the fixtures in `tests/e2e.mjs`.

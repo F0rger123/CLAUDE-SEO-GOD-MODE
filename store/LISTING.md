@@ -24,11 +24,15 @@ What you get:
 • Issues ranked by how many points each fix adds.
 • Step-by-step fixes for WordPress, Shopify, Wix, Squarespace, Webflow, Next.js and Astro.
 • A fix prompt to copy for every issue, plus one that fixes everything in order, ready to paste into your AI assistant. Prompts list the affected pages, include ready-made snippets, tell the AI never to invent facts, and say to check the live site after changes.
+• Compete: open any Google search and see why the top pages outrank yours, factor by factor, with a content brief.
+• Keyword ideas from Google autocomplete, with the changes your page needs.
+• Google Business Profile audit: claimed, category, reviews vs the map pack, hours, photos, description and more.
+• Track your sites and competitors: score history and keyword positions over time, with charts.
 • Before/after proof: save a "before" scan, make your fixes, scan again, and download a dated report for your client or boss.
 
 Honest by design: every result is labeled as measured, an estimate, or not measured. Scores describe page health and AI-search readiness, not rankings.
 
-Private: scans run in your browser and history stays on your computer. The only outside request is Google PageSpeed Insights for the homepage on whole-site scans.
+Private: scans run in your browser and history stays on your computer. Outside requests: Google PageSpeed Insights for the homepage, the pages ranking on the Google search you analyze, and Google autocomplete for the keyword you type.
 
 Built by Agency Zero (theagencyzero.com). Same scoring as the free, open-source SEO God Mode skill, which adds Search Console and Bing data and client tracking: github.com/F0rger123/CLAUDE-SEO-GOD-MODE
 ```
@@ -60,6 +64,8 @@ Checks the website the user is viewing for SEO, answer-engine and AI-search read
 | scripting | Runs the read-only page check (titles, headings, structured data, images, links) in the tab the user is scanning. |
 | storage | Saves the user's scan results on their device so they can compare before and after. |
 | sidePanel | Shows the scan results, fix steps and before/after comparison in Chrome's side panel. |
+| unlimitedStorage | Keeps the user's long-term score and keyword-position history for the websites they choose to track, on their device. |
+| nativeMessaging (optional) | Only if the user turns on one-click updates for an unpacked install: talks to the small updater they installed. Store installs never ask for it. |
 | declarativeNetRequestWithHostAccess | For one homepage request per search crawler, sets that crawler's user-agent so the scan can tell whether the site's firewall blocks AI search crawlers. The rule is removed right after the request and only applies to the site being scanned. |
 | Host permissions (optional, requested per site) | Requested only for the site the user scans (its www and non-www address), to fetch its pages, robots.txt, sitemap and a test URL. A whole-site rating can't be done from one page. |
 

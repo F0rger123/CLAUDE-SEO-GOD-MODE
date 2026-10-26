@@ -49,7 +49,7 @@ After the interview, before installing, give a plain-English breakdown so they k
 - **Competitors:** "I'll find the businesses that show up when people search your services in your towns, rate them the same way, and show where they beat you and what they cover that you don't. We use that as a checklist, never copying their content."
 - **Search demand:** "I'll check what people actually search around your services and flag searches no page on your site answers."
 - **The loop (optional):** "Once Search Console is connected, a weekly check finds the few changes most likely to get more clicks, makes them, and measures 4 weeks later which ones worked."
-- **Chrome extension (optional, free):** "Rate any site from your browser and copy a fix prompt: https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"
+- **Chrome extension (optional, free):** "Rate any site from your browser, see why competitors outrank you on any Google search, audit your Google Business Profile, track scores and keyword positions over time, and copy a fix prompt: https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"
 - **What to set up:** list only the ones they said they can do (Search Console, Bing Webmaster Tools, a free PageSpeed API key), each with one line on what it unlocks. Nothing is required to start.
 
 ## Step 2A — Install for local coding agents

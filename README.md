@@ -66,13 +66,16 @@ From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_
 
 ## 🧩 Chrome extension: rate any site, fix it, prove it
 
-**Free**, no account. A side panel that rates the **whole site** with the same crawl, 39 checks and scores as `rate_site.py` (a test keeps them identical), or checks **one page** with 78 checks and 8 tools. It shows your score **now** and your **potential** score after the fixes, and types out a plain-English summary: the verdict, the biggest wins, what to set up, and what already works. Every issue has fix steps, the affected pages and a **Copy fix prompt** button, and **before/after proof** gives you a downloadable report for clients. It runs in your browser; the only outside call is PageSpeed Insights for the homepage.
+**Free**, no account. Four views: **Site**, **Page**, **Compete** (why other pages outrank you on the Google search you open, keyword ideas, a Google Business Profile audit) and **Track** (score history and keyword positions for every site you follow, with charts). It updates itself in one click. A side panel that rates the **whole site** with the same crawl, 39 checks and scores as `rate_site.py` (a test keeps them identical), or checks **one page** with 78 checks and 8 tools. It shows your score **now** and your **potential** score after the fixes, and types out a plain-English summary: the verdict, the biggest wins, what to set up, and what already works. Every issue has fix steps, the affected pages and a **Copy fix prompt** button, and **before/after proof** gives you a downloadable report for clients. It runs in your browser; the only outside call is PageSpeed Insights for the homepage.
 
 <p>
   <img src="assets/extension-overview.png" alt="Extension: whole-site scores and typed summary" width="240">
   <img src="assets/extension-fix.png" alt="Extension: issues with fix steps" width="240">
   <img src="assets/extension-tools.png" alt="Extension: tools" width="240">
   <img src="assets/extension-proof.png" alt="Extension: before and after proof" width="280">
+  <img src="assets/extension-compete.png" alt="Extension: why competitors rank" width="240">
+  <img src="assets/extension-business.png" alt="Extension: Google Business Profile audit" width="240">
+  <img src="assets/extension-track.png" alt="Extension: score and keyword history" width="240">
 </p>
 
 <p><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"><img src="https://img.shields.io/badge/Download-Chrome%20extension%20(.zip)-2f3fbf?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download the Chrome extension"></a></p>

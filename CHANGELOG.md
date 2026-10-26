@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.10.0 (2026-10-26): extension 1.5: Compete, Business Profile audit, Track with history charts, one-click updates
+
+- **Compete view:** reads the Google results page you open (it never searches by itself): your position, the top results with directories and ads skipped, the map pack. **Compare** fetches the top pages and compares 21 on-page factors with yours, then lists where they're ahead with fixes, topic gaps, questions to answer (People also ask and their headings), a content brief, and a fix prompt. Backlinks and domain age are listed as not measured.
+- **Keyword ideas:** Google autocomplete expansion (plus People also ask and related searches), grouped into questions, buyer searches, comparisons and related, with title/heading/body coverage for your page and the changes to make.
+- **Business Profile audit:** from a Google Maps place page or the panel beside search results: claimed, category, rating and reviews vs the map pack, website, phone, address, hours, photos, description, posts, Q&A, name stuffing. Fields not on screen stay grey.
+- **Track view:** follow any number of sites; every whole-site scan adds a score point and every analyzed search records each site's position. Charts for score and keyword history, per-site keyword lists, rescan all, export/import. `unlimitedStorage` so history keeps growing.
+- **Updates:** the extension checks GitHub Releases daily and shows a banner. Unpacked installs can turn on one-click updates (`scripts/updater/install_updater.py`, a native messaging helper that installs the release into the same folder and reloads). History is kept across updates.
+- Tests: the e2e test drives Compete on a locally served stand-in for a Google results page, the profile audit, Track and the update check; `tests/test_updater.py` covers the helper (protocol, version check, refusing foreign or path-escaping zips).
+
 ## 2.9.0 (2026-10-26): competitor and search-demand checks in the loop; extension 1.4 (potential score, free, built by Agency Zero)
 
 - **`scripts/loop/compete.py`:** `find` (the service × area searches to run, plus Google autocomplete phrasing), `add` (save a competitor), `scan` (rate you and up to 5 competitors with the `rate_site.py` rubric; list checks they beat you on, topic and page gaps, customer-question gaps and schema gaps), `trends` (autocomplete phrasing, Bing search volumes and trend if connected, rising Search Console queries, and which searches no page answers).

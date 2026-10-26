@@ -87,6 +87,10 @@ def main():
                                      "No invented facts: unknowns are marked to confirm"], a / "extension-prompt.png", "screenshot-2.png")
     shot(["Prove the", "before and after"], ["Save a before scan, fix, scan again", "See every check that was fixed or slipped",
                                              "Download a dated report for your client"], a / "extension-proof.png", "screenshot-3.png")
+    shot(["Why do they", "outrank me?"], ["Open any Google search, compare the top pages", "Keyword ideas and a content brief",
+                                          "Google Business Profile audit"], a / "extension-compete.png", "screenshot-6.png")
+    shot(["Track it", "over time"], ["Score history for every site you follow", "Keyword positions with charts",
+                                     "Export and import your history"], a / "extension-track.png", "screenshot-7.png")
     promo()
     print("Wrote", ", ".join(sorted(p.name for p in OUT.glob("*.png"))))
 
