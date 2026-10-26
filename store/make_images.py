@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = Path(__file__).resolve().parent / "images"
-NAVY, NAVY2, INK, MUTED, ACCENT = (15, 20, 32), (22, 29, 44), (232, 236, 245), (160, 170, 190), (142, 156, 255)
+NAVY, NAVY2, INK, MUTED, ACCENT = (0, 0, 0), (20, 20, 20), (255, 255, 255), (160, 160, 160), (255, 255, 255)
 
 
 def font(size, bold=False):

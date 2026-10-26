@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.13.0 (2026-10-26): extension 1.8: black and white redesign, hosting and tech, step-by-step Track new, clearer Compete
+
+- **Fixed:** "Check for updates and due rescans" and the "Show on Google results" switch failed with "Could not establish connection. Receiving end does not exist." They sent a message to the background worker, which wasn't listening (for example after the files were replaced without a reload). Both now run in the panel itself (`lib/daily.js`, shared with the worker's daily alarm), so they work whatever state the worker is in. Hover cards on a Google page opened before an update now say to reload the page instead of showing the raw error.
+- **Black and white redesign:** inverted black header, black pill buttons, switches, and no status colours. How complete a check is shows as how filled its mark is (solid passing, half partial, hollow failing); chart lines are told apart by dash pattern. The Google hover cards and labels match. Dark mode swaps black and white.
+- **Hosting and tech:** Site, Track and the Google hover cards show what a site is built with (WordPress, Shopify, Wix, Webflow, Next.js and 30+ more), its hosting and CDN (Cloudflare, Vercel, Netlify, WP Engine, Kinsta, AWS...), web server, DNS and email providers (from public DNS records via dns.google), and tracking tools (GA4, Tag Manager, Meta Pixel, CallRail...).
+- **Compete** opens on a home screen: where your site ranks for every search you've made (position, change, when checked), suggested keywords, and three tools. Each tool opens by itself with "‹ Compete" to go back, and long results fold away. Suggestions and keyword ideas leave out keywords you already track or have searched, and say how many were left out.
+- **Track new site** walks through adding a site one step at a time: address, what it is to you (my business, a client, a competitor), whose competitor, and which searches it should rank for (suggested from its pages). "Add a competitor" on a business uses the same steps.
+- **Settings** replaces the On Google tab: Google overlay, reminders, updates ("Check again" also recounts sites due a rescan and sets the badge) and export/import.
+
 ## 2.12.0 (2026-10-26): extension 1.7: SEO God Mode on Google, detected keywords, auto-rescan, notifications, verified updates
 
 - **On Google** view (replaces the Page button; single-page scans moved to Site → "Just this page"). Once turned on, Google results get role labels with positions, hover cards (quick 0–100 rating, keywords the page targets, why it shows for the search, gaps), a launcher that opens Compete, and automatic position recording for tracked sites. Built in a Shadow DOM with text only; nothing fetched is injected as HTML.

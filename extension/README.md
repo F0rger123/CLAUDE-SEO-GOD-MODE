@@ -13,6 +13,9 @@ The whole-site rating is the skill's own `rate_site.py` rubric, ported to the br
   <img src="../assets/extension-compete.png" alt="Compete: why they rank" width="260">
   <img src="../assets/extension-business.png" alt="Business profile audit" width="260">
   <img src="../assets/extension-track.png" alt="Track: score and keyword history" width="260">
+  <img src="../assets/extension-compete-home.png" alt="Compete home: where you rank and suggested keywords" width="260">
+  <img src="../assets/extension-tracknew.png" alt="Track new site, step by step" width="260">
+  <img src="../assets/extension-settings.png" alt="Settings: On Google, reminders, updates" width="260">
 </p>
 
 ## Install (2 minutes, no store needed)
@@ -26,17 +29,23 @@ The first scan of each site asks for access to that site (both its `www` and non
 
 ## Four views
 
-- **Site** (default): crawls up to 30 pages the way the skill does, then scores 39 checks with rubric v2.0. Fixes are ranked the same way as the skill (points gained × impact) and list the affected pages. Shows your score now and your potential score after the fixes. **Just this page** switches to 78 detailed checks on the page you're viewing, plus 8 tools.
-- **On Google:** turn on SEO God Mode right on Google results (below).
-- **Compete:** why other pages outrank you, keyword ideas, and a Google Business Profile audit (below).
-- **Track:** the websites you follow, with score history and keyword positions over time.
+- **Site** (default): crawls up to 30 pages the way the skill does, then scores 39 checks with rubric v2.0. Fixes are ranked the same way as the skill (points gained × impact) and list the affected pages. Shows your score now and your potential score after the fixes, plus the site's **hosting and tech**. **Just this page** switches to 78 detailed checks on the page you're viewing, plus 8 tools.
+- **Compete:** where you rank for every search you've made, suggested keywords, and three tools: why other pages outrank you, keyword ideas, and a Google Business Profile audit (below).
+- **Track:** the websites you follow, with score history, keyword positions, hosting and tech. **Track new site** adds one step by step.
+- **Settings:** SEO God Mode on Google results (below), reminders, updates, and export/import.
+
+The panel is black and white. How complete a check is shows as how filled its mark is: solid means passing, half means partial, hollow means failing.
+
+## Hosting and tech
+
+For any site you scan or track, and on every Google hover card: what it's built with (WordPress, Shopify, Wix, Squarespace, Webflow, Framer, Next.js, Astro and more, plus page builders like Elementor), its hosting and CDN (Cloudflare, Vercel, Netlify, WP Engine, Kinsta, AWS, Google Cloud and more), the web server, the DNS and email providers (from public DNS records), and tracking tools (GA4, Tag Manager, Meta Pixel, Clarity, CallRail...). Everything comes from the homepage's headers and code and from public DNS; a host worked out from name servers is marked "probably".
 
 ## On Google
 
-Turn it on once in the **On Google** view. Then every Google search shows:
+Turn it on once in **Settings → On Google**. Then every Google search shows:
 
 - **Labels** on results that are your business, a client or a competitor, with their position ("Client · #4").
-- **Hover cards:** rest the mouse on any result for a quick rating (0–100, an estimate from that one page), the keywords that page targets, why it shows for this search (title match, business schema, FAQ markup, depth…) and its gaps.
+- **Hover cards:** rest the mouse on any result for a quick rating (0–100, an estimate from that one page), the keywords that page targets, why it shows for this search (title match, business schema, FAQ markup, depth…), its hosting and what it's built with, and its gaps.
 - A **launcher** in the corner with your position for the search; click it to open the full comparison in Compete.
 - **Automatic position tracking:** each search records where your tracked sites rank, for the charts in Track.
 
@@ -46,21 +55,23 @@ You can switch hover cards and automatic positions off, and turn on **notificati
 
 Search what you want to rank for on Google as normal, open the panel and pick **Compete**. The extension reads the results page you opened; it never runs searches by itself.
 
+Compete opens on a home screen: **where your site ranks** for every search you've made (position, change since last time, when it was checked), **suggested keywords**, and the three tools. Each tool opens on its own with **‹ Compete** to go back, and long results (every factor, top pages, the brief) fold away until you open them. Opening Compete on a Google results page goes straight to Why they rank.
+
 - **Why they rank:** where your site sits ("#4" or "not in the top 10"), the top results with directories (Yelp, Angi, Houzz…) and ads skipped, and the map pack. **Compare** reads the top pages and puts each factor side by side with yours: search words in the title, H1, opening paragraph, subheadings, description and URL; depth, sections, questions, lists; business, FAQ, review and breadcrumb schema; internal and source links; phone link; alt text; server speed; HTTPS; text readable without JavaScript. You get "where they're ahead" with the fix for each, topics they cover that you don't, questions to answer (People also ask plus their headings), a **content brief** (target length and sections, topics, questions, schema), and a **Copy fix prompt**. Backlinks, domain age and clicks are listed as not measured.
-- **Suggested for your site:** Compete reads your own pages (titles, headings, Service and LocalBusiness schema) and suggests what you're trying to rank for, such as "roof repair york pa". One click searches it on Google, gets keyword ideas for it, or tracks it.
-- **Keyword ideas:** type a keyword and your page. It expands the keyword with Google autocomplete (plus People also ask and related searches when you're on that results page), groups ideas into questions, buyer searches, comparisons and related, shows whether your title, headings and body cover each one, and lists the changes to make. Ideas show what people type, not volumes.
+- **Suggested for your site:** Compete reads your own pages (titles, headings, Service and LocalBusiness schema) and suggests what you're trying to rank for, such as "roof repair york pa". Keywords you already track or have searched are left out, so every suggestion is new. One click searches it on Google, gets keyword ideas for it, or tracks it.
+- **Keyword ideas:** type a keyword and your page. It expands the keyword with Google autocomplete (plus People also ask and related searches when you're on that results page), groups ideas into questions, buyer searches, comparisons and related, shows whether your title, headings and body cover each one, and lists the changes to make. Ideas you already track are left out. Ideas show what people type, not volumes.
 - **Business profile:** open your business on Google Maps, or search its name so the panel shows beside the results. It checks whether the profile is claimed, the primary category, rating and review count against the map pack, website link, phone, address or service area, hours, photos, description, posts, Q&A, and keyword-stuffed names, then gives a fix prompt. Anything not visible on screen shows grey instead of a guess.
 
 ## Track
 
-Mark each site you add as **My business**, **Client (I manage its SEO)** for agencies, or **Competitor** (linked to the business it competes with). The list is grouped that way. Open a business or client to see **You vs competitors**: everyone's latest Overall, SEO, AEO and GEO side by side, an overall-score chart with all of them, the checks where a competitor is clearly ahead (with the fix and points it's worth to you, plus a fix prompt), and a search-position table for your keywords across all of them. **Rescan** the business and its competitors in one go. In Compete, "+ Track" on any result adds that site as a competitor of the business you picked.
+**Track new site** asks one thing at a time: the address, what the site is to you, whose competitor it is (for competitors), and which searches it should rank for (suggested from its own pages; tick the ones that matter). Mark each site as **My business**, **Client (I manage its SEO)** for agencies, or **Competitor** (linked to the business it competes with). The list is grouped that way. Open a business or client to see **You vs competitors**: everyone's latest Overall, SEO, AEO and GEO side by side, an overall-score chart with all of them, the checks where a competitor is clearly ahead (with the fix and points it's worth to you, plus a fix prompt), and a search-position table for your keywords across all of them. **Rescan** the business and its competitors in one go. In Compete, "+ Track" on any result adds that site as a competitor of the business you picked.
 
 Add any website and it's scanned straight away. Every whole-site scan of a tracked site adds a point to its score chart (overall, SEO, AEO, GEO), and every Google search you analyze in Compete records where each tracked site ranks, so you get a keyword position chart too. Click a site for its full history, keywords and scans. History is stored in Chrome on your computer (with unlimited storage) and survives updates; **Export history** backs it up and **Import history** merges it on another computer.
 
 ## Updates
 
 - **From the Chrome Web Store:** Chrome updates it automatically.
-- **Unpacked (Load unpacked):** the Track view shows when a new version is out, when it last checked, and the newest version on GitHub; **Check again** asks GitHub right then. Either download the zip, unzip it over your extension folder and press **Reload extension**, or turn on **one-click updates** once: allow the updater, paste the command it shows into a terminal (needs Python 3). After that, **Update now** downloads the release, checks it against GitHub's SHA-256 checksum, installs it into the same folder and reloads. It refuses downloads from anywhere but GitHub, zips that aren't SEO God Mode, and files that would land outside the folder. Your history is kept either way, because it lives in Chrome's storage, not in the folder. Remove the helper with `python "%LOCALAPPDATA%/SEOGodMode/updater.py" --uninstall` (macOS/Linux: `~/.seo-god-mode/updater.py`).
+- **Unpacked (Load unpacked):** Settings shows when a new version is out, when it last checked, and the newest version on GitHub; **Check again** asks GitHub right then and recounts the tracked sites due a rescan. Either download the zip, unzip it over your extension folder and press **Reload extension**, or turn on **one-click updates** once: allow the updater, paste the command it shows into a terminal (needs Python 3). After that, **Update now** downloads the release, checks it against GitHub's SHA-256 checksum, installs it into the same folder and reloads. It refuses downloads from anywhere but GitHub, zips that aren't SEO God Mode, and files that would land outside the folder. Your history is kept either way, because it lives in Chrome's storage, not in the folder. Remove the helper with `python "%LOCALAPPDATA%/SEOGodMode/updater.py" --uninstall` (macOS/Linux: `~/.seo-god-mode/updater.py`).
 
 ## The summary
 

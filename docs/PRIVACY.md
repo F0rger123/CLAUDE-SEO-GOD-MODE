@@ -1,6 +1,6 @@
 # Privacy policy: SEO God Mode browser extension
 
-_Last updated: 2026-10-26 (extension 1.5)_
+_Last updated: 2026-10-26 (extension 1.8)_
 
 SEO God Mode ("the extension") checks web pages for SEO, AEO and AI-search readiness. It's published by Agency Zero (https://theagencyzero.com) as part of the open-source CLAUDE SEO GOD MODE project.
 
@@ -13,6 +13,8 @@ One request goes to a third party: a whole-site scan asks **Google PageSpeed Ins
 **Compete view (only when you use it):** it reads the Google search results page or Google Maps page you have open (what's on screen), loads the web pages ranking there to compare them with yours, and sends the keyword you type to Google autocomplete (`suggestqueries.google.com`) for keyword ideas. It never runs Google searches by itself.
 
 **On Google overlay (only if you turn it on):** it reads the Google results pages you open, and when you hover a result it loads that one page to rate it. If "record my positions" is on, it saves where your tracked sites rank for that search, on your computer. Notifications, if you allow them, are shown by Chrome on your computer.
+
+**Hosting and tech (Site, Track and hover cards):** to show what a site is built with and where it's hosted, the extension reads that site's homepage headers and code, and looks up the site's public name-server and mail-server records with Google Public DNS (`dns.google`). Only the domain name is sent.
 
 **Updates:** once a day it asks GitHub for the latest release number. If you turn on one-click updates, a small helper on your computer downloads the release zip from GitHub into the extension folder you chose. Nothing about you is sent.
 

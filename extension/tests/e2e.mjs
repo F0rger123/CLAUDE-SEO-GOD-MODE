@@ -65,7 +65,7 @@ function serve(pagesFor, { blockUA = () => false } = {}) {
     const p = req.url.split("?")[0];
     if (blockUA() && /OAI-SearchBot/.test(req.headers["user-agent"] || "")) { res.writeHead(403, { "content-type": "text/html" }); return res.end("Forbidden"); }
     if (pages[p] == null) { res.writeHead(404, { "content-type": "text/html" }); return res.end("<h1>Not found</h1>"); }
-    res.writeHead(200, { "content-type": p.endsWith(".txt") ? "text/plain" : p.endsWith(".xml") ? "application/xml" : "text/html" });
+    res.writeHead(200, { "content-type": p.endsWith(".txt") ? "text/plain" : p.endsWith(".xml") ? "application/xml" : "text/html", server: "cloudflare", "cf-ray": "8a1-IAD", "x-powered-by": "PHP/8.2" });
     res.end(pages[p]);
   });
   return new Promise((r) => srv.listen(0, "127.0.0.1", () => r({ srv, base: `http://127.0.0.1:${srv.address().port}` })));
@@ -230,15 +230,30 @@ await cp.bringToFront();
 await cp.evaluate(() => chrome.storage.local.remove("updateCheck"));
 // Track the bad site first, so Compete knows "your website" and records its position.
 await cp.click('#mode [data-mode="track"]');
-await cp.waitForSelector("#addsite");
-await cp.fill("#newsite", badBase);
-await cp.click("#addsite button");
+// "Track new site" walks through it one step at a time.
+await cp.click("#tracknew");
+await cp.fill("#wz-url", badBase);
+await cp.click("#wz-next");
+assert.match(await cp.$eval(".stepno", (e) => e.textContent), /Step 2 of/);
+await cp.click('[data-role="mine"]');
+await cp.screenshot({ path: path.join(repo, "assets", "extension-tracknew.png") });
+await cp.click("#wz-next");
+await cp.waitForSelector("#wz-kw");
+assert.match(await cp.$eval(".stepno", (e) => e.textContent), /Step 3 of 3/);
+await cp.fill("#wz-kw", "hi roofing york");
+await cp.click("#wz-next");
 await cp.waitForSelector(".tcard");
 // Adding a site scans it straight away (no Rescan click needed).
 await cp.waitForFunction(() => /\d/.test(document.querySelector(".tcard .tscore")?.textContent || ""), null, { timeout: 60000 });
+// Settings: updates. "Check again" runs in the panel (no message to the background worker) and shows the result.
+await cp.click('#mode [data-mode="google"]');
+await cp.waitForSelector("#updatecard .upd");
 assert.match(await cp.$eval("#updatecard", (e) => e.textContent), /9\.9\.0 is out/);
 await cp.click("#upcheck");
-await cp.waitForFunction(() => /Checked just now · newest release on GitHub: 9\.9\.0/.test(document.querySelector("#updatecard").textContent));
+await cp.waitForFunction(() => /Checked just now · newest release on GitHub: 9\.9\.0/.test(document.querySelector("#updatecard").textContent) && /due a rescan/.test(document.querySelector("#updatecard").textContent));
+assert.equal(await cp.evaluate(() => chrome.action.getBadgeText({})), "NEW");
+await cp.evaluate(() => document.getElementById("toast").classList.remove("on")); await cp.waitForTimeout(300);
+await cp.screenshot({ path: path.join(repo, "assets", "extension-settings.png") });
 // What does a site try to rank for? Detected from its own pages.
 const detected = await cp.evaluate(async (u) => (await import("./lib/compete.js")).detectTargets(u), goodBase + "/");
 console.log("detected targets:", detected.keywords.map((k) => k.keyword), detected.places);
@@ -261,7 +276,14 @@ const noToast = () => cp.evaluate(() => document.getElementById("toast").classLi
 await cp.evaluate(() => window.scrollTo(0, 0)); await noToast(); await cp.waitForTimeout(400);
 await cp.screenshot({ path: path.join(repo, "assets", "extension-compete.png") });
 // Keyword ideas
-await cp.click('[data-sub="ideas"]');
+// Each Compete tool opens by itself with a way back.
+await cp.click(".crumb .back");
+await cp.waitForSelector(".tiles");
+const home = await cp.$eval("#view", (e) => e.textContent);
+assert.match(home, /Where 127\.0\.0\.1 ranks/); assert.match(home, /roof repair york pa/); assert.match(home, /#4/);
+await cp.evaluate(() => { window.scrollTo(0, 0); document.getElementById("toast").classList.remove("on"); }); await cp.waitForTimeout(300);
+await cp.screenshot({ path: path.join(repo, "assets", "extension-compete-home.png") });
+await cp.click('.tile[data-sub="ideas"]');
 await cp.waitForSelector("#kwf");
 assert.equal(await cp.$eval("#kw", (e) => e.value), "roof repair york pa");
 await cp.click("#kwf button");
@@ -270,14 +292,16 @@ const ideasText = await cp.$eval("#ideasout", (e) => e.textContent);
 assert.match(ideasText, /Questions people ask/); assert.match(ideasText, /how much does roof repair york pa cost/); assert.match(ideasText, /Title/);
 assert.match(ideasText, /emergency roof repair/, "related searches from the results page are included");
 // Business profile from the panel beside the results
-await cp.click('[data-sub="biz"]');
+await cp.click(".crumb .back");
+await cp.click('.tile[data-sub="biz"]');
 await cp.waitForSelector(".bizhead");
 const biz = await cp.$eval("#sub", (e) => e.textContent);
 assert.match(biz, /Hi Roofing/); assert.match(biz, /Claim this business/); assert.match(biz, /14 reviews vs map pack median/);
 await noToast(); await cp.waitForTimeout(300);
 await cp.screenshot({ path: path.join(repo, "assets", "extension-business.png") });
 // Track a ranking site as a competitor straight from the results list.
-await cp.click('[data-sub="rank"]');
+await cp.click(".crumb .back");
+await cp.click('.tile[data-sub="rank"]');
 await cp.waitForSelector(".addcomp");
 await cp.click(`.addcomp[data-comp="${rival}"]`);
 // Track detail: roles, score chart, recorded keyword position, and the competitor comparison
@@ -293,7 +317,9 @@ await cp.waitForSelector("#cmpcopy", { timeout: 90000 });
 const cmpText = await cp.$eval("#view", (e) => e.textContent);
 assert.match(cmpText, /Where they're ahead/); assert.match(cmpText, /localhost beats you here/);
 // Mark the site as a client instead of "my business"; it stays an owned site with its competitors.
-await cp.click("details.json summary");
+await cp.waitForFunction(() => /Cloudflare \(CDN\)/.test(document.querySelector("#techout")?.textContent || "") && /PHP\/8\.2/.test(document.querySelector("#techout").textContent), null, { timeout: 30000 })
+  .catch(async (e) => { console.log("techout:", await cp.$eval("#techout", (x) => x.outerHTML).catch(() => "missing")); throw e; });
+await cp.click("#editbtn");
 await cp.selectOption("#editrole", "client");
 await cp.click("#saverole");
 await cp.waitForFunction(() => /Client \(I manage its SEO\)/.test(document.querySelector("#view").textContent));

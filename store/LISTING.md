@@ -24,7 +24,8 @@ What you get:
 • Issues ranked by how many points each fix adds.
 • Step-by-step fixes for WordPress, Shopify, Wix, Squarespace, Webflow, Next.js and Astro.
 • A fix prompt to copy for every issue, plus one that fixes everything in order, ready to paste into your AI assistant. Prompts list the affected pages, include ready-made snippets, tell the AI never to invent facts, and say to check the live site after changes.
-• On Google: hover any search result for a quick rating, the keywords it targets and why it ranks; your sites and competitors are labelled with their position.
+• On Google: hover any search result for a quick rating, the keywords it targets, why it ranks and where it's hosted; your sites and competitors are labelled with their position.
+• Hosting and tech: what any site is built with, its hosting, CDN, DNS and email providers, and its tracking tools.
 • Compete: open any Google search and see why the top pages outrank yours, factor by factor, with a content brief.
 • Keyword ideas from Google autocomplete, with the changes your page needs.
 • Google Business Profile audit: claimed, category, reviews vs the map pack, hours, photos, description and more.
@@ -33,7 +34,7 @@ What you get:
 
 Honest by design: every result is labeled as measured, an estimate, or not measured. Scores describe page health and AI-search readiness, not rankings.
 
-Private: scans run in your browser and history stays on your computer. Outside requests: Google PageSpeed Insights for the homepage, the pages ranking on the Google search you analyze, and Google autocomplete for the keyword you type.
+Private: scans run in your browser and history stays on your computer. Outside requests: Google PageSpeed Insights for the homepage, Google Public DNS for hosting details, the pages ranking on the Google search you analyze, and Google autocomplete for the keyword you type.
 
 Built by Agency Zero (theagencyzero.com). Same scoring as the free, open-source SEO God Mode skill, which adds Search Console and Bing data and client tracking: github.com/F0rger123/CLAUDE-SEO-GOD-MODE
 ```

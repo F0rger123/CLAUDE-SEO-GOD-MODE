@@ -25,7 +25,7 @@ function serp(p) {
   const u = new URL(p.url);
   const crumbs = [u.hostname.replace(/^www\./, ""), ...u.pathname.split("/").filter(Boolean)].join(" › ");
   return `<div class="tool"><h3>Google result preview</h3>
-    <div class="serp"><div class="serp-site"><span class="fav">${esc(u.hostname[0]?.toUpperCase())}</span><span><b>${esc(p.og.siteName || u.hostname.replace(/^www\./, ""))}</b><br><span class="crumb">${esc(crumbs)}</span></span></div>
+    <div class="serp"><div class="serp-site"><span class="fav">${esc(u.hostname[0]?.toUpperCase())}</span><span><b>${esc(p.og.siteName || u.hostname.replace(/^www\./, ""))}</b><br><span class="crumbtxt">${esc(crumbs)}</span></span></div>
     <div class="serp-title">${esc(cut(title, tFont, 600))}</div><div class="serp-desc">${esc(cut(desc, dFont, 920 * 1.0))}</div></div>
     <div class="facts">${tag(tw <= 600, `Title fits (${tw}px of 600)`, `Title cut off (${tw}px of 600)`)}${tag((p.description || "").length >= 70 && (p.description || "").length <= 160, `Description ${(p.description || "").length} chars`, p.description ? `Description ${(p.description || "").length} chars (aim 120–160)` : "No description")}</div></div>`;
 }
@@ -33,7 +33,7 @@ function serp(p) {
 function social(p) {
   const host = new URL(p.url).hostname.replace(/^www\./, "");
   return `<div class="tool"><h3>Share preview</h3><div class="card">${p.og.image ? `<img src="${esc(p.og.image)}" alt="" loading="lazy">` : `<div class="noimg">No og:image: shares show no picture</div>`}
-    <div class="card-body"><span class="crumb">${esc(host)}</span><b>${esc(p.og.title || p.title)}</b><span>${esc((p.og.description || p.description || "").slice(0, 120))}</span></div></div></div>`;
+    <div class="card-body"><span class="crumbtxt">${esc(host)}</span><b>${esc(p.og.title || p.title)}</b><span>${esc((p.og.description || p.description || "").slice(0, 120))}</span></div></div></div>`;
 }
 
 function outline(p) {

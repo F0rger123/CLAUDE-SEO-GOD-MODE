@@ -8,7 +8,7 @@ import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proo
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
 import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
-import { renderCompete, renderGoogle, renderTrack, updateBanner } from "./views.js";
+import { renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -185,11 +185,13 @@ function renderOverview() {
       ${s.results.some((r) => r.id === "site-perf" && /quota/.test(r.detail)) ? `<form id="psikey" class="keyform"><label for="psi">PageSpeed's free shared quota is used up, so speed is an estimate. Add your own free
         <a href="https://developers.google.com/speed/docs/insights/v5/get-started#APIKey" target="_blank" rel="noopener">PageSpeed API key</a> for real mobile scores. It stays on this computer.</label>
         <div class="row2"><input id="psi" class="search" type="password" autocomplete="off" placeholder="API key"><button class="primary">Save key</button></div></form>` : ""}
-      ${s.unknown?.length ? `<p class="unknowns">A public scan can't see: ${s.unknown.map(esc).join("; ")}.</p>` : ""}`
+      ${s.unknown?.length ? `<p class="unknowns">A public scan can't see: ${s.unknown.map(esc).join("; ")}.</p>` : ""}
+      <h2 class="sec">Hosting and tech</h2><div id="techout"><p class="lede">Looking it up…</p></div>`
     : `<h2 class="sec">This page</h2><div class="chips">
       <span class="chip"><b>${page.wordCount}</b> words</span><span class="chip">LCP <b>${page.lcpMs == null ? "–" : (page.lcpMs / 1000).toFixed(1) + "s"}</b></span>
       <span class="chip"><b>${page.internalLinks}</b> internal links</span><span class="chip"><b>${page.images.length}</b> images</span>
-      <span class="chip">Schema <b>${esc(types || "none")}</b></span></div>`;
+      <span class="chip">Schema <b>${esc(types || "none")}</b></span></div>
+      <h2 class="sec">Hosting and tech</h2><div id="techout"><p class="lede">Looking it up…</p></div>`;
   $("tab-overview").innerHTML = `<h2 class="sec">Biggest wins <small>points each fix adds</small></h2>
     ${failed.length ? `<div class="list">${failed.slice(0, 5).map((r, i) => issueRow(r, page, i)).join("")}</div>` : "<p class='lede'>Every measured check passed.</p>"}
     <h2 class="sec">By area <small>each bar is one check</small></h2><div class="areas">${areas}</div>${facts}`;
@@ -309,6 +311,7 @@ async function render() {
   renderOverview(); renderIssues(); renderTools(); renderPrompt();
   renderProof(await history(page.url, state.scan.mode));
   bindCopy($("tab-overview"));
+  showTech($("techout"), page.origin || new URL(page.url).origin);
   const kf = $("psikey");
   if (kf) kf.onsubmit = async (e) => { e.preventDefault(); const v = $("psi").value.trim(); if (!v) return;
     await chrome.storage.local.set({ psiKey: v }); kf.remove(); toast("Key saved. Scan again for real speed scores"); };
@@ -348,7 +351,7 @@ async function setMode(mode) {
   document.querySelectorAll(".tab").forEach((t) => extra && (t.hidden = true));
   if (extra) {
     $("scan").hidden = true;
-    $("url").textContent = { compete: "Who ranks, why, and what to change", track: "Your businesses, clients and competitors over time", google: "SEO God Mode right on Google results" }[mode];
+    $("url").textContent = { compete: "Who ranks, why, and what to change", track: "Your businesses, clients and competitors over time", google: "On Google, reminders, updates and your data" }[mode];
     return mode === "compete" ? renderCompete(helpers) : mode === "track" ? renderTrack(helpers) : renderGoogle(helpers);
   }
   $("scan").hidden = false;

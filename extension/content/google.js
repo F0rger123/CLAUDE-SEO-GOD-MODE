@@ -12,7 +12,7 @@
   const txt = (el) => (el?.innerText || el?.textContent || "").replace(/\s+/g, " ").trim();
   const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
   const query = new URLSearchParams(location.search).get("q") || "";
-  const ROLE = { mine: ["You", "#2f3fbf"], client: ["Client", "#0f7b6c"], competitor: ["Competitor", "#c2334d"] };
+  const ROLE = { mine: ["You", "solid"], client: ["Client", "solid"], competitor: ["Competitor", "outline"] };
   const DIR = /(^|\.)(yelp|angi|homeadvisor|houzz|thumbtack|bbb|facebook|instagram|linkedin|nextdoor|yellowpages|mapquest|reddit|youtube|wikipedia|amazon|tripadvisor|indeed|pinterest|quora)\.[a-z.]+$/i;
 
   function results() {
@@ -30,19 +30,24 @@
   }
 
   // ---- styles shared by every shadow root
-  const CSS = `:host{all:initial}*{box-sizing:border-box;font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
-  .chip{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:1px 8px;border-radius:99px;font:600 11px/1.6 "Segoe UI",system-ui,sans-serif;color:#fff;vertical-align:middle}
-  .card{position:fixed;z-index:2147483647;width:340px;max-height:70vh;overflow:auto;background:#fff;color:#121a2b;border:1px solid #d9dee8;border-radius:14px;box-shadow:0 12px 40px rgba(18,26,43,.18);padding:14px;font-size:13px;line-height:1.45}
-  @media (prefers-color-scheme:dark){.card{background:#161d2c;color:#e8ecf5;border-color:#263044}.muted{color:#8b95a8!important}}
-  .top{display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center}
-  .ring{width:54px;height:54px;border-radius:50%;border:5px solid #a67c00;display:grid;place-content:center;font-weight:750;font-size:17px}
-  .ring.good{border-color:#0f7b6c}.ring.bad{border-color:#c2334d}
-  .muted{color:#5d6779;font-size:12px}.h{font-weight:700;font-size:12px;margin:10px 0 4px}
-  ul{margin:0;padding-left:16px}li{margin:2px 0}.kw{display:flex;flex-wrap:wrap;gap:4px}.kw span{background:#e4e8f1;color:#121a2b;border-radius:99px;padding:1px 8px;font-size:12px}
-  button{font:600 12px "Segoe UI",system-ui,sans-serif;border:0;border-radius:8px;padding:7px 10px;background:#2f3fbf;color:#fff;cursor:pointer;margin-top:10px;width:100%}
-  .launch{position:fixed;right:18px;bottom:18px;z-index:2147483646;display:flex;align-items:center;gap:8px;background:#121a2b;color:#fff;border-radius:99px;padding:9px 14px;font:600 13px "Segoe UI",system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;border:0;width:auto;margin:0}
-  .launch i{width:10px;height:10px;transform:rotate(45deg);border-radius:2px;background:linear-gradient(135deg,#5262e6,#2f3fbf)}
-  .launch b{background:#fff;color:#121a2b;border-radius:99px;padding:0 7px}`;
+  const CSS = `:host{all:initial}*{box-sizing:border-box;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif}
+  .chip{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:1px 9px;border-radius:99px;font:700 11px/1.6 "Segoe UI",system-ui,sans-serif;vertical-align:middle;border:1.5px solid #000}
+  .chip.solid{background:#000;color:#fff}.chip.outline{background:#fff;color:#000}
+  .card{position:fixed;z-index:2147483647;width:340px;max-height:72vh;overflow:auto;background:#fff;color:#000;border:1px solid #000;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.22);padding:0;font-size:13px;line-height:1.45}
+  .top{display:grid;grid-template-columns:58px 1fr;gap:12px;align-items:center;background:#000;color:#fff;padding:14px}
+  .ring{width:58px;height:58px;border-radius:50%;border:5px solid #fff;display:grid;place-content:center;font:800 20px/1 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;letter-spacing:-.03em}
+  .ring.mid{border-color:#fff #fff #555 #555}.ring.bad{border-color:#fff #555 #555 #555}
+  .host{font:750 14px/1.25 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif}
+  .top .muted{color:#a8a8a8!important}.tech{color:#fff!important;margin-top:2px;font-size:12px}
+  .in{padding:4px 14px 14px}
+  .muted{color:#6b6b6b;font-size:12px}.h{font-weight:750;font-size:12px;margin:12px 0 5px}
+  ul{margin:0;padding-left:16px}li{margin:2px 0}.kw{display:flex;flex-wrap:wrap;gap:4px}.kw span{border:1px solid #cfcfcf;color:#000;border-radius:99px;padding:1px 9px;font-size:12px}
+  button{font:650 12.5px "Segoe UI",system-ui,sans-serif;border:0;border-radius:99px;padding:9px 12px;background:#000;color:#fff;cursor:pointer;margin-top:12px;width:100%}
+  button:hover{opacity:.85}
+  @media (prefers-color-scheme:dark){.card{background:#0d0d0d;color:#fff;border-color:#3a3a3a}.top{background:#fff;color:#000}.ring{border-color:#000}.ring.mid{border-color:#000 #000 #bbb #bbb}.ring.bad{border-color:#000 #bbb #bbb #bbb}.top .muted{color:#555!important}.tech{color:#000!important}.kw span{color:#fff;border-color:#3a3a3a}.muted{color:#9a9a9a}button{background:#fff;color:#000}}
+  .launch{position:fixed;right:18px;bottom:18px;z-index:2147483646;display:flex;align-items:center;gap:9px;background:#000;color:#fff;border-radius:99px;padding:10px 16px;font:700 13px "Segoe UI",system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);cursor:pointer;border:1px solid #333;width:auto;margin:0}
+  .launch i{width:10px;height:10px;transform:rotate(45deg);border-radius:2px;background:#fff}
+  .launch b{background:#fff;color:#000;border-radius:99px;padding:0 8px}`;
   const shadowHost = (tag = "span") => { const h = document.createElement(tag); const root = h.attachShadow({ mode: "open" }); const st = document.createElement("style"); st.textContent = CSS; root.append(st); return [h, root]; };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -66,21 +71,25 @@
     const ring = el("div", "ring", data?.score != null ? String(data.score) : "…");
     if (data?.score != null) ring.classList.add(data.score >= 80 ? "good" : data.score < 60 ? "bad" : "mid");
     const t = el("div");
-    t.append(el("div", "", host(r.url)), el("div", "muted", data?.score != null ? `Quick rating · ${data.words?.toLocaleString?.() ?? "?"} words · ${data.ms ?? "?"} ms` : "Reading the page…"));
+    t.append(el("div", "host", host(r.url)), el("div", "muted", data?.score != null ? `Quick rating · ${data.words?.toLocaleString?.() ?? "?"} words · ${data.ms ?? "?"} ms` : "Reading the page…"));
+    if (data?.tech?.line) t.append(el("div", "muted tech", data.tech.line));
     head.append(ring, t);
     card.append(head);
-    if (data?.needsAccess) card.append(el("p", "muted", "Allow SEO God Mode to read other websites (Compete → Compare in the side panel) to see quick ratings here."));
-    else if (data?.error || (data?.status && data.status !== 200)) card.append(el("p", "muted", `Couldn't read this page (${data.error || "HTTP " + data.status}).`));
+    const inner = el("div", "in");
+    card.append(inner);
+    const add = (...xs) => inner.append(...xs);
+    if (data?.needsAccess) add(el("p", "muted", "Allow SEO God Mode to read other websites (Compete → Compare in the side panel) to see quick ratings here."));
+    else if (data?.error || (data?.status && data.status !== 200)) add(el("p", "muted", `Couldn't read this page (${data.error || "HTTP " + data.status}).`));
     else if (data?.score != null) {
-      if (data.keywords?.length) { card.append(el("div", "h", "Keywords it targets")); const k = el("div", "kw"); data.keywords.forEach((w) => k.append(el("span", "", w))); card.append(k); }
-      card.append(el("div", "h", `Why it shows for “${query}”`));
-      const ul = el("ul"); (data.why.length ? data.why : ["No strong on-page match; likely links, reviews or brand strength (not measured)"]).forEach((w) => ul.append(el("li", "", w))); card.append(ul);
-      if (data.gaps?.length) { card.append(el("div", "h", "Gaps")); const g = el("ul"); data.gaps.forEach((w) => g.append(el("li", "", w))); card.append(g); }
-      card.append(el("p", "muted", "Estimate from this one page. Backlinks and reviews aren't measured."));
+      if (data.keywords?.length) { add(el("div", "h", "Keywords it targets")); const k = el("div", "kw"); data.keywords.forEach((w) => k.append(el("span", "", w))); add(k); }
+      add(el("div", "h", `Why it shows for “${query}”`));
+      const ul = el("ul"); (data.why.length ? data.why : ["No strong on-page match; likely links, reviews or brand strength (not measured)"]).forEach((w) => ul.append(el("li", "", w))); add(ul);
+      if (data.gaps?.length) { add(el("div", "h", "Gaps")); const g = el("ul"); data.gaps.forEach((w) => g.append(el("li", "", w))); add(g); }
+      add(el("p", "muted", "Estimate from this one page. Backlinks and reviews aren't measured."));
     }
     const b = el("button", "", "Compare all results in SEO God Mode");
     b.addEventListener("click", () => chrome.runtime.sendMessage({ type: "open" }));
-    card.append(b);
+    add(b);
     cardRoot.append(card);
   }
   function hover(r) {
@@ -88,7 +97,7 @@
       clearTimeout(timer);
       timer = setTimeout(async () => {
         show(r, null);
-        const data = await chrome.runtime.sendMessage({ type: "quick", url: r.url, query }).catch((e) => ({ error: String(e.message || e) }));
+        const data = await chrome.runtime.sendMessage({ type: "quick", url: r.url, query }).catch((e) => ({ error: /receiving end|context invalidated/i.test(e.message) ? "SEO God Mode was updated or restarted; reload this page" : String(e.message || e) }));
         if (card) show(r, data);
       }, 450);
     });
@@ -106,10 +115,10 @@
     list.forEach((r, i) => {
       const t = tracked.find((s) => host(s.origin) === host(r.url));
       if (t) {
-        const [label, color] = ROLE[t.role] || ROLE.mine;
+        const [label, look] = ROLE[t.role] || ROLE.mine;
         const [h, root] = shadowHost();
         h.dataset.sgm = "chip";
-        const c = el("span", "chip", `${label} · #${i + 1}`); c.style.background = color; root.append(c);
+        const c = el("span", "chip " + look, `${label} · #${i + 1}`); root.append(c);
         r.a.querySelector("h3")?.after(h);
         if (t.role !== "competitor" && !mine) mine = { name: t.name, pos: i + 1 };
       }
