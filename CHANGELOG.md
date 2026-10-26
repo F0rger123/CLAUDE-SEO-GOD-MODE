@@ -1,6 +1,8 @@
 # Changelog
 
-## 2.15.1 (2026-10-26): extension 1.10.1: updates find the real newest version
+## 2.15.1 (2026-10-26): extension 1.10.2: updates find the real newest version
+
+- **Fixed:** in Track new site, keywords you were typing were erased if the suggestions finished loading at that moment.
 
 - **Fixed:** the one-click updater and the extension's "Check again" took the first release in GitHub's list as the newest. GitHub listed 1.8.0 above 1.10.0, so both reported 1.8.0 and never offered 1.10. They now compare version numbers.
 

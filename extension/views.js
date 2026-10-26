@@ -450,7 +450,7 @@ async function renderWizard() {
       ${d === null ? `<p class="lede" id="wz-reading">Reading ${esc(hostOf(w.url))} to suggest keywords…</p>` : d.keywords?.length
         ? `<p class="lede">Worked out from its titles, headings and schema. Tick the ones that matter.</p><div class="checks">${d.keywords.map((k) => `<label class="check"><input type="checkbox" data-kw="${esc(k.keyword)}" ${w.kws.has(k.keyword) ? "checked" : ""}><span>${esc(k.keyword)}</span></label>`).join("")}</div>`
         : `<p class="lede">Couldn't suggest any${d.error ? ` (${esc(d.error)})` : ""}. Type some below, or skip.</p>`}
-      <div class="field"><label for="wz-kw">Add your own (comma separated)</label><input id="wz-kw" class="search" placeholder="roof repair york pa, metal roofing"></div>`;
+      <div class="field"><label for="wz-kw">Add your own (comma separated)</label><input id="wz-kw" class="search" placeholder="roof repair york pa, metal roofing" value="${esc(w.typed || "")}"></div>`;
   }
   el.innerHTML = `${head}<div class="wizard">${body}</div>
     <div class="wznav">${w.step ? `<button id="wz-prev">Back</button>` : "<span></span>"}<button id="wz-next" class="primary run" ${step === "role" && !w.role || step === "of" && w.of == null ? "disabled" : ""}>${last ? "Track and scan" : "Next"}</button></div>`;
@@ -459,6 +459,8 @@ async function renderWizard() {
   el.querySelectorAll("[data-role]").forEach((b) => (b.onclick = () => { w.role = b.dataset.role; if (w.role !== "competitor") w.of = null; renderWizard(); }));
   el.querySelectorAll("[data-of]").forEach((b) => (b.onclick = () => { w.of = b.dataset.of; renderWizard(); }));
   el.querySelectorAll("[data-kw]").forEach((c) => (c.onchange = () => c.checked ? w.kws.add(c.dataset.kw) : w.kws.delete(c.dataset.kw)));
+  // Kept in the wizard's state, so suggestions arriving mid-typing (which redraws this step) don't erase it.
+  const typedBox = $("wz-kw"); if (typedBox) { typedBox.oninput = () => (w.typed = typedBox.value); if (document.activeElement === document.body && w.typed) typedBox.focus(); }
   const form = $("wz-form"); if (form) form.onsubmit = (e) => { e.preventDefault(); $("wz-next").click(); };
   if (step === "kw" && d0()) detectForWizard();
   $("wz-next").onclick = async () => {
@@ -488,7 +490,7 @@ async function detectForWizard() {
 }
 async function finishWizard() {
   const w = v.wizard;
-  const typed = ($("wz-kw")?.value || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const typed = ($("wz-kw")?.value ?? w.typed ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const o = await T.trackSite(w.url, "", w.role, w.role === "competitor" ? w.of || null : null);
   await T.setRole(o, w.role, w.role === "competitor" ? w.of || null : null);
   const site = (await T.trackedSites()).find((s) => s.origin === o);
