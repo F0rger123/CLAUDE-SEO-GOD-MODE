@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.8.0 (2026-10-26): extension 1.3: whole-site rating identical to the skill, typed summary, fix prompts
+
+- **Whole-site view (new default):** `extension/lib/siterate.js` ports `scripts/rate_site.py` to the browser: the same polite crawl (robots rules, sitemap seeding, up to 30 pages), sitemap and link checks, the answer check, 39 checks with rubric v2.0 weights, point gains, priority order and fix kits. `lib/pyparse.js` reads HTML the way the Python parsers do.
+- **Parity test:** the e2e test runs `rate_site.py --no-psi` and the extension on the same good and bad sites and fails on any difference in scores, check ratios or top fixes. Both currently match exactly.
+- **AI crawler firewall probe in the browser:** a short-lived declarativeNetRequest session rule sets each AI crawler's user-agent for one homepage request, so the extension catches CDN/WAF blocks like the skill does.
+- **Typed summary:** after a scan the panel types out the verdict, weakest area, biggest wins (with page counts), one-time setup items and what already works. Click to skip; reduced motion shows it instantly.
+- **Fix prompt wording:** the "Claude" tab and buttons are now "Fix prompt" / "Copy fix prompt". Prompts adapt to the failed checks and include affected pages and ready-made snippets (robots.txt groups, starter schema, title and description lists).
+- Proof works per view (site or page), and the report says which. PageSpeed Insights is called for the homepage on whole-site scans (skipped for local addresses); the privacy policy and store listing say so.
+
 ## 2.7.0 (2026-10-26): extension 1.2: 78 checks, Tools tab, animated UI; marketingskills
 
 - **78 checks** (was 33). SEO 50: crawl/index, on-page, links and images, speed, structured data. AEO 12. GEO 16. Ideas drawn from claude-seo, geo-optimizer (citability), marketingskills `ai-seo`, and Google's AI features guide.

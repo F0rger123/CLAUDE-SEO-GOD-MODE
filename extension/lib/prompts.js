@@ -1,4 +1,5 @@
 import { checkById } from "./rubric.js";
+import { SITE_CHECKS } from "./siterate.js";
 import { guideUrl, REPO, skillCmd } from "./skills.js";
 
 const RULES = `Rules:
@@ -8,41 +9,55 @@ const RULES = `Rules:
 - If the site is behind Cloudflare or another CDN, do redirects/HTTPS in the CDN settings, not in app code.
 - Tag what you report as OBSERVED (measured), INFERRED or UNKNOWN. Don't promise rankings or AI placement.`;
 
-const steps = (c, platform) => [...c.steps, ...(c.platform[platform] || [])];
-
-/** Prompt for one failed check. */
-export function fixPrompt(result, page) {
-  const c = checkById[result.id];
-  return `Fix one SEO/AEO/GEO issue on ${page.url} (platform detected: ${page.platform}).
-
-Issue: ${c.name}
-Evidence (${result.tag}, scanned ${page.scannedAt.slice(0, 16).replace("T", " ")}): ${result.detail}
-Why it matters: ${c.why}
-Goal: ${c.goal}
-
-Suggested steps:
-${steps(c, page.platform).map((s, i) => `${i + 1}. ${s}`).join("\n")}
-
-If you have the CLAUDE SEO GOD MODE skill (${REPO}), use its guide for this fix: ${guideUrl(result.id)}${skillCmd(result.id, page) ? `\nTo check it across the whole site, run: ${skillCmd(result.id, page)}` : ""}
-
-${RULES}
-
-When done, tell me exactly what changed (files or settings), and I'll re-scan the page with the CLAUDE SEO GOD MODE extension for before/after proof.`;
+/** Name, why, steps, goal and guide for any result, page-level or whole-site. */
+export function metaFor(r, platform = "Unknown") {
+  const s = SITE_CHECKS[r.id];
+  if (s) return { name: r.name, why: s.why, goal: s.goal, guide: s.guide, steps: [r.tip || s.goal], cmd: "" };
+  const c = checkById[r.id];
+  return { name: c.name, why: c.why, goal: c.goal, guide: guideUrl(r.id), steps: [...c.steps, ...(c.platform[platform] || [])], cmd: "" };
 }
 
-/** One prompt for every failed check, highest point gain first. */
-export function fixAllPrompt(scan) {
-  const failed = scan.results.filter((r) => r.ratio != null && r.ratio < 0.999).sort((a, b) => (b.gain || 0) - (a.gain || 0));
-  if (!failed.length) return "Nothing to fix: every measured check passed.";
-  const { page, scores } = scan;
-  return `Improve SEO, AEO (answer engines) and GEO (AI search) for ${page.url} (platform: ${page.platform}).
-Current page scores: overall ${scores.overall}, SEO ${scores.seo}, AEO ${scores.aeo}, GEO ${scores.geo} (CLAUDE SEO GOD MODE extension, ${page.scannedAt.slice(0, 10)}).
+const pagesLine = (r) => (r.pages?.length ? `\nAffected pages (${r.pages.length}): ${[...new Set(r.pages)].slice(0, 15).join(", ")}${r.pages.length > 15 ? ", …" : ""}` : "");
+const kitsFor = (scan, id) => (scan.kits || []).filter((k) => k.check === id).map((k) => `\n${k.title}:\n\`\`\`${k.lang}\n${k.body}\n\`\`\``).join("");
+const target = (scan) => (scan.mode === "site" ? `the whole site ${scan.page.origin} (${scan.pagesRated} pages checked)` : scan.page.url);
 
-Fix these in order (estimated points gained in brackets). Do the safe, factual ones; ask me before anything that needs facts or account access.
-${failed.map((r, i) => { const c = checkById[r.id];
-  return `\n${i + 1}. ${c.name} [+${r.gain}] — ${r.tag}: ${r.detail}\n   Goal: ${c.goal}\n   Steps: ${steps(c, page.platform).join(" ")}\n   Guide: ${guideUrl(r.id)}`; }).join("\n")}
+/** Prompt for one failed check. */
+export function fixPrompt(result, scan) {
+  const { page } = scan;
+  const m = metaFor(result, page.platform);
+  const cmd = scan.mode === "site" ? "" : skillCmd(result.id, page);
+  return `Fix one SEO/AEO/GEO issue on ${target(scan)} (platform detected: ${page.platform}).
+
+Issue: ${m.name}
+Evidence (${result.tag}, scanned ${page.scannedAt.slice(0, 16).replace("T", " ")}): ${result.detail}${pagesLine(result)}
+Why it matters: ${m.why}
+Goal: ${m.goal}
+
+Suggested steps:
+${m.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}${kitsFor(scan, result.id)}
+
+Guide for this fix: ${m.guide}${cmd ? `\nTo check it across the whole site with the SEO God Mode skill, run: ${cmd}` : ""}
 
 ${RULES}
 
-If you have the CLAUDE SEO GOD MODE skill (${REPO}), use it: run \`python scripts/rate_site.py ${page.origin}\` (or the seo_rate_site MCP tool) before and after for whole-site proof, and follow each guide above. Finish with a list of what changed and anything I still need to do by hand (accounts, settings, facts to confirm).`;
+When done, tell me exactly what changed (files or settings), and I'll scan again with SEO God Mode for before/after proof.`;
+}
+
+/** One prompt for every failed check, in priority order. */
+export function fixAllPrompt(scan) {
+  const failed = scan.results.filter((r) => r.ratio != null && r.ratio < 0.999);
+  const order = scan.priority?.length ? scan.priority : [...failed].sort((a, b) => (b.gain || 0) - (a.gain || 0)).map((r) => r.id);
+  const ranked = order.map((id) => failed.find((r) => r.id === id)).filter(Boolean);
+  if (!ranked.length) return "Nothing to fix: every measured check passed.";
+  const { page, scores } = scan;
+  return `Improve SEO, AEO (answer engines) and GEO (AI search) for ${target(scan)} (platform: ${page.platform}).
+Current scores: overall ${scores.overall}, SEO ${scores.seo}, AEO ${scores.aeo}, GEO ${scores.geo} (SEO God Mode, ${page.scannedAt.slice(0, 10)}).
+
+Fix these in order (estimated points gained in brackets). Do the safe, factual ones; ask me before anything that needs facts or account access.
+${ranked.map((r, i) => { const m = metaFor(r, page.platform);
+  return `\n${i + 1}. ${m.name} [+${r.gain}] — ${r.tag}: ${r.detail}${pagesLine(r).replace("\n", "\n   ")}\n   Goal: ${m.goal}\n   Steps: ${m.steps.join(" ")}\n   Guide: ${m.guide}${kitsFor(scan, r.id)}`; }).join("\n")}
+
+${RULES}
+
+If the SEO God Mode skill is installed (${REPO}), run \`python scripts/rate_site.py ${page.origin}\` (or the seo_rate_site MCP tool) before and after for whole-site proof. Finish with a list of what changed and anything I still need to do by hand (accounts, settings, facts to confirm).`;
 }

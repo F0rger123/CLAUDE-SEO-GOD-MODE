@@ -68,8 +68,8 @@ def promo():
     d = ImageDraw.Draw(im)
     mark(d, 60, 84, 16)
     d.text((88, 64), "SEO God Mode", font=font(30, True), fill=INK)
-    d.text((40, 130), "SEO, AEO and AI-search checks", font=font(21), fill=INK)
-    d.text((40, 162), "with fixes, Claude prompts", font=font(21), fill=MUTED)
+    d.text((40, 130), "Rate any site for SEO, AEO, GEO", font=font(21), fill=INK)
+    d.text((40, 162), "with fixes, fix prompts", font=font(21), fill=MUTED)
     d.text((40, 194), "and before/after proof.", font=font(21), fill=MUTED)
     im.save(OUT / "promo-small.png")
 
@@ -77,14 +77,14 @@ def promo():
 def main():
     OUT.mkdir(exist_ok=True)
     a = ROOT / "assets"
-    shot(["See what's holding", "a page back"], ["78 SEO, AEO and GEO checks on the live page", "Biggest wins first, with points for each fix",
-                                                 "A map of every check by area"], a / "extension-overview.png", "screenshot-1.png")
+    shot(["See what's holding", "a site back"], ["Rates the whole site or one page", "A plain summary of what to fix and set up",
+                                                 "Biggest wins first, with points for each fix"], a / "extension-overview.png", "screenshot-1.png")
     shot(["Fix it step", "by step"], ["Steps for WordPress, Shopify, Wix, Next.js and more", "Filter by SEO, AEO or GEO, or search",
                                        "Links to the full guide for every check"], a / "extension-fix.png", "screenshot-4.png")
     shot(["Tools built", "in"], ["Google result preview, measured in pixels", "Schema inspector and 17-crawler access table",
                                  "Links, images, page facts and quick links"], a / "extension-tools.png", "screenshot-5.png")
-    shot(["Hand the fixes", "to Claude"], ["One prompt per issue, or one for everything", "No invented facts: unknowns are marked to confirm",
-                                           "Links to the full guide for each fix"], a / "extension-claude.png", "screenshot-2.png")
+    shot(["Copy a fix", "prompt"], ["One prompt per issue, or one for everything", "Lists the pages to fix, with ready snippets",
+                                     "No invented facts: unknowns are marked to confirm"], a / "extension-prompt.png", "screenshot-2.png")
     shot(["Prove the", "before and after"], ["Save a before scan, fix, scan again", "See every check that was fixed or slipped",
                                              "Download a dated report for your client"], a / "extension-proof.png", "screenshot-3.png")
     promo()

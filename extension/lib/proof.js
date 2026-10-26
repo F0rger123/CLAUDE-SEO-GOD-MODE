@@ -1,25 +1,25 @@
 import { checkById, grade } from "./rubric.js";
 
-/** Scans are kept per page (origin + path), newest first, in chrome.storage.local on this device only. */
-const keyFor = (url) => { const u = new URL(url); return "scans:" + u.origin + u.pathname; };
+/** Scans are kept per page (origin + path) or per site (origin), newest first, in chrome.storage.local on this device only. */
+const keyFor = (url, mode) => { const u = new URL(url); return mode === "site" ? "sitescans:" + u.origin : "scans:" + u.origin + u.pathname; };
 const MAX = 25;
 
 export async function saveScan(scan) {
-  const k = keyFor(scan.page.url);
+  const k = keyFor(scan.page.url, scan.mode);
   const { [k]: list = [] } = await chrome.storage.local.get(k);
   const entry = { id: scan.page.scannedAt, ...scan };
   await chrome.storage.local.set({ [k]: [entry, ...list].slice(0, MAX) });
   return entry;
 }
 
-export async function history(url) {
-  const k = keyFor(url);
+export async function history(url, mode) {
+  const k = keyFor(url, mode);
   const { [k]: list = [], ["baseline:" + k]: baselineId = null } = await chrome.storage.local.get([k, "baseline:" + k]);
   return { list, baseline: list.find((s) => s.id === baselineId) || null };
 }
 
-export async function setBaseline(url, id) {
-  await chrome.storage.local.set({ ["baseline:" + keyFor(url)]: id });
+export async function setBaseline(url, id, mode) {
+  await chrome.storage.local.set({ ["baseline:" + keyFor(url, mode)]: id });
 }
 
 export function compare(before, after) {
@@ -29,7 +29,7 @@ export function compare(before, after) {
     const status = a.ratio == null || o.ratio == null ? "unknown"
       : a.ratio > o.ratio + 0.001 ? (a.ratio >= 0.999 ? "fixed" : "improved")
       : a.ratio < o.ratio - 0.001 ? "regressed" : a.ratio >= 0.999 ? "passing" : "still failing";
-    return { id: a.id, name: checkById[a.id]?.name || a.id, cat: a.cat, before: o, after: a, status };
+    return { id: a.id, name: a.name || checkById[a.id]?.name || a.id, cat: a.cat, before: o, after: a, status };
   });
   const delta = Object.fromEntries(["overall", "seo", "aeo", "geo"].map((k) => [k, (after.scores[k] ?? 0) - (before.scores[k] ?? 0)]));
   return { rows, delta };
@@ -55,13 +55,13 @@ body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,"Segoe U
 .d{font-weight:700}.up{color:var(--good)}.down{color:var(--bad)}section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0}
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:7px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted)}
 .fixed,.improved{color:var(--good);font-weight:700}.regressed{color:var(--bad);font-weight:700}.tag{font-size:11px;color:var(--muted)}</style></head><body><div class="w">
-<div class="e">CLAUDE SEO GOD MODE · Before / after proof</div><h1>${esc(after.page.url)}</h1>
-<div class="m">Before: ${esc(before.page.scannedAt.replace("T", " ").slice(0, 16))} UTC · After: ${esc(after.page.scannedAt.replace("T", " ").slice(0, 16))} UTC · measured in the browser on the live page</div>
+<div class="e">SEO God Mode · Before / after proof</div><h1>${esc(after.mode === "site" ? after.page.origin + " (whole site)" : after.page.url)}</h1>
+<div class="m">Before: ${esc(before.page.scannedAt.replace("T", " ").slice(0, 16))} UTC · After: ${esc(after.page.scannedAt.replace("T", " ").slice(0, 16))} UTC · ${after.mode === "site" ? `${after.pagesRated} pages crawled in the browser, same rubric as the SEO God Mode skill (v${esc(after.rubricVersion)})` : "measured in the browser on the live page"}</div>
 <div class="cards">${card("Overall", "overall")}${card("SEO", "seo")}${card("AEO (answer engines)", "aeo")}${card("GEO (AI search)", "geo")}</div>
 <section><h2>What changed (${changed.length})</h2>${changed.length ? `<table><tr><th>Check</th><th>Status</th><th>Before</th><th>After</th></tr>${changed.map((r) =>
   `<tr><td>${esc(r.name)}</td><td class="${r.status}">${r.status}</td><td>${pct(r.before.ratio)}<br><span class="tag">${esc(r.before.detail)}</span></td><td>${pct(r.after.ratio)}<br><span class="tag">${esc(r.after.detail)}</span></td></tr>`).join("")}</table>` : "<p>No measured check changed between these scans.</p>"}</section>
 <section><h2>All checks</h2><table><tr><th>Area</th><th>Check</th><th>Before</th><th>After</th><th>Evidence</th></tr>${rows.map((r) =>
   `<tr><td>${r.cat.toUpperCase()}</td><td>${esc(r.name)}</td><td>${pct(r.before.ratio)}</td><td>${pct(r.after.ratio)}</td><td class="tag">${esc(r.after.tag)}: ${esc(r.after.detail)}</td></tr>`).join("")}</table></section>
-<p class="m">Scores measure page-level SEO hygiene and AI-search readiness, not rankings or traffic. Speed figures come from single visits in the scanning browser. Google states AI Overviews placement isn't guaranteed.</p>
+<p class="m">Scores measure SEO hygiene and AI-search readiness, not rankings or traffic. Speed figures come from single visits in the scanning browser. Google states AI Overviews placement isn't guaranteed.</p>
 </div></body></html>`;
 }

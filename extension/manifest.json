@@ -2,11 +2,11 @@
   "manifest_version": 3,
   "name": "SEO God Mode: SEO, AEO & GEO Checker",
   "short_name": "SEO God Mode",
-  "version": "1.2.0",
-  "description": "Check any page for SEO, AEO and AI-search (GEO) issues, get step-by-step fixes and Claude prompts, and prove the before/after.",
+  "version": "1.3.0",
+  "description": "Rate a site for SEO, AEO and AI search (GEO): plain summary, step-by-step fixes, a fix prompt to copy, and before/after proof.",
   "minimum_chrome_version": "116",
   "action": {
-    "default_title": "Scan this page (SEO / AEO / GEO)",
+    "default_title": "Rate this site (SEO / AEO / GEO)",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"
@@ -29,7 +29,8 @@
     "activeTab",
     "scripting",
     "storage",
-    "sidePanel"
+    "sidePanel",
+    "declarativeNetRequestWithHostAccess"
   ],
   "optional_host_permissions": [
     "https://*/*",

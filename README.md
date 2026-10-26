@@ -62,12 +62,12 @@ Potential: fixing the top 5 items could lift the overall score to about 96.
 
 From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_site`. Without Python (for example a claude.ai chat), the `rate-my-site` skill rates by hand with the same rubric and labels the result approximate.
 
-## 🧩 Chrome extension: scan any page, fix it, prove it
+## 🧩 Chrome extension: rate any site, fix it, prove it
 
-A side panel with 78 SEO, AEO and GEO checks for the page you're on, plus 8 tools (Google result preview, heading outline, schema inspector, AI-crawler table, links, images, page facts, quick links). It gives fix steps for your platform, a **Copy Claude prompt** button on every issue, a "fix everything" prompt, and **before/after proof** with a downloadable report for clients. It runs locally and sends no data anywhere.
+A side panel that rates the **whole site** with the same crawl, 39 checks and scores as `rate_site.py` (a test keeps them identical), or checks **one page** with 78 checks and 8 tools. After each scan it types out a plain-English summary: the verdict, the biggest wins, what to set up, and what already works. Every issue has fix steps, the affected pages and a **Copy fix prompt** button, and **before/after proof** gives you a downloadable report for clients. It runs in your browser; the only outside call is PageSpeed Insights for the homepage.
 
 <p>
-  <img src="assets/extension-overview.png" alt="Extension: overview" width="240">
+  <img src="assets/extension-overview.png" alt="Extension: whole-site scores and typed summary" width="240">
   <img src="assets/extension-fix.png" alt="Extension: issues with fix steps" width="240">
   <img src="assets/extension-tools.png" alt="Extension: tools" width="240">
   <img src="assets/extension-proof.png" alt="Extension: before and after proof" width="280">

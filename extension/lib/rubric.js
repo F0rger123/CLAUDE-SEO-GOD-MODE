@@ -1,7 +1,7 @@
 /**
  * Page-level rubric. Each check: id, cat (seo|aeo|geo), group (sub-area shown in the UI), name, weight,
  * tag (OBSERVED measured | INFERRED heuristic), test(p, s) -> {ratio 0..1 | null (not measurable), detail},
- * why, steps, platform (extra steps by detected platform), goal (used in the Claude prompt).
+ * why, steps, platform (extra steps by detected platform), goal (used in the fix prompt).
  * Add a check: one entry here, a fixture assertion in tests/e2e.mjs, and a guide link in lib/skills.js.
  */
 const share = (arr, pred) => (arr.length ? arr.filter(pred).length / arr.length : null);

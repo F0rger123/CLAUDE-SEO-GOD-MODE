@@ -1,13 +1,15 @@
-# CLAUDE SEO GOD MODE: Chrome extension
+# SEO God Mode: Chrome extension
 
-A side panel that scans the page you're on for **SEO, AEO (answer engines) and GEO (AI search)**, explains each problem with step-by-step fixes for your platform, writes **ready-to-paste Claude prompts** to fix them, and keeps **before/after proof** you can hand to a client.
+A side panel that rates **a whole site or one page** for **SEO, AEO (answer engines) and GEO (AI search)**. It types out a plain-English summary of what's good and what needs doing, explains each problem with step-by-step fixes, gives you a **fix prompt** to copy, and keeps **before/after proof** you can hand to a client.
+
+The whole-site rating is the skill's own `rate_site.py` rubric, ported to the browser: same crawl, same 39 checks, same weights, same scores. A test runs both on the same sites and fails if a single score or check differs.
 
 <p>
-  <img src="../assets/extension-overview.png" alt="Overview" width="260">
+  <img src="../assets/extension-overview.png" alt="Whole-site scores and typed summary" width="260">
   <img src="../assets/extension-fix.png" alt="Issues with fix steps" width="260">
   <img src="../assets/extension-tools.png" alt="Tools: search preview" width="260">
-  <img src="../assets/extension-proof.png" alt="Before and after proof" width="300">
-  <img src="../assets/extension-claude.png" alt="Claude prompt" width="300">
+  <img src="../assets/extension-proof.png" alt="Before and after proof" width="260">
+  <img src="../assets/extension-prompt.png" alt="Fix prompt" width="260">
 </p>
 
 ## Install (2 minutes, no store needed)
@@ -15,45 +17,61 @@ A side panel that scans the page you're on for **SEO, AEO (answer engines) and G
 1. **[Download the extension zip](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip)** and unzip it.
 2. In Chrome, open `chrome://extensions` and turn on **Developer mode** (top right).
 3. Click **Load unpacked** and pick the unzipped folder.
-4. Pin the extension, open any website, and click its icon. The side panel opens; press **Scan this page**.
+4. Pin the extension, open any website, and click its icon. The side panel opens; press **Scan the whole site** (or switch to **This page**).
 
-The first scan of each site asks for access to that site. The extension needs it to read the page, `robots.txt` and the sitemap. It works with Chrome 116+ and other Chromium browsers (Edge, Brave, Arc).
+The first scan of each site asks for access to that site (both its `www` and non-`www` address, so the redirect check works). It works with Chrome 116+ and other Chromium browsers (Edge, Brave, Arc).
 
-## What it checks (78 checks)
+## Two views
+
+- **Whole site** (default): crawls up to 30 pages the way the skill does, then scores 39 checks with rubric v2.0. Fixes are ranked the same way as the skill (points gained × impact) and list the affected pages.
+- **This page:** 78 detailed checks on the page you're viewing, plus 8 tools.
+
+## The summary
+
+After a scan the panel types out a short verdict ("This site looks good, with a few gaps worth closing"), the weakest area, the biggest wins with how many pages each touches, the one-time things you should set up (sitemap, HTTPS redirects, business schema, AI crawler access, Bing), and what's already working. Click it to skip the animation; reduced-motion settings show it instantly. **Copy fix prompt** sits right under it.
+
+## What it checks
+
+**Whole site (39 checks, same as `rate_site.py`):**
 
 | Area | Checks |
 |---|---|
-| **SEO** (50) | **Crawl & index:** noindex, HTTP status, robots.txt, sitemap (exists, listed in robots.txt, includes this page), real 404s, canonical (present, single, self-referencing), HTTPS, http→https, mixed content, meta refresh, raw-HTML content, hreflang. **On-page:** title length and brand, meta description, one H1, H1/title match, heading order, empty headings, clean URL, lang, doctype/charset/favicon, Open Graph, Twitter card, content depth, text-to-code ratio. **Links & images:** internal links, descriptive anchors, nofollow on internal links, alt text, dimensions, WebP/AVIF, srcset. **Speed:** LCP, CLS, TTFB, lazy-loaded hero image, render-blocking scripts, requests and DOM size, compression, mobile viewport. **Structured data:** valid JSON-LD, any schema, breadcrumbs, WebSite, complete Article, no self-serving review stars |
-| **AEO** (12) | Snippet eligibility, large image previews, a direct answer up top, a definition sentence ("X is a…"), question headings, FAQ matching its schema, quotable paragraphs, no walls of text, H2 sections, lists/tables, plain-language reading level, freshness |
-| **GEO** (16) | AI search crawlers, AI user-fetch agents, Bing access, business schema, complete entity details, sameAs, knowledge-graph profiles (Maps, LinkedIn, Wikidata), location, contact details, About/Contact links, author/date, outside sources, authoritative sources, specific figures, reviews/testimonials, llms.txt (info only) |
+| **SEO** | Crawl & index: homepage crawlable, HTTPS, one canonical host, clean sitemap, pages return 200, indexable, real 404, canonicals, no broken/redirected internal links, server-rendered. On-page: titles, descriptions, one H1, heading order, alt text, viewport + lang, social cards. Content: 250+ words, 2+ internal links, HTML under 1 s. Schema: business entity, valid JSON-LD, page-level schema. Performance: PageSpeed Insights mobile score, or an estimate when it isn't available |
+| **AEO** | Snippet eligibility, question headings, a direct answer up top, FAQ matching its schema, H2 sections, content in raw HTML |
+| **GEO** | AI search crawlers in robots.txt, CDN/firewall blocking of AI crawler user-agents (tested live), business name on the homepage, location, sameAs, About and Contact, contact details, cited sources, Bing access, llms.txt (info only) |
 
-Scores are out of 100 per area. **Overall = 60% SEO + 20% AEO + 20% GEO**, the same weighting as the repo's `rate_site.py`. Every result is tagged **OBSERVED** (measured on the live page), **INFERRED** (a stated heuristic) or **UNKNOWN** (couldn't measure). Nothing is guessed.
+**This page (78 checks):**
+
+| Area | Checks |
+|---|---|
+| **SEO** (50) | Crawl & index, on-page, links and images, speed (LCP, CLS, TTFB from your visit), structured data |
+| **AEO** (12) | Snippet eligibility, image previews, direct answer, definition sentence, question headings, FAQ, quotable paragraphs, walls of text, sections, lists/tables, reading level, freshness |
+| **GEO** (16) | AI search and user-fetch crawlers, Bing, business schema and details, sameAs, knowledge-graph profiles, location, contact, About/Contact, author/date, sources, figures, reviews, llms.txt |
+
+Scores are out of 100 per area. **Overall = 60% SEO + 20% AEO + 20% GEO.** Every result is tagged **Measured**, **Estimate** or **Not measured**. Nothing is guessed.
 
 ## Tabs
 
-- **Overview:** the five biggest wins, a per-area breakdown (one bar segment per check; tap a row to jump to those issues), and quick page facts.
-- **Issues:** every failed check grouped by area, with SEO/AEO/GEO filters, search, and a "show passing" toggle.
-- **Tools:** Google result preview (title width measured in pixels), share preview, heading outline, schema inspector with Rich Results and schema.org links, a 17-crawler access table (search, user-fetch and AI-training bots), links table, images table, page facts, and quick links (PageSpeed, `site:` searches, ask ChatGPT/Perplexity about the brand, Apple Maps).
-
-- **Fix steps:** failed checks ranked by how many points each one is worth. Open a check to see why it matters, steps tailored to the detected platform (WordPress, Shopify, Wix, Squarespace, Webflow, Next.js, Astro), and a **Copy Claude prompt** button.
-- **Passed:** what to keep.
-- **Before / after:** mark a scan as **BEFORE**, make the fixes, scan again. The tab shows score changes and every check that was fixed, improved or regressed. **Download proof report** saves a dated, self-contained HTML page for the client.
-- **Claude:** exports (scan JSON, checks CSV, issue list) plus one "fix everything" prompt in priority order, with built-in rules: no invented facts (`[CONFIRM]` placeholders), keep the design, verify the live page after deploying, and do CDN-level HTTPS changes in the CDN settings rather than in code.
+- **Overview:** the biggest wins, a per-area breakdown (tap a row to jump to those issues), and site or page facts, including what a public scan can't see.
+- **Issues:** every failed check grouped by area, with filters, search and a "show passing" toggle. Each one explains why it matters, gives steps, lists the affected pages, and has a **Copy fix prompt** button.
+- **Tools:** Google result preview, share preview, heading outline, schema inspector, a 17-crawler access table, links, images, page facts and quick links.
+- **Proof:** mark a scan as "before", fix things, scan again. You see score changes and every check that was fixed, improved or slipped, and can download a dated report. Site and page scans keep separate histories.
+- **Fix prompt:** one prompt for every fix in order, with the affected pages and ready-made snippets (robots.txt groups, starter schema, title and description lists), plus exports (JSON, CSV, issue list). The prompt's rules: no invented facts (`[CONFIRM]`), keep the design, verify the live page, do HTTPS/redirects in the CDN when there is one.
 
 ## Privacy
 
-Everything runs in your browser. Scan history is stored in `chrome.storage.local` on your device (the last 25 scans per page). The extension sends nothing anywhere except requests to the site you're scanning (its page, `robots.txt`, sitemap, `llms.txt`, a random URL to test for 404s, and its `http://` address). There's no analytics and no account.
+Scans run in your browser and history stays in `chrome.storage.local` on your device. The extension requests pages only from the site you scan, except one call: a whole-site scan asks **Google PageSpeed Insights** to test the homepage URL (skipped for local addresses). The CDN/firewall check briefly sets a crawler user-agent on requests to that homepage. There's no analytics and no account. Full policy: [docs/PRIVACY.md](../docs/PRIVACY.md).
 
 ## Limits
 
-- Scores cover one page plus its site files. For a whole-site crawl, use `python scripts/rate_site.py <site>` or the MCP tool `seo_rate_site`.
-- Load speed comes from your own visit (device and network). Search Console and PageSpeed Insights have field data.
-- Rankings, traffic, index status, backlinks and AI citations aren't visible from a page. Connect Search Console through the skill for those.
+- Rankings, traffic, index status, backlinks and AI citations aren't visible from outside. Connect Search Console and Bing through the skill for those.
+- Page-view speed comes from your own visit. PageSpeed Insights can hit its shared quota; the score then uses the labeled estimate, same as the skill.
 
 ## Develop
 
-- Code: `lib/collect.js` (runs in the page), `lib/site.js` (robots.txt with Google's matching rules, sitemap, 404, http), `lib/rubric.js` (checks, weights, fix steps, prompt goals), `lib/prompts.js`, `lib/proof.js`, `sidepanel.*`.
-- **Add a check:** one entry in `CHECKS` in `lib/rubric.js` (`id`, `cat`, `name`, `weight`, `tag`, `test`, `why`, `steps`, `platform`, `goal`). Then extend the fixtures in `tests/e2e.mjs` so the GOOD site passes and the BAD site fails.
-- **Test:** `npm i playwright && npx playwright install chromium`, then `node extension/tests/e2e.mjs`. It loads the real extension in Chromium, scans a good and a bad local site, fixes the bad one, and checks the before/after proof and the downloaded report. CI runs it on every push.
-- **Chrome Web Store:** everything to paste (listing copy, images, permission justifications, privacy policy) is in [`store/LISTING.md`](../store/LISTING.md). Build the upload with `python scripts/build_extension_zip.py`.
-- **Releases:** every change to `extension/` on main runs the e2e test, then publishes `seo-god-mode-extension.zip` to GitHub Releases (`.github/workflows/extension-release.yml`).
+- Code: `lib/siterate.js` (whole-site rating, a port of `scripts/rate_site.py`), `lib/pyparse.js` (HTML facts read the way the skill's Python parsers read them), `lib/collect.js` (runs in the page), `lib/site.js` (robots.txt with Google's matching rules), `lib/rubric.js` (page checks), `lib/summary.js` (typed summary), `lib/prompts.js`, `lib/proof.js`, `sidepanel.*`.
+- **Change a whole-site check:** change `scripts/rate_site.py` and `lib/siterate.js` together. The parity test fails until they agree.
+- **Add a page check:** one entry in `CHECKS` in `lib/rubric.js`, then extend the fixtures in `tests/e2e.mjs`.
+- **Test:** `npm i playwright && npx playwright install chromium`, then `node extension/tests/e2e.mjs` (needs Python for the parity step). It runs `rate_site.py` and the extension on the same good and bad sites and compares every score, check and top fix; then scans both views through the real side panel, checks the summary and fix prompts, fixes the bad site and checks the proof report. CI runs it on every push.
+- **Chrome Web Store:** listing copy, images, permission justifications and privacy policy are in [`store/LISTING.md`](../store/LISTING.md). Build the upload with `python scripts/build_extension_zip.py`.
+- **Releases:** every change to `extension/` on main runs the test, then publishes `seo-god-mode-extension.zip` to GitHub Releases.

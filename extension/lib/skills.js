@@ -1,6 +1,6 @@
 /**
  * Links each extension check to the CLAUDE SEO GOD MODE skill: the workflow that explains the fix in depth and the
- * skill command that checks or fixes it across the whole site. Used for "Open guide" links and inside Claude prompts.
+ * skill command that checks or fixes it across the whole site. Used for "Open guide" links and inside fix prompts.
  */
 export const REPO = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE";
 const doc = (p) => `${REPO}/blob/main/${p}`;
@@ -38,9 +38,9 @@ export const SKILL_MAP = {
 export const guideUrl = (id) => (SKILL_MAP[id]?.guide ? doc(SKILL_MAP[id].guide) : REPO);
 export const skillCmd = (id, page) => (SKILL_MAP[id]?.cmd || "").replaceAll("{origin}", page.origin).replaceAll("{url}", page.url);
 
-/** Whole-site commands shown on the Claude tab. */
+/** Skill commands shown on the Fix prompt tab. */
 export const siteCommands = (page) => [
-  ["Rate the whole site (every page, not just this one)", `python scripts/rate_site.py ${page.origin}`],
+  ["Rate the site from a terminal (same scores as the Whole site view)", `python scripts/rate_site.py ${page.origin}`],
   ["Make pages answer the questions people search (uses Search Console)", "skills/ai-search-answer-workflow"],
   ["Full audit with client memory and issue tracking", `python scripts/audit.py --url ${page.origin}`],
   ["Apple Maps and Google Business Profile listings", "workflows/apple-business-connect.md, workflows/local-seo.md"],
