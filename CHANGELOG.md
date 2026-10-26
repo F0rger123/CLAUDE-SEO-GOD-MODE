@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.14.0 (2026-10-26): extension 1.9: full breakdown of any Google result, compared with the pages above it
+
+- **Hover cards are a real breakdown now**, not a rough estimate. The page and up to three results ranking above it (or, for #1, right below it) are read and compared on the same 21 on-page factors as Compete. The card shows a search match score, the site's full rating if it was scanned, why it ranks there, a side-by-side table with those pages, what they do differently, **Copy fix prompt** and **See full breakdown** (was "Compare all results in SEO God Mode").
+- **See full breakdown** opens that result in the side panel with the same numbers: why it ranks, what the pages above it do differently with the fix for each, every factor side by side, a fix prompt, **Rate the whole site** (opens it and runs the 39-check rating) and **Track as competitor**.
+- **Why they rank** lists every result as a link to its own breakdown, with "‹ Why they rank" to go back. The last search stays available after you leave Google (for example after clicking through to #1), so the panel no longer gets stuck.
+- **Labels on Google** follow Google's own light or dark theme (a solid black label looked inverted on dark Google) and sit on their own line above the result. "You" is now "Your site" or "Your client".
+- The breakdown runs in an offscreen document (new `offscreen` permission: a hidden extension page that can parse HTML; no new access to sites or data).
+
 ## 2.13.0 (2026-10-26): extension 1.8: black and white redesign, hosting and tech, step-by-step Track new, clearer Compete
 
 - **Fixed:** "Check for updates and due rescans" and the "Show on Google results" switch failed with "Could not establish connection. Receiving end does not exist." They sent a message to the background worker, which wasn't listening (for example after the files were replaced without a reload). Both now run in the panel itself (`lib/daily.js`, shared with the worker's daily alarm), so they work whatever state the worker is in. Hover cards on a Google page opened before an update now say to reload the page instead of showing the raw error.

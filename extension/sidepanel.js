@@ -8,7 +8,7 @@ import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proo
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
 import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
-import { renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
+import { focusResult, renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -326,7 +326,13 @@ $("scan").onclick = scan;
 document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
 document.querySelectorAll("#scope button").forEach((b) => (b.onclick = () => setMode(b.dataset.scope)));
 // The background asks for a view (from a click on Google or a notification) by writing openMode.
-chrome.storage.onChanged.addListener((c) => { if (c.openMode?.newValue?.mode && c.openMode.newValue.mode !== state.mode) setMode(c.openMode.newValue.mode); });
+// A click on "See full breakdown" also names the result to open (focus).
+chrome.storage.onChanged.addListener((c) => {
+  const o = c.openMode?.newValue;
+  if (!o?.mode) return;
+  if (o.focus) focusResult(o.focus);
+  if (o.mode !== state.mode || o.mode === "compete") setMode(o.mode);
+});
 
 function scanLabel() {
   const again = state.scan && state.scan.mode === state.mode;
@@ -373,7 +379,11 @@ async function setMode(mode) {
 
 (async () => {
   let mode = "site";
-  try { mode = (await chrome.storage.local.get("mode")).mode || "site"; } catch {}
+  try {
+    const got = await chrome.storage.local.get(["mode", "openMode"]);
+    mode = got.mode || "site";
+    if (got.openMode?.focus && Date.now() - got.openMode.at < 15000) focusResult(got.openMode.focus);
+  } catch {}
   await setMode(mode);
   updateBanner($("updbar"), helpers);
 })();

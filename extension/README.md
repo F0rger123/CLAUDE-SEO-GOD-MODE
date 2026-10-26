@@ -44,8 +44,9 @@ For any site you scan or track, and on every Google hover card: what it's built 
 
 Turn it on once in **Settings → On Google**. Then every Google search shows:
 
-- **Labels** on results that are your business, a client or a competitor, with their position ("Client · #4").
-- **Hover cards:** rest the mouse on any result for a quick rating (0–100, an estimate from that one page), the keywords that page targets, why it shows for this search (title match, business schema, FAQ markup, depth…), its hosting and what it's built with, and its gaps.
+- **Labels** above results that are your site, a client or a competitor, with their position ("Your client · #4"). They follow Google's light or dark theme.
+- **Hover cards:** rest the mouse on any result. It's read and compared with up to three results ranking above it (for #1, the ones right below) on the same 21 on-page factors as Compete. You get a **search match** score, the site's full rating if you've scanned it, why it ranks there, a side-by-side table with those pages, what they do differently, its hosting and what it's built with, **Copy fix prompt**, and **See full breakdown**.
+- **See full breakdown** opens that result in the side panel: why it ranks, what the pages above it do differently with the fix for each, every factor side by side, a fix prompt, **Rate the whole site** (runs the full 39-check rating) and **Track as competitor**. In Compete → Why they rank, every result opens the same breakdown.
 - A **launcher** in the corner with your position for the search; click it to open the full comparison in Compete.
 - **Automatic position tracking:** each search records where your tracked sites rank, for the charts in Track.
 

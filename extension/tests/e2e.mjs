@@ -59,6 +59,7 @@ const bad = {
 <body><h3>Welcome</h3><h1>Hi</h1><h1>Again</h1><img src="/x.png"><p>Small page.</p><a href="/missing/">old page</a></body></html>`,
 };
 // The bad site's firewall also refuses OAI-SearchBot, so the user-agent probe has something to find.
+const panelErrors = [];
 function serve(pagesFor, { blockUA = () => false } = {}) {
   const srv = http.createServer((req, res) => {
     const pages = pagesFor(`http://127.0.0.1:${srv.address().port}`);
@@ -91,7 +92,7 @@ async function scanVia(url, mode) {
   await site.waitForTimeout(300);
   const tabId = await sw.evaluate(async (u) => (await chrome.tabs.query({})).find((t) => t.url === u).id, url);
   const panel = await ctx.newPage();
-  panel.on("pageerror", (e) => console.log("panel error:", e.message));
+  panel.on("pageerror", (e) => { console.log("panel error:", e.message); panelErrors.push(e.message); });
   await panel.setViewportSize({ width: 420, height: 860 });
   await panel.goto(`chrome-extension://${extId}/sidepanel.html?tabId=${tabId}`);
   await panel.waitForTimeout(300);
@@ -304,6 +305,14 @@ await cp.click(".crumb .back");
 await cp.click('.tile[data-sub="rank"]');
 await cp.waitForSelector(".addcomp");
 await cp.click(`.addcomp[data-comp="${rival}"]`);
+// Any result opens its own breakdown, with a way back to the list.
+await cp.click(`.rowbtn[data-focus="${rival}/"]`);
+await cp.waitForFunction(() => /Why it ranks here/.test(document.querySelector("#view").textContent) && /Every factor side by side/.test(document.querySelector("#view").textContent), null, { timeout: 30000 });
+assert.match(await cp.$eval(".crumb", (e) => e.textContent), /Why they rank/);
+await cp.evaluate(() => { window.scrollTo(0, 0); document.getElementById("toast").classList.remove("on"); }); await cp.waitForTimeout(300);
+await cp.screenshot({ path: path.join(repo, "assets", "extension-breakdown.png") });
+await cp.click(".crumb .back");
+await cp.waitForSelector(".serplist");
 // Track detail: roles, score chart, recorded keyword position, and the competitor comparison
 await cp.click('#mode [data-mode="track"]');
 await cp.waitForSelector(".tcard");
@@ -349,14 +358,17 @@ await bs.site.waitForSelector('[data-sgm="launcher"]', { state: "attached", time
 const launcherText = await bs.site.$eval('[data-sgm="launcher"]', (h) => h.shadowRoot.textContent);
 assert.match(launcherText, /127\.0\.0\.1: #4/);
 const chips = await bs.site.$$eval('[data-sgm="chip"]', (hs) => hs.map((h) => h.shadowRoot.querySelector(".chip").textContent));
-assert.ok(chips.some((c) => /Client · #4/.test(c)) && chips.some((c) => /Competitor · #2/.test(c)), "labels the client and its competitor: " + chips);
+assert.ok(chips.some((c) => /Your client · #4/.test(c)) && chips.some((c) => /Competitor · #2/.test(c)), "labels the client and its competitor: " + chips);
 await bs.site.bringToFront();
 await bs.site.hover('#rso .g:nth-of-type(2) h3');
 await bs.site.waitForFunction(() => /\d/.test(document.querySelector('[data-sgm="card"]')?.shadowRoot.querySelector(".ring")?.textContent || ""), null, { timeout: 20000 });
 const cardText = await bs.site.$eval('[data-sgm="card"]', (h) => h.shadowRoot.textContent);
 console.log("hover card:", cardText.slice(0, 200));
-assert.match(cardText, /Keywords it targets/); assert.match(cardText, /Why it shows for/);
+assert.match(cardText, /Why it ranks here/); assert.match(cardText, /See full breakdown/); assert.match(cardText, /Copy fix prompt/); assert.doesNotMatch(cardText, /Compare all results/);
 await bs.site.screenshot({ path: path.join(repo, "assets", "extension-ongoogle.png") });
+// The hover card's "See full breakdown" opens the same result in the panel.
+await bs.site.evaluate(() => document.querySelector('[data-sgm="card"]').shadowRoot.querySelector("button.primary").click());
+await cp.waitForFunction(() => /Why it ranks here/.test(document.querySelector("#view")?.textContent || "") && /localhost/.test(document.querySelector(".crumb")?.textContent || ""), null, { timeout: 30000 });
 await cp.bringToFront();
 await bs.site.goto(badBase + "/", { waitUntil: "load" });
 await cp.click('#mode [data-mode="site"]');
@@ -380,4 +392,5 @@ await bs.panel.evaluate(() => window.scrollTo(0, 0));
 await bs.panel.screenshot({ path: path.join(repo, "assets", "extension-proof.png") });
 
 await ctx.close(); s1.close(); s2.close();
+assert.deepEqual(panelErrors, [], "no script errors in the panel");
 console.log("E2E OK");

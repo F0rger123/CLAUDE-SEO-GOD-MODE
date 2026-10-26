@@ -24,7 +24,7 @@ What you get:
 • Issues ranked by how many points each fix adds.
 • Step-by-step fixes for WordPress, Shopify, Wix, Squarespace, Webflow, Next.js and Astro.
 • A fix prompt to copy for every issue, plus one that fixes everything in order, ready to paste into your AI assistant. Prompts list the affected pages, include ready-made snippets, tell the AI never to invent facts, and say to check the live site after changes.
-• On Google: hover any search result for a quick rating, the keywords it targets, why it ranks and where it's hosted; your sites and competitors are labelled with their position.
+• On Google: hover any search result to see why it ranks, how it compares with the pages above it, a fix prompt and where it's hosted; your sites and competitors are labelled with their position.
 • Hosting and tech: what any site is built with, its hosting, CDN, DNS and email providers, and its tracking tools.
 • Compete: open any Google search and see why the top pages outrank yours, factor by factor, with a content brief.
 • Keyword ideas from Google autocomplete, with the changes your page needs.

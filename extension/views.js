@@ -13,6 +13,7 @@ import { rateSite, siteOrigins } from "./lib/siterate.js";
 import { history, saveScan } from "./lib/proof.js";
 import { getSettings, overlayRegistered, runDaily, saveSettings, syncOverlay } from "./lib/daily.js";
 import { techBlock, techProfile } from "./lib/tech.js";
+import { breakdown } from "./lib/breakdown.js";
 import * as T from "./lib/track.js";
 import * as U from "./lib/update.js";
 
@@ -23,7 +24,7 @@ const ago = (t) => { const m = Math.round((Date.now() - new Date(t)) / 60000); r
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
 const ALL_SITES = ["https://*/*", "http://*/*"];
 const GOOGLE = ["https://www.google.com/*", "https://google.com/*", "https://maps.google.com/*"];
-const v = { sub: null, google: null, rank: null, ideas: null, biz: null, kw: "", detail: null, detected: {}, wizard: null };
+const v = { sub: null, google: null, rank: null, ideas: null, biz: null, kw: "", detail: null, detected: {}, wizard: null, focus: null, bd: {} };
 let ui; // helpers passed in by sidepanel.js: toast, copy, notice, download, activeTab, setMode
 
 const status = (n) => (n == null ? "" : n >= 85 ? "s-pass" : n >= 65 ? "s-part" : "s-fail");
@@ -73,19 +74,24 @@ export async function renderCompete(helpers) {
   const onGoogle = /^https:\/\/(www\.)?google\.[a-z.]+\/(search|maps)/.test(tab?.url || "");
   if (onGoogle && (!v.google || v.google.url !== tab.url) && (await chrome.permissions.contains({ origins: GOOGLE }))) {
     try { v.google = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }))[0].result; } catch { v.google = null; }
-    if (v.google?.kind === "serp") { T.recordPositions(v.google); v.sub = "rank"; }
+    if (v.google?.kind === "serp") { T.recordPositions(v.google); v.sub = v.focus ? "result" : "rank"; }
     if (v.google?.kind === "maps") v.sub = "biz";
   }
-  if (!onGoogle) v.google = null;
-  if (!v.sub) v.sub = "home";
+  // Leaving Google keeps the last search, so you can still open its results (for example after clicking through to #1).
+  v.stale = !onGoogle && !!v.google;
+  if (!v.sub || (v.sub === "result" && !v.focus)) v.sub = "home";
   if (v.sub === "home") return renderCompeteHome(onGoogle);
+  if (v.sub === "result") return renderResult();
   el.innerHTML = `<nav class="crumb"><button class="back" data-sub="home">‹ Compete</button><span>${TOOLS[v.sub][0]}</span></nav><div id="sub"></div>`;
   bindSubs(el);
   if (v.sub === "rank") await renderRank(onGoogle, tab);
   else if (v.sub === "ideas") await renderIdeas();
   else await renderBiz(onGoogle, tab);
 }
-const bindSubs = (root) => root.querySelectorAll("[data-sub]").forEach((b) => (b.onclick = () => { v.sub = b.dataset.sub; renderCompete(ui); window.scrollTo(0, 0); }));
+const bindSubs = (root) => root.querySelectorAll("[data-sub]").forEach((b) => (b.onclick = () => { v.sub = b.dataset.sub; if (v.sub !== "result") v.focus = null; renderCompete(ui); window.scrollTo(0, 0); }));
+
+/** Open the full breakdown of one result (from a hover card's "See full breakdown" or a click in the results list). */
+export function focusResult(url) { v.focus = url; v.sub = "result"; }
 
 async function renderCompeteHome(onGoogle) {
   const el = $("view");
@@ -159,15 +165,17 @@ async function renderRank(onGoogle, tab) {
   v.kw = g.query;
   const pos = me ? g.organic.find((o) => sameDomain(o.url, me.origin)) : null;
   const r = v.rank?.query === g.query && v.rank?.site === me?.origin ? v.rank : null;
-  s.innerHTML = `<div class="serphead"><div><span>Search</span><b>${esc(g.query)}</b></div>
+  s.innerHTML = `<div class="serphead"><div><span>${v.stale ? "Last search you opened" : "Search"}</span><b>${esc(g.query)}</b></div>
       <div class="pos"><span>${me ? esc(me.name) : "Your site"}</span><b>${pos ? "#" + pos.position : me ? "Not in top " + g.organic.length : "–"}</b></div></div>
     ${g.blocked ? `<p class="notice">Google is showing a robot check. Solve it in the tab, then press Compare again.</p>` : ""}
     ${await siteSelect()}
-    <ol class="serplist">${g.organic.slice(0, 10).map((o) => `<li class="${me && sameDomain(o.url, me.origin) ? "me" : DIRECTORIES.test(hostOf(o.url)) ? "dir" : ""}"><span>${o.position}</span><div><b>${esc(o.title)}</b><small>${esc(hostOf(o.url))}${DIRECTORIES.test(hostOf(o.url)) ? " · directory, skipped" : ""}</small></div>${me && !sameDomain(o.url, me.origin) && !DIRECTORIES.test(hostOf(o.url)) ? `<button class="linkish addcomp" data-comp="${esc(new URL(o.url).origin)}" title="Track as a competitor of ${esc(me.name)}">+ Track</button>` : ""}</li>`).join("")}</ol>
+    <p class="lede">Tap a result to see why it ranks there and what it does differently from the pages above it.</p>
+    <ol class="serplist">${g.organic.slice(0, 10).map((o) => `<li class="${me && sameDomain(o.url, me.origin) ? "me" : DIRECTORIES.test(hostOf(o.url)) ? "dir" : ""}"><span>${o.position}</span><button class="rowbtn" data-focus="${esc(o.url)}"><b>${esc(o.title)}</b><small>${esc(hostOf(o.url))}${me && sameDomain(o.url, me.origin) ? " · you" : ""}${DIRECTORIES.test(hostOf(o.url)) ? " · directory" : ""} · why it ranks ›</small></button>${me && !sameDomain(o.url, me.origin) && !DIRECTORIES.test(hostOf(o.url)) ? `<button class="linkish addcomp" data-comp="${esc(new URL(o.url).origin)}" title="Track as a competitor of ${esc(me.name)}">+ Track</button>` : ""}</li>`).join("")}</ol>
     ${g.local?.length ? `<details class="fold"><summary>Map pack <small>${g.local.length}</small></summary><table class="mini"><tr><th>Business</th><th>Rating</th><th>Reviews</th></tr>${g.local.map((l) => `<tr><td>${esc(l.name)}</td><td>${l.rating ?? "–"}</td><td>${l.reviews ?? "–"}</td></tr>`).join("")}</table></details>` : ""}
     <div class="stack"><button id="cmp" class="primary run">${r ? "Compare again" : `Compare the top ${Math.min(8, g.organic.filter((o) => !DIRECTORIES.test(hostOf(o.url))).length)} pages with mine`}</button></div>
     <div id="rankout"></div>`;
   bindSite(() => renderCompete(ui));
+  s.querySelectorAll("[data-focus]").forEach((b) => (b.onclick = () => { focusResult(b.dataset.focus); renderCompete(ui); window.scrollTo(0, 0); }));
   const tracked = new Set((await T.trackedSites()).map((x) => x.origin));
   s.querySelectorAll("[data-comp]").forEach((b) => {
     if (tracked.has(b.dataset.comp)) { b.textContent = "Tracked"; b.disabled = true; return; }
@@ -187,6 +195,62 @@ async function renderRank(onGoogle, tab) {
   };
   if (r) $("rankout").innerHTML = rankReport(r);
   $("rankout").querySelectorAll("[data-copy]").forEach((b) => (b.onclick = () => ui.copy(b.dataset.copy === "brief" ? briefPrompt(r) : rankPrompt(r), b.dataset.copy === "brief" ? "Brief copied" : "Fix prompt copied")));
+}
+
+/** Full breakdown of one result: same engine and numbers as the Google hover card. */
+async function renderResult() {
+  const el = $("view"), g = v.google?.kind === "serp" ? v.google : null;
+  if (!g) { v.sub = "home"; v.focus = null; return renderCompete(ui); }
+  const url = v.focus, hit = g.organic.find((o) => o.url === url) || g.organic.find((o) => sameDomain(o.url, url));
+  const key = g.query + "|" + url;
+  el.innerHTML = `<nav class="crumb"><button class="back" data-sub="rank">‹ Why they rank</button><span>${hit ? "#" + hit.position + " " : ""}${esc(hostOf(url))}</span></nav><div id="sub"></div>`;
+  bindSubs(el);
+  const s = $("sub");
+  const b = v.bd[key];
+  if (!b) {
+    if (!(await chrome.permissions.contains({ origins: ALL_SITES }))) {
+      s.innerHTML = `<p class="lede">The breakdown reads this page and the pages above it.</p><button id="allowall" class="primary run">Allow reading websites</button>`;
+      $("allowall").onclick = async () => { if (await access(ALL_SITES, "The breakdown needs permission to read the ranking websites.")) renderResult(); };
+      return;
+    }
+    s.innerHTML = `<p class="lede">Reading ${esc(hostOf(url))} and the pages ranking above it for “${esc(g.query)}”…</p>`;
+    v.bd[key] = await breakdown(g, url).catch((e) => ({ error: String(e.message || e) }));
+    if (v.focus === url && v.sub === "result" && document.body.dataset.mode === "compete") renderResult();
+    return;
+  }
+  if (b.error) { s.innerHTML = `<p class="notice">Couldn't read ${esc(b.host || hostOf(url))}: ${esc(b.error)}.</p>`; return; }
+  const me = await mySite();
+  const tracked = await T.trackedFor(b.url);
+  const scan = (await history(new URL(b.url).origin + "/", "site")).list[0];
+  const vs = b.relation === "above" ? `the ${b.rivals.length === 1 ? "page" : b.rivals.length + " pages"} ranking above it` : "the next results";
+  const diff = b.gaps.filter((x) => x.behind), other = b.gaps.filter((x) => !x.behind);
+  if (!s.isConnected) return; // a newer redraw replaced this one while it was loading
+  s.innerHTML = `<div class="bizhead"><div class="ring ${status(b.score)}"><b>${b.score}</b><span>match</span></div><div><b>${esc(b.host)}</b>
+      <small>${b.position ? `#${b.position}` : "Not in the results"} for “${esc(g.query)}”</small><small>${esc(b.title.slice(0, 90))}</small>${b.tech?.line ? `<small>${esc(b.tech.line)}</small>` : ""}</div></div>
+    <p class="lede">Search match ${b.score}/100: how this page's on-page SEO compares with ${vs} (${b.rivals.map((r) => `#${r.position} ${esc(r.host)}`).join(", ") || "none readable"}). The hover card on Google shows the same numbers.</p>
+    <div class="upd"><p>${scan ? `<b>Full site rating ${scan.scores.overall}/100</b> (SEO ${scan.scores.seo}, AEO ${scan.scores.aeo}, GEO ${scan.scores.geo}), scanned ${when(scan.page.scannedAt)}.` : "<b>No full site rating yet.</b> It crawls the site and runs all 39 checks."}</p>
+      <div class="btns"><button id="ratesite">${scan ? "Rate the whole site again" : "Rate the whole site"}</button>${!tracked && me && !sameDomain(b.url, me.origin) ? `<button id="trackcomp">Track as competitor</button>` : ""}</div></div>
+    <h2 class="sec">Why it ranks here</h2>
+    ${b.why.length ? `<ul class="qs">${b.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : `<p class="lede">Nothing on the page stands out against the others, so its position likely comes from links, reviews or brand strength (not measured).</p>`}
+    ${diff.length || other.length ? `<h2 class="sec">${diff.length ? "What the pages above it do differently" : "To rank higher"} <small>most important first</small></h2>
+      <div class="list">${(diff.length ? diff : other).slice(0, 8).map((x) => `<div class="factor"><span class="dot s-fail"></span><div><b>${esc(x.label)}</b><small>This page: ${esc(x.mine)} · ${b.relation === "above" ? "above it" : "others"}: ${esc(x.them.join(" / ") || "–")}</small><p>${esc(x.fix)}</p></div></div>`).join("")}</div>` : `<p class="lede">It matches the others on every on-page factor measured. The gap is off-page.</p>`}
+    <div class="btns stack"><button id="bdcopy" class="primary">Copy fix prompt</button></div>
+    ${fold("Every factor side by side", b.rows.length, `<table class="mini"><tr><th>Factor</th><th>This</th>${b.rivals.map((r) => `<th title="${esc(r.host)}">#${r.position}</th>`).join("")}</tr>${b.rows.map((r) => `<tr class="${r.behind ? "bad" : ""}"><td>${esc(r.label)}</td><td class="num">${esc(r.mine)}</td>${r.them.map((t) => `<td>${esc(t)}</td>`).join("")}</tr>`).join("")}</table>`, true)}
+    ${diff.length && other.length ? fold("Other improvements", other.length, `<div class="list">${other.map((x) => `<div class="factor"><span class="dot s-part"></span><div><b>${esc(x.label)}</b><p>${esc(x.fix)}</p></div></div>`).join("")}</div>`) : ""}
+    <p class="unknowns">Not measured: ${b.notMeasured.map(esc).join("; ")}.</p>`;
+  s.querySelector("#bdcopy").onclick = () => ui.copy(b.prompt, "Fix prompt copied");
+  s.querySelector("#ratesite").onclick = () => rateWholeSite(b.url);
+  const tc = s.querySelector("#trackcomp"); if (tc) tc.onclick = async () => { const o = await T.trackSite(b.url, "", "competitor", me.origin); tc.replaceWith(Object.assign(document.createElement("small"), { textContent: "Tracked" })); ui.toast(`Tracking ${hostOf(o)}; scanning it now`); rescan([o], { quiet: true }); };
+}
+
+/** Open the site in a new tab and run the whole-site rating there (access is asked while the click still counts). */
+async function rateWholeSite(url) {
+  const origin = new URL(url).origin;
+  if (!(await chrome.permissions.request({ origins: siteOrigins(origin + "/") }))) return ui.notice("Rating the site needs access to it. Press the button again and choose Allow.");
+  const tab = await chrome.tabs.create({ url: origin + "/", active: true });
+  await new Promise((res) => { const l = (id, info) => { if (id === tab.id && info.status === "complete") { chrome.tabs.onUpdated.removeListener(l); res(); } }; chrome.tabs.onUpdated.addListener(l); setTimeout(res, 20000); });
+  await ui.setMode("site");
+  document.getElementById("scan").click();
 }
 
 const fold = (title, n, body, open = false) => body ? `<details class="fold" ${open ? "open" : ""}><summary>${title}${n != null ? ` <small>${n}</small>` : ""}</summary>${body}</details>` : "";

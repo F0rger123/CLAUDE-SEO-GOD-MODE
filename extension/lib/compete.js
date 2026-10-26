@@ -24,7 +24,7 @@ export async function fetchPage(url, timeout = 15000) {
   try {
     const r = await fetch(url, { credentials: "omit", cache: "no-store", signal: AbortSignal.timeout(timeout) });
     const html = await r.text();
-    return { url, finalUrl: r.url, status: r.status, html, ms: Math.round(performance.now() - t0) };
+    return { url, finalUrl: r.url, status: r.status, html, ms: Math.round(performance.now() - t0), headers: Object.fromEntries([...r.headers].map(([k, v]) => [k.toLowerCase(), v])) };
   } catch (e) { return { url, status: null, html: "", error: String(e.message || e) }; }
 }
 
