@@ -39,6 +39,7 @@ Client data never lives in this repository: `$SEO_CLIENTS_DIR` (default `~/seo-c
 | User intent | Use |
 |---|---|
 | "rate my website", SEO/GEO/AEO score, quick audit of any URL | `skills/rate-my-site` (`python scripts/rate_site.py <url>` or MCP `seo_rate_site`) |
+| Chrome extension, scan in the browser, before/after proof for a client | `extension/README.md` (load unpacked; prompts from it follow RULES.md) |
 | "improve yourself", a rating looked wrong, add a check/skill/tool | `CONTRIBUTING.md` (self-improvement loop) |
 | new client, onboarding | `workflows/onboarding.md` |
 | resume, continue | `python scripts/state/client_state.py resume <slug>`, then its `next` items |

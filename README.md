@@ -60,6 +60,17 @@ Potential: fixing the top 5 items could lift the overall score to about 96.
 
 From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_site`. Without Python (for example a claude.ai chat), the `rate-my-site` skill rates by hand with the same rubric and labels the result approximate.
 
+## 🧩 Chrome extension: scan any page, fix it, prove it
+
+A side panel with 33 SEO, AEO and GEO checks for the page you're on. It gives fix steps for your platform, a **Copy Claude prompt** button on every issue, a "fix everything" prompt, and **before/after proof** with a downloadable report for clients. It runs locally and sends no data anywhere.
+
+<p>
+  <img src="assets/extension-fix.png" alt="Extension: issues with fix steps" width="280">
+  <img src="assets/extension-proof.png" alt="Extension: before and after proof" width="280">
+</p>
+
+Install: `chrome://extensions` → Developer mode → **Load unpacked** → pick the `extension` folder. Details: [extension/README.md](extension/README.md).
+
 ### It improves itself
 
 [CONTRIBUTING.md](CONTRIBUTING.md) defines a self-improvement loop that humans and agents both follow: self-audit real sites, classify each miss, fix the smallest cause, lock it in with an offline fixture test, then benchmark before and after (`scripts/dev/benchmark.py`). Every change is logged in [CHANGELOG.md](CHANGELOG.md).

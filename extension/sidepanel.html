@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SEO God Mode</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark">◆</span> SEO GOD MODE</div>
+    <div id="url" class="url">Open a website tab, then press Scan.</div>
+    <div class="actions">
+      <button id="scan" class="primary">Scan this page</button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <section id="scores" class="scores" hidden></section>
+
+  <nav id="tabs" class="tabs" hidden>
+    <button data-tab="fix" class="on">Fix</button>
+    <button data-tab="passed">Passed</button>
+    <button data-tab="proof">Before / after</button>
+    <button data-tab="prompt">Claude prompt</button>
+  </nav>
+
+  <main>
+    <section id="tab-fix" class="tab"></section>
+    <section id="tab-passed" class="tab" hidden></section>
+    <section id="tab-proof" class="tab" hidden></section>
+    <section id="tab-prompt" class="tab" hidden></section>
+  </main>
+
+  <footer>Runs on your device. Scores are page-level hygiene and AI-search readiness, not rankings.
+    <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE" target="_blank" rel="noopener">CLAUDE SEO GOD MODE</a></footer>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

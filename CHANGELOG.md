@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0 (2026-10-26): Chrome extension
+
+- `extension/`: Manifest V3 side panel with 33 SEO, AEO and GEO checks on the live page. It also fetches robots.txt (Google matching rules), the sitemap, a random URL to test for 404s, and the http:// variant.
+- Fix steps per platform (WordPress, Shopify, Wix, Squarespace, Webflow, Next.js, Astro). Every issue gets a Claude prompt, plus a "fix everything" prompt with built-in rules ([CONFIRM] for unknown facts, verify live after deploy, CDN-level HTTPS).
+- Before/after: mark a baseline and rescan to get score deltas and fixed/improved/regressed checks, plus a downloadable HTML proof report. History stays on the device.
+- Playwright end-to-end test loads the real extension, scans good and bad fixture sites, fixes one and verifies the proof report. Runs in CI.
+
 ## 2.5.0 (2026-10-25): self-learning SEO loop
 
 - `scripts/loop/seo_loop.py`: `scan` (CTR gap on page 1, striking distance 8-20, searched-but-unanswered, cannibalization, declines; prints `ACTIONABLE: n`), `record` (stores each change with its 28-day before-numbers), `evaluate` (after 28 days marks win, loss or flat and updates `learnings.json` weights per change type), `status`.

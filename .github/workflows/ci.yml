@@ -32,3 +32,17 @@ jobs:
         run: python tests/test_mcp_server.py
       - name: Validate JSON manifests
         run: python -c "import json; [json.load(open(f)) for f in ('.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', '.mcp.json')]"
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright Chromium
+        run: |
+          npm i --no-save playwright@1
+          npx playwright install --with-deps chromium
+      - name: Extension end-to-end test (good vs bad site, fix, before/after proof)
+        run: node extension/tests/e2e.mjs

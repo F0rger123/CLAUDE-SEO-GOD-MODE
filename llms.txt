@@ -16,6 +16,7 @@ If a person pasted this repository and asked you to set it up, start with the se
 - [Setup](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/SETUP.md)
 - [Integrations (Search Console, Bing, PageSpeed)](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/INTEGRATIONS.md)
 - [MCP server](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/MCP.md)
+- [Chrome extension (scan, fix prompts, before/after proof)](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/extension/README.md)
 - [Paid ads companion (claude-ads)](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/ADS.md)
 - [Security](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/SECURITY.md)
 - [Architecture](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/ARCHITECTURE.md)
