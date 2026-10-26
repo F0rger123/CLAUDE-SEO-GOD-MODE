@@ -579,7 +579,7 @@ async function renderSiteDetail(origin) {
       <small><a href="${esc(origin)}/" target="_blank" rel="noopener">${esc(hostOf(origin))}</a></small></div>
       <div class="bignum"><b>${lastScan?.overall ?? "–"}</b><span>${lastScan ? "overall, " + ago(lastScan.t) : "not scanned"}</span></div></div>
     <div class="btns"><button id="rescan1" class="primary run">Rescan now</button><button id="opensite">Open site</button><button id="editbtn">Edit</button></div>
-    <div id="editbox" hidden><div class="field"><label for="rename">Name</label><input id="rename" class="search" value="${esc(s.name)}"></div>
+    <div id="editbox" ${v.editing === origin ? "" : "hidden"}><div class="field"><label for="rename">Name</label><input id="rename" class="search" value="${esc(s.name)}"></div>
       ${roleSelect("editrole", s.role, owned, s.competitorOf)}<div class="btns"><button id="saverole" class="primary">Save</button><button id="untrack" class="linkish danger">Stop tracking</button></div></div>
     <h2 class="sec">Score history <small>${h.length} scan${h.length === 1 ? "" : "s"}</small></h2>
     ${T.lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }, { name: "SEO", cls: "k1", points: h.map((p) => ({ t: p.t, v: p.seo })) },
@@ -596,10 +596,11 @@ async function renderSiteDetail(origin) {
     ${h.length ? fold("All scans", h.length, `<table class="mini"><tr><th>Date</th><th>Overall</th><th>SEO</th><th>AEO</th><th>GEO</th><th>Pages</th></tr>${[...h].reverse().slice(0, 30).map((p) => `<tr><td>${when(p.t)}</td><td>${p.overall}</td><td>${p.seo}</td><td>${p.aeo}</td><td>${p.geo}</td><td>${p.pages ?? ""}</td></tr>`).join("")}</table>`) : ""}`;
   bindRole("editrole");
   $("back").onclick = () => { v.detail = null; renderTrack(ui); };
-  $("editbtn").onclick = () => ($("editbox").hidden = !$("editbox").hidden);
+  // Remembered, so a scan finishing in the background (which redraws this page) doesn't close it.
+  $("editbtn").onclick = () => { v.editing = v.editing === origin ? null : origin; $("editbox").hidden = v.editing !== origin; };
   const go = $("goof"); if (go) go.onclick = () => { v.detail = of.origin; renderSiteDetail(of.origin); };
   $("saverole").onclick = async () => { const role = $("editrole").value;
-    await T.renameSite(origin, $("rename").value); await T.setRole(origin, role, role === "competitor" ? $("editrole-of").value || null : null); ui.toast("Saved"); renderSiteDetail(origin); };
+    await T.renameSite(origin, $("rename").value); await T.setRole(origin, role, role === "competitor" ? $("editrole-of").value || null : null); v.editing = null; ui.toast("Saved"); renderSiteDetail(origin); };
   $("rescan1").onclick = () => rescan([origin]);
   const rg = $("rescangroup"); if (rg) rg.onclick = () => rescan([origin, ...T.competitorsOf(origin, list).map((r) => r.origin)]);
   const cc = $("cmpcopy"); if (cc) cc.onclick = () => ui.copy(comparePrompt(v.cmp), "Fix prompt copied");
