@@ -5,13 +5,14 @@ A side panel that scans the page you're on for **SEO, AEO (answer engines) and G
 <p>
   <img src="../assets/extension-fix.png" alt="Scan results with fix steps" width="300">
   <img src="../assets/extension-proof.png" alt="Before and after proof" width="300">
+  <img src="../assets/extension-claude.png" alt="Claude prompt" width="300">
 </p>
 
 ## Install (2 minutes, no store needed)
 
-1. Download this repository (Code → Download ZIP) and unzip it, or `git clone` it.
+1. **[Download the extension zip](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip)** and unzip it.
 2. In Chrome, open `chrome://extensions` and turn on **Developer mode** (top right).
-3. Click **Load unpacked** and pick the `extension` folder.
+3. Click **Load unpacked** and pick the unzipped folder.
 4. Pin the extension, open any website, and click its icon. The side panel opens; press **Scan this page**.
 
 The first scan of each site asks for access to that site. The extension needs it to read the page, `robots.txt` and the sitemap. It works with Chrome 116+ and other Chromium browsers (Edge, Brave, Arc).
@@ -48,4 +49,5 @@ Everything runs in your browser. Scan history is stored in `chrome.storage.local
 - Code: `lib/collect.js` (runs in the page), `lib/site.js` (robots.txt with Google's matching rules, sitemap, 404, http), `lib/rubric.js` (checks, weights, fix steps, prompt goals), `lib/prompts.js`, `lib/proof.js`, `sidepanel.*`.
 - **Add a check:** one entry in `CHECKS` in `lib/rubric.js` (`id`, `cat`, `name`, `weight`, `tag`, `test`, `why`, `steps`, `platform`, `goal`). Then extend the fixtures in `tests/e2e.mjs` so the GOOD site passes and the BAD site fails.
 - **Test:** `npm i playwright && npx playwright install chromium`, then `node extension/tests/e2e.mjs`. It loads the real extension in Chromium, scans a good and a bad local site, fixes the bad one, and checks the before/after proof and the downloaded report. CI runs it on every push.
-- **Chrome Web Store:** zip the `extension` folder and upload it in the developer dashboard (one-time $5 developer fee; the listing needs a privacy statement, and the section above covers it). Do that only when you want public installs.
+- **Chrome Web Store:** everything to paste (listing copy, images, permission justifications, privacy policy) is in [`store/LISTING.md`](../store/LISTING.md). Build the upload with `python scripts/build_extension_zip.py`.
+- **Releases:** every change to `extension/` on main runs the e2e test, then publishes `seo-god-mode-extension.zip` to GitHub Releases (`.github/workflows/extension-release.yml`).

@@ -1,0 +1,40 @@
+name: Extension release
+
+# Publishes extension/ as a downloadable zip on the GitHub Releases page whenever it changes on main.
+# The README's download button points at releases/latest/download/seo-god-mode-extension.zip.
+on:
+  push:
+    branches: [main]
+    paths: ["extension/**", "scripts/build_extension_zip.py", ".github/workflows/extension-release.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test the extension first
+        run: |
+          npm i --no-save playwright@1
+          npx playwright install --with-deps chromium
+          node extension/tests/e2e.mjs
+      - name: Build zip
+        run: python3 scripts/build_extension_zip.py
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(python3 -c "import json;print(json.load(open('extension/manifest.json'))['version'])")
+          TAG="extension-v$VERSION"
+          NOTES="Chrome extension v$VERSION. Install: unzip, open chrome://extensions, turn on Developer mode, click Load unpacked, pick the unzipped folder. Details: extension/README.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/seo-god-mode-extension.zip --clobber
+          else
+            gh release create "$TAG" dist/seo-god-mode-extension.zip --title "SEO God Mode extension v$VERSION" --notes "$NOTES" --latest
+          fi

@@ -1,4 +1,5 @@
 import { checkById } from "./rubric.js";
+import { guideUrl, REPO, skillCmd } from "./skills.js";
 
 const RULES = `Rules:
 - Use only facts that are already on the site or that I confirm. Write [CONFIRM: ...] for anything you'd have to guess (phone, prices, years, reviews, profile URLs).
@@ -22,6 +23,8 @@ Goal: ${c.goal}
 Suggested steps:
 ${steps(c, page.platform).map((s, i) => `${i + 1}. ${s}`).join("\n")}
 
+If you have the CLAUDE SEO GOD MODE skill (${REPO}), use its guide for this fix: ${guideUrl(result.id)}${skillCmd(result.id, page) ? `\nTo check it across the whole site, run: ${skillCmd(result.id, page)}` : ""}
+
 ${RULES}
 
 When done, tell me exactly what changed (files or settings), and I'll re-scan the page with the CLAUDE SEO GOD MODE extension for before/after proof.`;
@@ -37,9 +40,9 @@ Current page scores: overall ${scores.overall}, SEO ${scores.seo}, AEO ${scores.
 
 Fix these in order (estimated points gained in brackets). Do the safe, factual ones; ask me before anything that needs facts or account access.
 ${failed.map((r, i) => { const c = checkById[r.id];
-  return `\n${i + 1}. ${c.name} [+${r.gain}] — ${r.tag}: ${r.detail}\n   Goal: ${c.goal}\n   Steps: ${steps(c, page.platform).join(" ")}`; }).join("\n")}
+  return `\n${i + 1}. ${c.name} [+${r.gain}] — ${r.tag}: ${r.detail}\n   Goal: ${c.goal}\n   Steps: ${steps(c, page.platform).join(" ")}\n   Guide: ${guideUrl(r.id)}`; }).join("\n")}
 
 ${RULES}
 
-If you have the CLAUDE SEO GOD MODE skill (https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE), run its rate-my-site check on ${page.origin} before and after. Finish with a list of what changed and anything I still need to do by hand (accounts, settings, facts to confirm).`;
+If you have the CLAUDE SEO GOD MODE skill (${REPO}), use it: run \`python scripts/rate_site.py ${page.origin}\` (or the seo_rate_site MCP tool) before and after for whole-site proof, and follow each guide above. Finish with a list of what changed and anything I still need to do by hand (accounts, settings, facts to confirm).`;
 }

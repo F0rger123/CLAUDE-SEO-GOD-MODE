@@ -10,6 +10,8 @@
   <img src="https://img.shields.io/badge/data-never%20fabricated-2ea44f" alt="Data never fabricated">
 </p>
 
+<p align="center"><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"><img src="https://img.shields.io/badge/Download-Chrome%20extension-2f3fbf?logo=googlechrome&logoColor=white" alt="Download the Chrome extension"></a></p>
+
 <p align="center"><b>The all-in-one SEO operating system for Claude.</b><br>
 One prompt starts a client. Claude onboards, audits, pulls real Search Console and Bing data, fixes what it safely can, tells you exactly what to approve, and remembers everything for next time.</p>
 
@@ -69,7 +71,9 @@ A side panel with 33 SEO, AEO and GEO checks for the page you're on. It gives fi
   <img src="assets/extension-proof.png" alt="Extension: before and after proof" width="280">
 </p>
 
-Install: `chrome://extensions` → Developer mode → **Load unpacked** → pick the `extension` folder. Details: [extension/README.md](extension/README.md).
+<p><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"><img src="https://img.shields.io/badge/Download-Chrome%20extension%20(.zip)-2f3fbf?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download the Chrome extension"></a></p>
+
+Install in four clicks: download the zip and unzip it, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder. Details: [extension/README.md](extension/README.md). Chrome Web Store kit: [store/LISTING.md](store/LISTING.md).
 
 ### It improves itself
 

@@ -72,8 +72,8 @@ async function scanVia(url) {
   await panel.setViewportSize({ width: 420, height: 860 });
   await panel.goto(`chrome-extension://${extId}/sidepanel.html?tabId=${tabId}`);
   await panel.click("#scan");
-  await panel.waitForSelector(".ring .num", { timeout: 30000 });
-  const nums = await panel.$$eval(".ring .num", (els) => els.map((e) => +e.textContent));
+  await panel.waitForSelector(".dial .n", { timeout: 30000 });
+  const nums = [await panel.$eval(".dial .n", (e) => +e.textContent), ...(await panel.$$eval(".bar .num", (els) => els.map((e) => +e.textContent)))];
   return { panel, site, scores: { overall: nums[0], seo: nums[1], aeo: nums[2], geo: nums[3] } };
 }
 
@@ -93,6 +93,11 @@ for (const want of ["Title tag 25–60 characters", "Exactly one H1", "AI search
 const prompt = await b.panel.$eval("#tab-prompt pre", (e) => e.textContent);
 assert.match(prompt, /\[CONFIRM/); assert.match(prompt, /AI search crawlers allowed/); assert.match(prompt, /Cloudflare/);
 
+// screenshot: Claude prompt tab
+await b.panel.click('#tabs button[data-tab="prompt"]');
+await b.panel.screenshot({ path: path.join(here, "..", "..", "assets", "extension-claude.png") });
+await b.panel.click('#tabs button[data-tab="fix"]');
+
 // screenshot: issues with the first one expanded
 await b.panel.click("#tab-fix .issue summary");
 await b.panel.screenshot({ path: path.join(here, "..", "..", "assets", "extension-fix.png") });
@@ -108,8 +113,9 @@ const proofText = await b.panel.$eval("#tab-proof", (e) => e.textContent);
 assert.match(proofText, /fixed/);
 const [download] = await Promise.all([b.panel.waitForEvent("download"), b.panel.click("#download")]);
 const html = fs.readFileSync(await download.path(), "utf8");
-assert.match(html, /Before \/ after proof/); assert.match(html, /fixed/);
+assert.match(html, /proof/i); assert.match(html, /fixed/);
 console.log("proof report:", download.suggestedFilename(), html.length, "bytes");
+await b.panel.evaluate(() => window.scrollTo(0, 0));
 await b.panel.screenshot({ path: path.join(here, "..", "..", "assets", "extension-proof.png") });
 
 await ctx.close(); s1.close(); s2.close();

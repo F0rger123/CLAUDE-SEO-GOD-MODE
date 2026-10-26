@@ -3,9 +3,12 @@ import { collectSiteFacts } from "./lib/site.js";
 import { CATS, checkById, grade, score } from "./lib/rubric.js";
 import { fixAllPrompt, fixPrompt } from "./lib/prompts.js";
 import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proof.js";
+import { guideUrl, REPO, siteCommands } from "./lib/skills.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const when = (iso) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const EVIDENCE = { OBSERVED: ["Measured", ""], INFERRED: ["Estimate", "inferred"], UNKNOWN: ["Not measured", "unknown"] };
 let current = null;
 
 function notice(html) { const n = $("notice"); n.hidden = !html; n.innerHTML = html || ""; }
@@ -29,8 +32,8 @@ async function scan() {
   btn.disabled = true; btn.textContent = "Scanning…"; notice("");
   try {
     let tab = await activeTab();
-    if (tab?.url && !/^https?:/i.test(tab.url)) throw new Error("Open a normal website tab (http/https) to scan it.");
-    if (!(await ensureAccess(tab?.url))) throw new Error("Access to this site wasn't granted. The scan needs it to read the page, robots.txt and sitemap.");
+    if (tab?.url && !/^https?:/i.test(tab.url)) throw new Error("This tab isn't a website. Open a page that starts with http or https, then scan it.");
+    if (!(await ensureAccess(tab?.url))) throw new Error("The scan needs access to this site to read the page, robots.txt and sitemap. Press Scan again and choose Allow.");
     tab = await activeTab();
     $("url").textContent = tab.url;
     const [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: collectPageFacts });
@@ -45,48 +48,56 @@ async function scan() {
   }
 }
 
-const tone = (n) => (n == null ? "" : n >= 85 ? "t-good" : n >= 70 ? "t-ok" : n >= 55 ? "t-warn" : "t-bad");
-function ring(label, n) {
-  const r = 26, c = 2 * Math.PI * r, v = n == null ? 0 : n / 100;
-  return `<div class="ring"><svg width="64" height="64" viewBox="0 0 64 64"><circle class="track" cx="32" cy="32" r="${r}" stroke-width="7"/>
-    <circle class="val ${tone(n)}" cx="32" cy="32" r="${r}" stroke-width="7" stroke-dasharray="${(c * v).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 32 32)"/></svg>
-    <div class="num">${n ?? "?"}</div><div class="lbl">${label}</div><div class="g">${grade(n)}</div></div>`;
+const status = (n) => (n == null ? "" : n >= 85 ? "s-pass" : n >= 65 ? "s-part" : "s-fail");
+
+function scoresHtml(scores, potential) {
+  const r = 62, len = Math.PI * r, v = (scores.overall ?? 0) / 100;
+  const bar = (k, label) => `<div class="bar"><span class="lab"><b>${label}</b> ${{ seo: "search basics", aeo: "answer engines", geo: "AI search" }[k]}</span>
+    <span class="num">${scores[k] ?? "?"}</span><div class="track"><div class="fill ${status(scores[k])}" style="width:${scores[k] ?? 0}%"></div></div></div>`;
+  return `<div class="dial" role="img" aria-label="Overall score ${scores.overall} out of 100, grade ${grade(scores.overall)}">
+      <svg width="150" height="82" viewBox="0 0 150 82"><path class="track" d="M13 75 A62 62 0 0 1 137 75" stroke-width="12"/>
+      <path class="val ${status(scores.overall)}" d="M13 75 A62 62 0 0 1 137 75" stroke-width="12" stroke-dasharray="${(len * v).toFixed(1)} ${len.toFixed(1)}"/></svg>
+      <div class="read"><div class="n">${scores.overall ?? "?"}</div><div class="cap">Overall, grade ${grade(scores.overall)}</div></div></div>
+    <div class="bars">${bar("seo", "SEO")}${bar("aeo", "AEO")}${bar("geo", "GEO")}</div>
+    <p class="potential">Fix the top five issues and this page could reach about <b>${potential}</b>.</p>`;
 }
 
-function issueCard(r, page) {
+function issueRow(r, page) {
   const c = checkById[r.id];
-  const cls = r.ratio == null ? "" : r.ratio >= 0.999 ? "c-good" : r.ratio >= 0.6 ? "c-warn" : "c-bad";
+  const dot = r.ratio == null ? "" : r.ratio >= 0.999 ? "s-pass" : r.ratio >= 0.6 ? "s-part" : "s-fail";
+  const [ev, evCls] = EVIDENCE[r.tag] || EVIDENCE.UNKNOWN;
   const steps = [...c.steps, ...(c.platform[page.platform] || [])];
-  return `<details class="issue ${cls}"><summary><div class="row"><span class="name">${esc(c.name)}</span>${r.gain ? `<span class="gain">+${r.gain} pts</span>` : ""}</div>
-    <div class="meta"><span class="chip">${CATS[r.cat]}</span><span class="chip tag-${r.tag}">${r.tag}</span></div><div class="detail">${esc(r.detail)}</div></summary>
-    <div class="body"><div class="why">${esc(c.why)}</div><b>How to fix${page.platform !== "Unknown" ? ` (${esc(page.platform)})` : ""}</b>
+  return `<details class="issue"><summary><span class="dot ${dot}"></span><span class="name">${esc(c.name)}</span>${r.gain ? `<span class="gain">+${r.gain}</span>` : "<span></span>"}
+    <span class="sub"><span class="area">${CATS[r.cat]}</span><span class="ev ${evCls}">${ev}:</span> ${esc(r.detail)}</span></summary>
+    <div class="body"><p class="why">${esc(c.why)}</p><h3>How to fix it${page.platform !== "Unknown" ? ` on ${esc(page.platform)}` : ""}</h3>
     <ol>${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
-    <div class="btns"><button data-copy="${r.id}">Copy Claude prompt</button></div></div></details>`;
+    <div class="btns"><button data-copy="${r.id}">Copy prompt for Claude</button><a href="${guideUrl(r.id)}" target="_blank" rel="noopener">Read the full guide</a></div></div></details>`;
 }
 
 function renderProof(scan, { list, baseline }) {
   const el = $("tab-proof");
   if (!baseline) {
-    el.innerHTML = `<p class="summary">Save this scan as your <b>before</b>. Make the fixes, scan again, and this tab shows the before/after with a downloadable proof report.</p>
-      <button id="setbase" class="primary">Use this scan as BEFORE</button>
-      <p class="summary">${list.length} scan(s) saved for this page on this device.</p>`;
+    el.innerHTML = `<p class="lede">Save this scan as the before picture. Make your fixes, scan again, and this tab shows what changed, with a report you can send.</p>
+      <div class="stack"><button id="setbase" class="primary">Save this scan as "before"</button></div>
+      <p class="lede">${list.length} scan${list.length === 1 ? "" : "s"} saved for this page on this computer.</p>`;
   } else if (baseline.id === scan.id) {
-    el.innerHTML = `<p class="summary"><b>Before</b> saved ${esc(baseline.page.scannedAt.replace("T", " ").slice(0, 16))} (overall ${baseline.scores.overall}). Fix things, then scan again to see the after.</p>`;
+    el.innerHTML = `<p class="lede">"Before" saved ${esc(when(baseline.page.scannedAt))}, overall ${baseline.scores.overall}. Make your fixes, then scan again to see the after.</p>`;
   } else {
     const { rows, delta } = compare(baseline, scan);
     const ch = rows.filter((r) => ["fixed", "improved", "regressed"].includes(r.status));
-    const d = (k, l) => `<div>${l}<b class="${delta[k] >= 0 ? "up" : "down"}">${delta[k] > 0 ? "+" : ""}${delta[k]}</b>${baseline.scores[k]} → ${scan.scores[k]}</div>`;
-    el.innerHTML = `<p class="summary">Before ${esc(baseline.page.scannedAt.replace("T", " ").slice(0, 16))} → after ${esc(scan.page.scannedAt.replace("T", " ").slice(0, 16))} (UTC)</p>
+    const d = (k, l) => `<div>${l}<b class="${delta[k] >= 0 ? "up" : "down"}">${delta[k] > 0 ? "+" : ""}${delta[k]}</b>${baseline.scores[k]} to ${scan.scores[k]}</div>`;
+    el.innerHTML = `<p class="lede">Before ${esc(when(baseline.page.scannedAt))}, after ${esc(when(scan.page.scannedAt))}.</p>
       <div class="delta">${d("overall", "Overall")}${d("seo", "SEO")}${d("aeo", "AEO")}${d("geo", "GEO")}</div>
-      ${ch.length ? `<table><tr><th>Check</th><th>Change</th></tr>${ch.map((r) => `<tr><td>${esc(r.name)}</td><td class="${r.status}">${r.status}</td></tr>`).join("")}</table>` : "<p class='summary'>No measured check changed yet.</p>"}
-      <div class="btns" style="margin-top:10px"><button id="download" class="primary">Download proof report (HTML)</button><button id="copyproof">Copy summary</button><button id="setbase">Make this the new BEFORE</button></div>`;
+      ${ch.length ? `<table><tr><th>Check</th><th>Change</th></tr>${ch.map((r) => `<tr><td>${esc(r.name)}</td><td class="${r.status}">${r.status}</td></tr>`).join("")}</table>` : "<p class='lede'>No measured check has changed yet.</p>"}
+      <div class="stack"><button id="download" class="primary">Download proof report</button>
+      <div class="btns"><button id="copyproof">Copy summary</button><button id="setbase">Use this scan as the new "before"</button></div></div>`;
     $("download").onclick = () => {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([proofReport(baseline, scan)], { type: "text/html" }));
       a.download = `seo-proof-${new URL(scan.page.url).host}-${scan.page.scannedAt.slice(0, 10)}.html`;
       a.click();
     };
-    $("copyproof").onclick = () => copy(`SEO before/after for ${scan.page.url}\nOverall ${baseline.scores.overall} → ${scan.scores.overall} (SEO ${baseline.scores.seo} → ${scan.scores.seo}, AEO ${baseline.scores.aeo} → ${scan.scores.aeo}, GEO ${baseline.scores.geo} → ${scan.scores.geo})\n` +
+    $("copyproof").onclick = () => copy(`SEO before and after for ${scan.page.url}\nOverall ${baseline.scores.overall} to ${scan.scores.overall} (SEO ${baseline.scores.seo} to ${scan.scores.seo}, AEO ${baseline.scores.aeo} to ${scan.scores.aeo}, GEO ${baseline.scores.geo} to ${scan.scores.geo})\n` +
       ch.map((r) => `- ${r.name}: ${r.status}`).join("\n"), $("copyproof"));
   }
   const sb = $("setbase");
@@ -95,24 +106,31 @@ function renderProof(scan, { list, baseline }) {
 
 async function copy(text, btn) {
   await navigator.clipboard.writeText(text);
-  const old = btn.textContent; btn.textContent = "Copied ✓"; btn.classList.add("done");
+  const old = btn.textContent; btn.textContent = "Copied"; btn.classList.add("done");
   setTimeout(() => { btn.textContent = old; btn.classList.remove("done"); }, 1500);
 }
 
 async function render(s) {
   const { page, scores, results } = s;
-  $("scores").hidden = false; $("tabs").hidden = false;
-  $("scores").innerHTML = ring("Overall", scores.overall) + ring("SEO", scores.seo) + ring("AEO", scores.aeo) + ring("GEO", scores.geo);
   const failed = results.filter((r) => r.ratio != null && r.ratio < 0.999).sort((a, b) => (b.gain || 0) - (a.gain || 0));
   const passed = results.filter((r) => r.ratio != null && r.ratio >= 0.999);
   const unknown = results.filter((r) => r.ratio == null);
   const potential = Math.min(100, scores.overall + Math.round(failed.slice(0, 5).reduce((a, r) => a + (r.gain || 0), 0)));
-  $("tab-fix").innerHTML = `<p class="summary">${failed.length} to fix · platform: ${esc(page.platform)} · fixing the top 5 → about <b>${potential}</b></p>` +
-    (failed.map((r) => issueCard(r, page)).join("") || "<p>Every measured check passed.</p>") +
-    (unknown.length ? `<p class="summary">Couldn't measure: ${unknown.map((r) => esc(checkById[r.id].name) + " (" + esc(r.detail) + ")").join("; ")}</p>` : "");
-  $("tab-passed").innerHTML = passed.map((r) => issueCard(r, page)).join("") || "<p>Nothing passed yet.</p>";
-  $("tab-prompt").innerHTML = `<p class="summary">Paste this into Claude (Claude Code works best with the site's repo open). It lists every fix in priority order with the rules it must follow.</p>
-    <div class="btns"><button id="copyall" class="primary">Copy "fix everything" prompt</button></div><pre>${esc(fixAllPrompt(s))}</pre>`;
+  $("scores").hidden = false; $("tabs").hidden = false;
+  $("scores").innerHTML = scoresHtml(scores, potential);
+  $("tabs").querySelector('[data-tab="fix"]').innerHTML = `To fix <span class="count">${failed.length}</span>`;
+  $("tabs").querySelector('[data-tab="passed"]').innerHTML = `Passing <span class="count">${passed.length}</span>`;
+  $("tab-fix").innerHTML = (failed.length
+      ? `<p class="lede">Biggest wins first. The number is how many points each fix adds to the overall score.${page.platform !== "Unknown" ? ` Built with ${esc(page.platform)}.` : ""}</p><div class="list">${failed.map((r) => issueRow(r, page)).join("")}</div>`
+      : `<p class="lede">Every check that could be measured passed. Next gains come from Search Console data and content.</p>`) +
+    (unknown.length ? `<p class="unknowns">Not measured on this page: ${unknown.map((r) => esc(checkById[r.id].name)).join(", ")}.</p>` : "");
+  $("tab-passed").innerHTML = passed.length ? `<div class="list">${passed.map((r) => issueRow(r, page)).join("")}</div>` : "<p class='lede'>Nothing passes yet.</p>";
+  $("tab-prompt").innerHTML = `<p class="lede">Paste this into Claude to fix everything in order. It works best in Claude Code with the site's code open.</p>
+    <div class="stack"><button id="copyall" class="primary">Copy prompt for all fixes</button></div><pre>${esc(fixAllPrompt(s))}</pre>
+    <div class="skill"><h3>Go further with the CLAUDE SEO GOD MODE skill</h3>
+    <p class="lede">The extension checks this one page. With the skill installed, Claude can do the rest:</p>
+    <ul>${siteCommands(page).map(([what, how]) => `<li>${esc(what)}: <code>${esc(how)}</code></li>`).join("")}</ul>
+    <a href="${REPO}#quick-start-people" target="_blank" rel="noopener">How to install the skill</a></div>`;
   $("copyall").onclick = () => copy(fixAllPrompt(s), $("copyall"));
   document.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = (ev) => { ev.preventDefault(); copy(fixPrompt(results.find((r) => r.id === b.dataset.copy), page), b); }));
   renderProof(s, await history(page.url));
@@ -124,11 +142,11 @@ document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => {
 }));
 $("scan").onclick = scan;
 
-// Show the last scan for the current page when the panel opens.
+// Show the last scan for this page when the panel opens.
 (async () => {
   const tab = await activeTab();
   if (!tab?.url || !/^https?:/i.test(tab.url)) return;
   $("url").textContent = tab.url;
   const { list } = await history(tab.url);
-  if (list[0]) { current = list[0]; render(current); $("scan").textContent = "Scan again"; notice(`Showing your last scan (${esc(list[0].page.scannedAt.replace("T", " ").slice(0, 16))} UTC).`); }
+  if (list[0]) { current = list[0]; render(current); $("scan").textContent = "Scan again"; notice(`Showing your last scan from ${esc(when(list[0].page.scannedAt))}.`); }
 })();

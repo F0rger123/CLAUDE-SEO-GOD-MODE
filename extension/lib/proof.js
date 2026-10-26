@@ -46,8 +46,8 @@ export function proofReport(before, after) {
   const card = (label, k) => `<div class="card"><div class="lbl">${label}</div><div class="nums"><span>${before.scores[k]}</span><span class="arrow">→</span><b>${after.scores[k]}</b></div><div class="d ${delta[k] >= 0 ? "up" : "down"}">${sign(delta[k])} · ${grade(before.scores[k])} → ${grade(after.scores[k])}</div></div>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Before / after · ${esc(new URL(after.page.url).host)}</title><style>
-:root{--bg:#f6f5f2;--panel:#fff;--ink:#16151a;--muted:#6b6876;--line:#e6e3dc;--good:#1f9d57;--bad:#d6452f;--accent:#ff6a3d}
-@media (prefers-color-scheme:dark){:root{--bg:#0d0c11;--panel:#16141c;--ink:#f1eff6;--muted:#9a96a8;--line:#2a2733}}
+:root{--bg:#eef1f6;--panel:#fff;--ink:#16151a;--muted:#6b6876;--line:#e6e3dc;--good:#0f7b6c;--bad:#c2334d;--accent:#2f3fbf}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1420;--panel:#161d2c;--ink:#e8ecf5;--muted:#8b95a8;--line:#263044;--accent:#8e9cff}}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,"Segoe UI",system-ui,sans-serif}.w{max-width:960px;margin:0 auto;padding:32px 16px}
 .e{font:600 12px ui-monospace,Consolas,monospace;letter-spacing:.16em;color:var(--accent);text-transform:uppercase}h1{margin:6px 0 4px;overflow-wrap:anywhere}
 .m{color:var(--muted);font-size:13px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0}

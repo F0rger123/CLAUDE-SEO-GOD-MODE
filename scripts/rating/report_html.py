@@ -77,8 +77,8 @@ def render(r: dict) -> str:
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SEO rating · {e(r['host'])}</title>
 <style>
-:root {{ --bg:#f6f5f2; --panel:#fff; --ink:#16151a; --muted:#6b6876; --line:#e6e3dc; --good:#1f9d57; --ok:#7a9d1f; --warn:#d98b0b; --bad:#d6452f; --accent:#ff6a3d; --code:#f1efe9; }}
-@media (prefers-color-scheme: dark) {{ :root {{ --bg:#0d0c11; --panel:#16141c; --ink:#f1eff6; --muted:#9a96a8; --line:#2a2733; --code:#1e1b26; }} }}
+:root {{ --bg:#eef1f6; --panel:#fff; --ink:#16151a; --muted:#6b6876; --line:#e6e3dc; --good:#1f9d57; --ok:#7a9d1f; --warn:#d98b0b; --bad:#d6452f; --accent:#2f3fbf; --code:#f1efe9; }}
+@media (prefers-color-scheme: dark) {{ :root {{ --bg:#0f1420; --panel:#161d2c; --ink:#e8ecf5; --muted:#8b95a8; --line:#263044; --accent:#8e9cff; --code:#1e1b26; }} }}
 * {{ box-sizing:border-box; }}
 body {{ margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 Inter,"Segoe UI",system-ui,-apple-system,sans-serif; }}
 .wrap {{ max-width:1080px; margin:0 auto; padding:32px 16px 64px; }}

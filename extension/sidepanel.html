@@ -8,22 +8,20 @@
 </head>
 <body>
   <header>
-    <div class="brand"><span class="mark">◆</span> SEO GOD MODE</div>
-    <div id="url" class="url">Open a website tab, then press Scan.</div>
-    <div class="actions">
-      <button id="scan" class="primary">Scan this page</button>
-    </div>
+    <div class="brand"><span class="mark" aria-hidden="true"></span>SEO God Mode</div>
+    <div id="url" class="url">Open a website, then scan it.</div>
+    <button id="scan" class="primary">Scan this page</button>
   </header>
 
-  <div id="notice" class="notice" hidden></div>
+  <div id="notice" class="notice" role="status" hidden></div>
 
-  <section id="scores" class="scores" hidden></section>
+  <section id="scores" class="scores" aria-label="Scores" hidden></section>
 
-  <nav id="tabs" class="tabs" hidden>
-    <button data-tab="fix" class="on">Fix</button>
-    <button data-tab="passed">Passed</button>
-    <button data-tab="proof">Before / after</button>
-    <button data-tab="prompt">Claude prompt</button>
+  <nav id="tabs" class="tabs" role="tablist" hidden>
+    <button data-tab="fix" class="on" role="tab">To fix</button>
+    <button data-tab="passed" role="tab">Passing</button>
+    <button data-tab="proof" role="tab">Before/after</button>
+    <button data-tab="prompt" role="tab">Claude</button>
   </nav>
 
   <main>
@@ -33,8 +31,8 @@
     <section id="tab-prompt" class="tab" hidden></section>
   </main>
 
-  <footer>Runs on your device. Scores are page-level hygiene and AI-search readiness, not rankings.
-    <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE" target="_blank" rel="noopener">CLAUDE SEO GOD MODE</a></footer>
+  <footer>Scans run in your browser and nothing is sent anywhere. Scores rate page health and AI-search readiness, not rankings.
+    Part of <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE" target="_blank" rel="noopener">CLAUDE SEO GOD MODE</a>.</footer>
   <script type="module" src="sidepanel.js"></script>
 </body>
 </html>

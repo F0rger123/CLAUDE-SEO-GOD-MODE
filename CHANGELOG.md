@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.0 (2026-10-26): extension 1.1: new look, download button, skill links, Web Store kit
+
+- New design: fog, navy and ultramarine palette (no orange). One overall dial plus SEO/AEO/GEO bars, a segmented tab control, quiet issue rows, and evidence labels in plain words (Measured, Estimate, Not measured). Light and dark modes. The proof report, rating report and README banner share the palette.
+- Uses the skill: each issue links to its workflow guide, prompts include that guide and the skill command that checks the whole site, and the Claude tab lists whole-site skill commands.
+- Download: `scripts/build_extension_zip.py` plus a release workflow that tests the extension, then publishes `seo-god-mode-extension.zip`. README download buttons.
+- Chrome Web Store kit: `store/LISTING.md` (copy, category, permission justifications, data-use answers), `docs/PRIVACY.md`, and `store/make_images.py` for the 1280×800 screenshots and 440×280 tile. The store name drops "Claude" to avoid a trademark rejection.
+
 ## 2.5.0 (2026-10-26): Chrome extension
 
 - `extension/`: Manifest V3 side panel with 33 SEO, AEO and GEO checks on the live page. It also fetches robots.txt (Google matching rules), the sitemap, a random URL to test for 404s, and the http:// variant.
