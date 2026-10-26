@@ -14,6 +14,8 @@ Opportunity types (each scored by impressions x gap x what this site has learned
   unanswered     searched (impressions) but never clicked and ranking past 20 -> add a section/FAQ, or a new page
   cannibal       one query spread over 2+ of your pages -> make one page the clear answer and link the other to it
   decline        a page's clicks or impressions fell sharply vs the previous period -> check what changed
+  competitor_gap a topic or customer question 2+ rivals cover and you don't (from compete.py scan) -> section/FAQ/new page
+  trend          a phrase people search around your services that no page answers (from compete.py trends) -> section/FAQ
 
 Files in state_dir (commit them so every session and machine shares the memory):
   latest.md / latest.json   the current opportunity list
@@ -39,7 +41,7 @@ sys.path.insert(0, str(ROOT))
 
 # Rough organic CTR by position (INFERRED; varies by query and SERP features). Used only to spot pages that underperform.
 EXPECTED_CTR = {1: 0.28, 2: 0.15, 3: 0.10, 4: 0.07, 5: 0.05, 6: 0.04, 7: 0.03, 8: 0.025, 9: 0.02, 10: 0.02}
-TYPES = ["ctr_gap", "striking", "unanswered", "cannibal", "decline"]
+TYPES = ["ctr_gap", "striking", "unanswered", "cannibal", "decline", "competitor_gap", "trend"]
 DEFAULTS = {
     "min_impressions": 20,
     "max_changes_per_run": 3,
@@ -206,6 +208,13 @@ def cmd_scan(a):
     since = (date.today() - timedelta(days=int(cfg["cooldown_days"]))).isoformat()
     cooling = {h["page"] for h in hist if h.get("date", "") >= since}
     ops = find_opportunities(qp, pages_now, pages_prev, cfg, learn, cooling)
+    # Competitor gaps and search demand from compete.py (if it has run in the last 5 weeks).
+    import compete
+    for o in compete.loop_opportunities(cfg["_state"]):
+        o.update(page="(closest page)", id=oid(o["type"], "", o["query"]), weight=weight(learn, o["type"]), cooling=False)
+        o["score"] = round(o["score"] * o["weight"], 2)
+        ops.append(o)
+    ops.sort(key=lambda o: (o["cooling"], -o["score"]))
     actionable = [o for o in ops if not o["cooling"] and o["type"] != "decline"][: int(cfg["max_changes_per_run"])]
     totals = {"clicks": sum(r["clicks"] for r in pages_now), "impressions": sum(r["impressions"] for r in pages_now)}
     prev_tot = {"clicks": sum(r["clicks"] for r in pages_prev), "impressions": sum(r["impressions"] for r in pages_prev)}
@@ -218,6 +227,9 @@ def cmd_scan(a):
              f"(previous 28 days: {prev_tot['clicks']} clicks, {prev_tot['impressions']} impressions).", "",
              f"## Do now (max {cfg['max_changes_per_run']}, pages changed in the last {cfg['cooldown_days']} days are cooling down)", ""]
     for i, o in enumerate(actionable, 1):
+        if o["type"] in ("competitor_gap", "trend"):
+            lines.append(f"{i}. **{o['type']}** \"{o['query']}\". {o['suggest']} (id {o['id']}, weight {o['weight']})")
+            continue
         lines.append(f"{i}. **{o['type']}** `{o['page']}`" + (f" for \"{o['query']}\"" if o.get("query") else "") +
                      f": {o.get('impressions', 0)} impressions, position {o.get('position', '?')}" +
                      (f", CTR {o['ctr']:.1%} vs ~{o['expected_ctr']:.0%} expected" if o["type"] == "ctr_gap" else "") +

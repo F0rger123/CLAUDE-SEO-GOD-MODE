@@ -63,5 +63,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;p
 <section><h2>All checks</h2><table><tr><th>Area</th><th>Check</th><th>Before</th><th>After</th><th>Evidence</th></tr>${rows.map((r) =>
   `<tr><td>${r.cat.toUpperCase()}</td><td>${esc(r.name)}</td><td>${pct(r.before.ratio)}</td><td>${pct(r.after.ratio)}</td><td class="tag">${esc(r.after.tag)}: ${esc(r.after.detail)}</td></tr>`).join("")}</table></section>
 <p class="m">Scores measure SEO hygiene and AI-search readiness, not rankings or traffic. Speed figures come from single visits in the scanning browser. Google states AI Overviews placement isn't guaranteed.</p>
+<p class="m">Built by <a href="https://theagencyzero.com">theagencyzero.com</a> with the free SEO God Mode extension.</p>
 </div></body></html>`;
 }

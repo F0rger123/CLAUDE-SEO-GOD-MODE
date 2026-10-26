@@ -1,6 +1,7 @@
 import { checkById } from "./rubric.js";
 import { SITE_CHECKS } from "./siterate.js";
 import { guideUrl, REPO, skillCmd } from "./skills.js";
+import { potentials } from "./summary.js";
 
 const RULES = `Rules:
 - Use only facts that are already on the site or that I confirm. Write [CONFIRM: ...] for anything you'd have to guess (phone, prices, years, reviews, profile URLs).
@@ -52,6 +53,7 @@ export function fixAllPrompt(scan) {
   const { page, scores } = scan;
   return `Improve SEO, AEO (answer engines) and GEO (AI search) for ${target(scan)} (platform: ${page.platform}).
 Current scores: overall ${scores.overall}, SEO ${scores.seo}, AEO ${scores.aeo}, GEO ${scores.geo} (SEO God Mode, ${page.scannedAt.slice(0, 10)}).
+Potential (estimate): about ${potentials(scan).top5} after the first 5 fixes, up to ${potentials(scan).all} after all of them.
 
 Fix these in order (estimated points gained in brackets). Do the safe, factual ones; ask me before anything that needs facts or account access.
 ${ranked.map((r, i) => { const m = metaFor(r, page.platform);

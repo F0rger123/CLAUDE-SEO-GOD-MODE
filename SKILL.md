@@ -13,7 +13,9 @@ New session? Read `START_HERE.md` (two minutes), then run `python scripts/setup/
 
 ## Continuous improvement
 
-For "keep improving the site", "optimize continuously", or "what gets searched but not clicked": use `workflows/seo-loop.md` with `scripts/loop/seo_loop.py`. It is a deterministic weekly scan that learns which changes work on each site and stops early when there is nothing to do.
+For "keep improving the site", "optimize continuously", or "what gets searched but not clicked": use `workflows/seo-loop.md` with `scripts/loop/seo_loop.py`. It is a deterministic weekly scan that learns which changes work on each site and stops early when there is nothing to do. Once a month it also re-rates the top local competitors and checks search demand (`scripts/loop/compete.py`), so it keeps closing the gap on whoever outranks the site.
+
+For "who are my competitors", "what do they do better", "steal ideas from competitors", or "what are people searching for": `scripts/loop/compete.py` (`find`, `add`, `scan`, `trends`) or the MCP tools `seo_competitor_scan` and `seo_search_demand`. Learn from their structure and coverage; never copy their content.
 
 ## Hard rules first
 

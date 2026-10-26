@@ -4,14 +4,14 @@ Everything to paste into the Chrome Web Store Developer Dashboard. Upload file: 
 
 ## Store listing tab
 
-**Name** (comes from the manifest): SEO God Mode: SEO, AEO & GEO Checker
+**Name** (comes from the manifest): SEO God Mode - Free Agentic SEO, AEO & GEO Audit
 
 **Summary** (comes from the manifest, 132 characters max): Rate a site for SEO, AEO and AI search (GEO): plain summary, step-by-step fixes, a fix prompt to copy, and before/after proof.
 
 **Description:**
 
 ```
-Find out why a page isn't showing up in Google or AI answers, fix it, and prove it worked.
+Find out why a site isn't showing up in Google or AI answers, fix it, and prove it worked. 100% free: no account, no paid tier, no upsell.
 
 SEO God Mode rates a whole site (it crawls up to 30 pages and scores 39 checks) or the page you're on (78 checks), and adds 8 tools: a Google result preview, share preview, heading outline, schema inspector, AI-crawler access table, links and images tables, and quick links. After each scan it writes a short plain-English summary: how the site is doing, the biggest wins, and what you should set up.
 
@@ -20,7 +20,7 @@ SEO God Mode rates a whole site (it crawls up to 30 pages and scores 39 checks) 
 • GEO (AI search): whether ChatGPT, Perplexity and Claude search crawlers can reach the page, business details, profile links, location, contact details, sources, author and date.
 
 What you get:
-• Scores out of 100 for SEO, AEO and GEO, plus an overall score.
+• Scores out of 100 for SEO, AEO and GEO, plus an overall score, and your potential score after the fixes.
 • Issues ranked by how many points each fix adds.
 • Step-by-step fixes for WordPress, Shopify, Wix, Squarespace, Webflow, Next.js and Astro.
 • A fix prompt to copy for every issue, plus one that fixes everything in order, ready to paste into your AI assistant. Prompts list the affected pages, include ready-made snippets, tell the AI never to invent facts, and say to check the live site after changes.
@@ -30,7 +30,7 @@ Honest by design: every result is labeled as measured, an estimate, or not measu
 
 Private: scans run in your browser and history stays on your computer. The only outside request is Google PageSpeed Insights for the homepage on whole-site scans.
 
-Same scoring as the free, open-source SEO God Mode skill, which adds Search Console and Bing data and client tracking: github.com/F0rger123/CLAUDE-SEO-GOD-MODE
+Built by Agency Zero (theagencyzero.com). Same scoring as the free, open-source SEO God Mode skill, which adds Search Console and Bing data and client tracking: github.com/F0rger123/CLAUDE-SEO-GOD-MODE
 ```
 
 **Category:** Developer Tools (alternative: Tools)

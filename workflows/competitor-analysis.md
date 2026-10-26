@@ -12,6 +12,8 @@ Goal: understand why competitors outrank the client and find gaps the client can
 
 Pick 3–5 to analyze. Save to state: `client_state.py set <slug> profile.competitors '[...]' `.
 
+**Quick path (free, deterministic):** put the services and areas in a `seo-loop.json` (see `workflows/seo-loop.md`), run `python scripts/loop/compete.py find --config seo-loop.json` for the searches to run, save the winners with `compete.py add`, then `compete.py scan`. It rates every competitor with the same rubric as `rate_site.py` and lists where they beat the client, topic gaps, question gaps and schema gaps. `compete.py trends` adds search demand (autocomplete, Bing volumes, rising Search Console queries). MCP: `seo_competitor_scan`, `seo_search_demand`. Then do the human parts below (positioning, proof, links).
+
 ## 2. Light crawl (polite, small)
 
 ```bash

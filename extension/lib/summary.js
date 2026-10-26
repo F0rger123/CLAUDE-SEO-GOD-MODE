@@ -26,6 +26,14 @@ function say(r) {
   return low(name);
 }
 
+/** Score after the top 5 fixes (same rule as rate_site.py) and after every measured fix. Estimates, not promises. */
+export function potentials(scan) {
+  const failed = scan.results.filter((r) => r.ratio != null && r.ratio < 0.999);
+  const order = scan.priority?.length ? scan.priority.map((id) => failed.find((r) => r.id === id)).filter(Boolean) : [...failed].sort((a, b) => (b.gain || 0) - (a.gain || 0));
+  const now = scan.scores.overall ?? 0, sum = (xs) => Math.round(xs.reduce((a, r) => a + (r.gain || 0), 0));
+  return { now, top5: scan.scores.potential_after_top5 ?? Math.min(100, now + sum(order.slice(0, 5))), all: Math.min(100, now + sum(failed)) };
+}
+
 export function summaryText(scan) {
   const { scores, results } = scan;
   const site = scan.mode === "site";
@@ -35,7 +43,8 @@ export function summaryText(scan) {
   const byId = Object.fromEntries(failed.map((r) => [r.id, r]));
   const ranked = order.map((id) => byId[id]).filter(Boolean);
   const v = VERDICT.find(([min]) => (scores.overall ?? 0) >= min)[1];
-  const out = [`${what} ${v} Overall ${scores.overall}/100.`];
+  const pot = potentials(scan);
+  const out = [`${what} ${v} Overall ${scores.overall}/100${pot.top5 > pot.now ? `, potential about ${pot.top5} after the top 5 fixes` : ""}.`];
 
   const areas = ["seo", "aeo", "geo"].filter((k) => scores[k] != null).sort((a, b) => scores[a] - scores[b]);
   if (areas.length && scores[areas[0]] < 80) out.push(`The weakest area is ${AREA[areas[0]]} at ${scores[areas[0]]}.`);

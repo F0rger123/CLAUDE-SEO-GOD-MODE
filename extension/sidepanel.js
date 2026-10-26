@@ -3,7 +3,7 @@ import { collectSiteFacts } from "./lib/site.js";
 import { CATS, CHECKS, grade, score } from "./lib/rubric.js";
 import { fixAllPrompt, fixPrompt, metaFor } from "./lib/prompts.js";
 import { rateSite, siteOrigins } from "./lib/siterate.js";
-import { summaryText } from "./lib/summary.js";
+import { potentials, summaryText } from "./lib/summary.js";
 import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proof.js";
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
@@ -82,19 +82,24 @@ function countUp(el, to) {
   requestAnimationFrame(step);
 }
 
-function renderScores(scores, potential) {
+function renderScores(scores, pot) {
   const len = Math.PI * 62;
   const bar = (k, label, sub) => `<div class="bar"><span class="lab"><b>${label}</b> ${sub}</span><span class="num" data-n="${scores[k] ?? 0}">0</span>
     <div class="track"><div class="fill ${status(scores[k])}" data-w="${scores[k] ?? 0}"></div></div></div>`;
   $("scores").innerHTML = `<div class="dial" role="img" aria-label="Overall score ${scores.overall} out of 100, grade ${grade(scores.overall)}">
       <svg width="150" height="82" viewBox="0 0 150 82"><path class="track" d="M13 75 A62 62 0 0 1 137 75" stroke-width="12"/>
+      <path class="ghost" d="M13 75 A62 62 0 0 1 137 75" stroke-width="12" stroke-dasharray="0 ${len.toFixed(1)}"/>
       <path class="val ${status(scores.overall)}" d="M13 75 A62 62 0 0 1 137 75" stroke-width="12" stroke-dasharray="0 ${len.toFixed(1)}"/></svg>
       <div class="read"><div class="n" data-n="${scores.overall}">0</div><div class="cap">Overall, grade ${grade(scores.overall)}</div></div></div>
     <div class="bars">${bar("seo", "SEO", "search basics")}${bar("aeo", "AEO", "answer engines")}${bar("geo", "GEO", "AI search")}</div>
-    <p class="potential">Fix the top five issues and this ${isSite() ? "site" : "page"} could reach about <b>${potential}</b>.</p>`;
+    <div class="potential" aria-label="Now ${scores.overall}, potential ${pot.top5}">
+      <div class="now"><span>Now</span><b>${scores.overall}</b><i>${grade(scores.overall)}</i></div><span class="arrow" aria-hidden="true">→</span>
+      <div class="pot"><span>Potential</span><b data-n="${pot.top5}">0</b><i>${grade(pot.top5)}</i></div>
+      <p>after the top 5 fixes in the fix prompt${pot.all > pot.top5 ? `, up to <b>${pot.all}</b> if you fix everything` : ""}. Estimate.</p></div>`;
   $("scores").hidden = false;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     $("scores").querySelector(".val").setAttribute("stroke-dasharray", `${(len * (scores.overall ?? 0) / 100).toFixed(1)} ${len.toFixed(1)}`);
+    $("scores").querySelector(".ghost").setAttribute("stroke-dasharray", `${(len * pot.top5 / 100).toFixed(1)} ${len.toFixed(1)}`);
     $("scores").querySelectorAll(".fill").forEach((f) => (f.style.width = f.dataset.w + "%"));
     $("scores").querySelectorAll("[data-n]").forEach((n) => countUp(n, +n.dataset.n));
   }));
@@ -283,11 +288,11 @@ function showTab(name) {
 async function render() {
   const { page, scores, results } = state.scan;
   const failed = ranked();
-  const potential = scores.potential_after_top5 ?? Math.min(100, scores.overall + Math.round(failed.slice(0, 5).reduce((a, r) => a + (r.gain || 0), 0)));
+  const pot = potentials(state.scan);
   $("empty").hidden = true; $("tabs").hidden = false;
   $("url").textContent = isSite() ? page.origin : page.url;
   $("platform").hidden = page.platform === "Unknown"; $("platform").textContent = page.platform;
-  renderScores(scores, potential);
+  renderScores(scores, pot);
   renderSummary();
   $("tabs").querySelector('[data-tab="issues"]').innerHTML = `Issues <span class="count">${failed.length}</span>`;
   renderOverview(); renderIssues(); renderTools(); renderPrompt();

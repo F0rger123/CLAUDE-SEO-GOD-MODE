@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/actions/workflows/ci.yml"><img src="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/Claude%20Code-plugin%20%2B%20skill-ff7a45" alt="Claude Code plugin + skill">
-  <img src="https://img.shields.io/badge/MCP-29%20tools-5c4ee5" alt="MCP server: 29 tools">
+  <img src="https://img.shields.io/badge/MCP-31%20tools-5c4ee5" alt="MCP server: 31 tools">
   <img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/data-never%20fabricated-2ea44f" alt="Data never fabricated">
 </p>
@@ -23,7 +23,9 @@ One prompt starts a client. Claude onboards, audits, pulls real Search Console a
 > **🤖 AI agents (Claude, ChatGPT, Codex, Cursor, Gemini): start here.** If someone pasted this link and asked you to set it up or explain it, do this before anything else:
 > 1. Read the setup wizard: [`docs/SETUP_WIZARD.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/SETUP_WIZARD.md). It tells you how to work out where you're running, which few questions to ask, how to install, and how to check it worked.
 > 2. Read the rules: [`AGENTS.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/AGENTS.md) and [`RULES.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/RULES.md). Operating the skill starts at [`SKILL.md`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/SKILL.md).
-> 3. Then ask the person the Step 1 questions (goal, their site, which data they can connect), install, and run the first rating or onboarding.
+> 3. Then ask the person the Step 1 questions (goal, their site, services and towns, competitors, which data they can connect), tell them what to set up, give them the short "how it works" breakdown from the wizard, install, and run the first rating or onboarding.
+>
+> If they just said *"use this for my website"*, that's the cue: run the wizard from Step 0. Don't wait to be told to read the files.
 >
 > Plain-text index of everything: [`llms.txt`](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/llms.txt). Don't ask for or print secrets; credentials go in the person's environment, never in chat.
 
@@ -64,7 +66,7 @@ From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_
 
 ## 🧩 Chrome extension: rate any site, fix it, prove it
 
-A side panel that rates the **whole site** with the same crawl, 39 checks and scores as `rate_site.py` (a test keeps them identical), or checks **one page** with 78 checks and 8 tools. After each scan it types out a plain-English summary: the verdict, the biggest wins, what to set up, and what already works. Every issue has fix steps, the affected pages and a **Copy fix prompt** button, and **before/after proof** gives you a downloadable report for clients. It runs in your browser; the only outside call is PageSpeed Insights for the homepage.
+**Free**, no account. A side panel that rates the **whole site** with the same crawl, 39 checks and scores as `rate_site.py` (a test keeps them identical), or checks **one page** with 78 checks and 8 tools. It shows your score **now** and your **potential** score after the fixes, and types out a plain-English summary: the verdict, the biggest wins, what to set up, and what already works. Every issue has fix steps, the affected pages and a **Copy fix prompt** button, and **before/after proof** gives you a downloadable report for clients. It runs in your browser; the only outside call is PageSpeed Insights for the homepage.
 
 <p>
   <img src="assets/extension-overview.png" alt="Extension: whole-site scores and typed summary" width="240">
@@ -76,6 +78,26 @@ A side panel that rates the **whole site** with the same crawl, 39 checks and sc
 <p><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"><img src="https://img.shields.io/badge/Download-Chrome%20extension%20(.zip)-2f3fbf?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download the Chrome extension"></a></p>
 
 Install in four clicks: download the zip and unzip it, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder. Details: [extension/README.md](extension/README.md). Chrome Web Store kit: [store/LISTING.md](store/LISTING.md).
+
+## 🥊 Stays ahead of your competitors
+
+The weekly SEO loop doesn't just read your own Search Console. Once a month it finds your top local competitors for each service and town (map pack and organic, skipping directories), rates them with the same rubric, and tells you exactly where they beat you: checks they pass and you fail, pages and topics they have that you don't, customer questions they answer that you don't. It also checks what people are searching around your services (Google autocomplete phrasing, Bing search volumes and trend, your rising Search Console queries) and flags searches no page answers yet. Those feed straight into the loop's to-do list, ranked by what has actually worked on your site.
+
+```mermaid
+flowchart LR
+    A[Your services and towns] --> B[Find the businesses<br/>that show up in search]
+    B --> C[Rate them the same way<br/>we rate you]
+    A --> D[Check what people<br/>are searching for]
+    C --> E[Where they beat you,<br/>what they cover that you don't]
+    D --> F[Searches nobody<br/>on your site answers]
+    E --> G[Weekly to-do list,<br/>best bets first]
+    F --> G
+    G --> H[Small, honest fixes<br/>in your own words]
+    H --> I[Measured 4 weeks later:<br/>keep what works]
+    I --> G
+```
+
+Run it any time: `python scripts/loop/compete.py find|scan|trends --config seo-loop.json`, or ask "check my competitors". Competitors are a checklist, never a source to copy from. Details: [workflows/seo-loop.md](workflows/seo-loop.md).
 
 ### It improves itself
 
@@ -91,7 +113,7 @@ Install in four clicks: download the zip and unzip it, open `chrome://extensions
 | 🤖 **AI search** | A Google-grounded workflow for AI Overviews and AI Mode, GEO/AEO audits, AI-readiness scoring, rewrite engine, and AI-referral measurement. |
 | 📍 **Local SEO** | Google Business Profile, NAP, service-area strategy, location pages that pass the doorway test, reviews, citations. |
 | 🧠 **Client memory** | Tasks, issues, recommendations (rejected ones stay rejected), checkpoints, recurring work. Any session can resume. |
-| 🔌 **MCP server** | 29 tools for Claude Code, Claude Desktop, Cursor, VS Code, and Codex. Write actions are locked by default. |
+| 🔌 **MCP server** | 31 tools for Claude Code, Claude Desktop, Cursor, VS Code, and Codex. Write actions are locked by default. |
 | 🧾 **Honest by design** | Every finding is tagged OBSERVED, INFERRED, RECOMMENDED, or UNKNOWN. No invented numbers, reviews, or rankings. |
 
 ## Quick start (people)
@@ -180,7 +202,7 @@ flowchart LR
     R --> S[skills/<br/>original + vendored]
     W --> X[scripts/<br/>deterministic tools]
     S --> X
-    M[MCP server<br/>29 tools] --> X
+    M[MCP server<br/>31 tools] --> X
     X --> G[(Google Search Console<br/>official API)]
     X --> B[(Bing Webmaster<br/>official API)]
     X --> P[(PageSpeed · CrUX · IndexNow)]
@@ -204,7 +226,7 @@ flowchart LR
 | `workflows/on-page-seo.md` · `schema.md` | Titles, headings, service pages, internal links, JSON-LD |
 | `workflows/search-console.md` · `bing-webmaster.md` | Official API data and submissions |
 | `workflows/keyword-research.md` · `customer-journey.md` · `content-strategy.md` | Keyword maps, five-stage question mapping, content plans |
-| `workflows/competitor-analysis.md` · `sprint-and-autopilot.md` | Competitor review, 30-day single-page sprint, daily check |
+| `workflows/competitor-analysis.md` · `sprint-and-autopilot.md` | Competitor review (with `scripts/loop/compete.py`), 30-day single-page sprint, daily check |
 | `workflows/aeo-geo.md` · `reporting.md` · `recurring-maintenance.md` | AI visibility, honest reports, cadence and automation |
 
 ### Third-party (vendored, MIT, credited)

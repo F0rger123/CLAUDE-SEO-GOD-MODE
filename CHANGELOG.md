@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.0 (2026-10-26): competitor and search-demand checks in the loop; extension 1.4 (potential score, free, built by Agency Zero)
+
+- **`scripts/loop/compete.py`:** `find` (the service × area searches to run, plus Google autocomplete phrasing), `add` (save a competitor), `scan` (rate you and up to 5 competitors with the `rate_site.py` rubric; list checks they beat you on, topic and page gaps, customer-question gaps and schema gaps), `trends` (autocomplete phrasing, Bing search volumes and trend if connected, rising Search Console queries, and which searches no page answers).
+- **The loop uses it:** `seo_loop.py scan` adds `competitor_gap` and `trend` opportunities from the last month's scan, weighted by what has worked on the site. `workflows/seo-loop.md` covers finding competitors on the first run and the monthly refresh.
+- **MCP:** `seo_competitor_scan` and `seo_search_demand` (31 tools).
+- **Agent guide:** pasting the repo link with "use this for my website" now walks the agent through the interview (including services, towns and competitors), a plain-English "how it works" breakdown, what to set up, install and the first rating (`AGENTS.md`, `docs/SETUP_WIZARD.md`, README, `llms.txt`).
+- **Extension 1.4:** a Now → Potential score card (potential after the top 5 fixes, and after every fix) with a ghost arc on the dial; the summary and fix prompt state the potential too. "Built by theagencyzero.com" in the panel and proof report. Store name "SEO God Mode - Free Agentic SEO, AEO & GEO Audit".
+- Tests: `tests/test_compete.py` (offline fixtures), MCP smoke test covers the new tools.
+
 ## 2.8.0 (2026-10-26): extension 1.3: whole-site rating identical to the skill, typed summary, fix prompts
 
 - **Whole-site view (new default):** `extension/lib/siterate.js` ports `scripts/rate_site.py` to the browser: the same polite crawl (robots rules, sitemap seeding, up to 30 pages), sitemap and link checks, the answer check, 39 checks with rubric v2.0 weights, point gains, priority order and fix kits. `lib/pyparse.js` reads HTML the way the Python parsers do.

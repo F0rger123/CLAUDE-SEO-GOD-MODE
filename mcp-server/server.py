@@ -173,6 +173,35 @@ def seo_rate_site(site: str, max_pages: int = 30, pagespeed: bool = True) -> str
     return text + f"\n[visual report: {out / 'report.html'}; copy it into the user's folder before linking it]"
 
 
+def _market_config(d: str, site: str, services: list[str], areas: list[str], niche: str, competitors: list[str] | None = None) -> str:
+    cfg = Path(d) / "seo-loop.json"
+    cfg.write_text(json.dumps({"site": site, "state_dir": "state", "competitors": competitors or [],
+                               "market": {"services": services, "areas": areas, "niche": niche}}), encoding="utf-8")
+    return str(cfg)
+
+
+@mcp.tool()
+def seo_competitor_scan(site: str, competitors: list[str], services: list[str] | None = None, areas: list[str] | None = None,
+                        max_pages: int = 25) -> str:
+    """Rate the site and up to 5 competitor sites with the same rubric, then list where competitors beat it (check by
+    check), topics/pages they have that it lacks, customer questions they answer that it doesn't, and schema they use.
+    Find competitors first: search "service + area" (map pack and organic, skip directories) or use compete_find.
+    Never copy competitor text; use the gaps as a checklist for original content."""
+    with tempfile.TemporaryDirectory() as d:
+        return _run("loop/compete.py", "scan", "--config", _market_config(d, site, services or [], areas or [], "", competitors),
+                    "--max-pages", str(max_pages), timeout=3600)
+
+
+@mcp.tool()
+def seo_search_demand(site: str, services: list[str], areas: list[str] | None = None, niche: str = "") -> str:
+    """Search demand around a business's services and areas: the searches to run to find its top competitors, Google
+    autocomplete phrasing (INFERRED demand), Bing search volumes and trend when BING_WEBMASTER_API_KEY is set, and
+    rising Search Console queries for loop configs with gsc_property. Read-only."""
+    with tempfile.TemporaryDirectory() as d:
+        cfg = _market_config(d, site, services, areas or [], niche)
+        return _run("loop/compete.py", "find", "--config", cfg) + "\n\n" + _run("loop/compete.py", "trends", "--config", cfg)
+
+
 @mcp.tool()
 def seo_sitemap_check(sitemap_url: str, check_limit: int = 200) -> str:
     """Validate a sitemap (or index) and fetch up to check_limit URLs: non-200, redirects, noindex, canonical mismatch."""

@@ -67,8 +67,17 @@ body.busy .progress span { animation: slide 1.1s var(--ease) infinite; }
 .bar .track { grid-column: 1 / -1; height: 7px; border-radius: 99px; background: var(--wash); overflow: hidden; }
 .bar .fill { height: 100%; width: 0; border-radius: 99px; transition: width 1s var(--ease); }
 .s-pass { stroke: var(--pass); background: var(--pass); } .s-part { stroke: var(--part); background: var(--part); } .s-fail { stroke: var(--fail); background: var(--fail); }
-.potential { grid-column: 1 / -1; margin: 0; font-size: 12.5px; color: var(--muted); }
-.potential b { color: var(--pass); }
+.dial .ghost { fill: none; stroke: var(--pass); stroke-opacity: .22; stroke-linecap: round; transition: stroke-dasharray 1.3s var(--ease) .2s; }
+.potential { grid-column: 1 / -1; display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 4px 12px; padding: 10px 12px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); }
+.potential div { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: baseline; gap: 0 6px; }
+.potential div span { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+.potential div b { font-size: 26px; font-weight: 760; letter-spacing: -.03em; line-height: 1.1; }
+.potential div i { font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); }
+.potential .pot b, .potential .pot i { color: var(--pass); }
+.potential .arrow { color: var(--muted); font-size: 18px; }
+.potential p { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted); }
+.potential p b { color: var(--pass); }
 
 /* Typed summary */
 .summary { margin: 10px 16px 0; padding: 12px 14px; background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--action);
@@ -206,4 +215,5 @@ th { color: var(--muted); font-weight: 600; background: var(--wash2); position: 
   padding: 8px 14px; border-radius: 99px; font-size: 13px; font-weight: 600; pointer-events: none; transition: opacity .2s, transform .3s var(--ease); z-index: 9; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 footer { color: var(--muted); font-size: 11.5px; padding: 12px 16px 18px; }
+footer .built { display: block; margin-top: 8px; font-weight: 650; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

@@ -2,7 +2,7 @@
 
 > All-in-one SEO operating system for Claude: skills plus an MCP server for site ratings, audits, local SEO, Google Search Console, Bing Webmaster Tools, IndexNow, schema, and AI-search (AEO/GEO) checks, with per-client memory. Never invents data; tags findings OBSERVED / INFERRED / RECOMMENDED / UNKNOWN.
 
-If a person pasted this repository and asked you to set it up, start with the setup wizard. If you are operating the skill, start with SKILL.md.
+If a person pasted this repository and asked you to set it up or "use this for my website", start with the setup wizard: interview them (site, services, towns, competitors, accounts), explain how it works, tell them what to set up, then install and run the first rating. If you are operating the skill, start with SKILL.md.
 
 ## Start here
 - [Setup wizard for AI agents](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/SETUP_WIZARD.md): where you're running, the short interview, install, verify, first client
@@ -16,7 +16,7 @@ If a person pasted this repository and asked you to set it up, start with the se
 - [Setup](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/SETUP.md)
 - [Integrations (Search Console, Bing, PageSpeed)](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/INTEGRATIONS.md)
 - [MCP server](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/MCP.md)
-- [Chrome extension (scan, fix prompts, before/after proof)](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/extension/README.md)
+- [Free Chrome extension (whole-site rating, potential score, fix prompts, before/after proof)](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/extension/README.md)
 - [Paid ads companion (claude-ads)](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/ADS.md)
 - [Security](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/SECURITY.md)
 - [Architecture](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/docs/ARCHITECTURE.md)
@@ -29,4 +29,6 @@ If a person pasted this repository and asked you to set it up, start with the se
 - [Search Console](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/workflows/search-console.md)
 - [AEO / GEO](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/workflows/aeo-geo.md)
 - [Reporting](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/workflows/reporting.md)
+- [Self-learning SEO loop with competitor and search-demand checks](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/workflows/seo-loop.md)
+- [Competitor analysis](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/workflows/competitor-analysis.md)
 - [Apple Maps / Apple Business Connect](https://raw.githubusercontent.com/F0rger123/CLAUDE-SEO-GOD-MODE/main/workflows/apple-business-connect.md)

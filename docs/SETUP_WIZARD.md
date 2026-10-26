@@ -28,6 +28,8 @@ Ask everything in **one grouped message** (owners are usually not technical, so 
 
 **B. The first site**
 - Business name, website URL, and the main city/region it serves (for local SEO).
+- The services you actually sell (3–6 is plenty) and the towns or areas you serve. These drive the competitor and search-demand checks.
+- Who do you lose jobs to? Any competitors you already know about? (If they don't know, the skill finds them.)
 - Is there a Google Business Profile? Do you control the website's code or CMS?
 
 **C. Data you can connect** (all optional; everything works without them, just with less data)
@@ -37,6 +39,18 @@ Ask everything in **one grouped message** (owners are usually not technical, so 
 
 **D. Your machine** (local agents only)
 - Operating system (Windows, macOS, Linux) and whether Python 3.10+ is installed (`python --version`).
+
+## Step 1.5 — Tell them how it works (one short message)
+
+After the interview, before installing, give a plain-English breakdown so they know what they're getting. Adapt it to their answers; keep it under 12 lines:
+
+- **Rating:** "I'll score your site out of 100 for SEO (Google basics), AEO (getting quoted in answers) and GEO (showing up in ChatGPT, Perplexity and Google's AI). You'll see your score now and the score you could reach."
+- **Fixes:** "Each problem comes with the pages affected, why it matters, and the exact fix. I make the safe ones; anything that needs your facts or accounts, I ask first."
+- **Competitors:** "I'll find the businesses that show up when people search your services in your towns, rate them the same way, and show where they beat you and what they cover that you don't. We use that as a checklist, never copying their content."
+- **Search demand:** "I'll check what people actually search around your services and flag searches no page on your site answers."
+- **The loop (optional):** "Once Search Console is connected, a weekly check finds the few changes most likely to get more clicks, makes them, and measures 4 weeks later which ones worked."
+- **Chrome extension (optional, free):** "Rate any site from your browser and copy a fix prompt: https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"
+- **What to set up:** list only the ones they said they can do (Search Console, Bing Webmaster Tools, a free PageSpeed API key), each with one line on what it unlocks. Nothing is required to start.
 
 ## Step 2A — Install for local coding agents
 
@@ -90,10 +104,18 @@ Start onboarding.
 
 Onboarding follows [`workflows/onboarding.md`](../workflows/onboarding.md) and saves memory with `client_state.py`, so the next session can say *"Resume client <slug>"*.
 
+Competitors and demand (works without any accounts):
+
+```text
+Find my top competitors in <towns> for <services>, rate them against my site, and tell me what they do better.
+```
+
+For ongoing work, set up the weekly loop with [`workflows/seo-loop.md`](../workflows/seo-loop.md) once Search Console is connected.
+
 ## Step 4 — Tell them what's next
 
 End with a short message that covers:
 - what is installed and verified, and what isn't;
 - which data sources are connected (and which would unlock more);
-- three example prompts from the README ("Other things to ask");
+- three example prompts from the README ("Other things to ask"), including "check my competitors";
 - how to update later: `git -C <repo> pull` or `/plugin update`.
