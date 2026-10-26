@@ -226,9 +226,10 @@ async function renderResult() {
   const vs = b.relation === "above" ? `the ${b.rivals.length === 1 ? "page" : b.rivals.length + " pages"} ranking above it` : "the next results";
   const diff = b.gaps.filter((x) => x.behind), other = b.gaps.filter((x) => !x.behind);
   if (!s.isConnected) return; // a newer redraw replaced this one while it was loading
-  s.innerHTML = `<div class="bizhead"><div class="ring ${status(b.score)}"><b>${b.score}</b><span>match</span></div><div><b>${esc(b.host)}</b>
+  s.innerHTML = `<div class="bizhead"><div class="ring ${status(b.score)}"><b>${b.score}</b><span>on-page</span></div><div><b>${esc(b.host)}</b>
       <small>${b.position ? `#${b.position}` : "Not in the results"} for “${esc(g.query)}”</small><small>${esc(b.title.slice(0, 90))}</small>${b.tech?.line ? `<small>${esc(b.tech.line)}</small>` : ""}</div></div>
-    <p class="lede">Search match ${b.score}/100: how this page's on-page SEO compares with ${vs} (${b.rivals.map((r) => `#${r.position} ${esc(r.host)}`).join(", ") || "none readable"}). The hover card on Google shows the same numbers.</p>
+    ${b.verdict ? `<p class="verdict">${esc(b.verdict)}</p>` : ""}
+    <p class="lede">On-page score ${b.score}/100 for this search, on the same yardstick as ${vs}: ${b.rivals.map((r, i) => `#${r.position} ${esc(r.host)} ${b.others?.[i] ?? "?"}`).join(", ") || "none readable"}. The hover card on Google shows the same numbers.</p>
     <div class="upd"><p>${scan ? `<b>Full site rating ${scan.scores.overall}/100</b> (SEO ${scan.scores.seo}, AEO ${scan.scores.aeo}, GEO ${scan.scores.geo}), scanned ${when(scan.page.scannedAt)}.` : "<b>No full site rating yet.</b> It crawls the site and runs all 39 checks."}</p>
       <div class="btns"><button id="ratesite">${scan ? "Rate the whole site again" : "Rate the whole site"}</button>${!tracked && me && !sameDomain(b.url, me.origin) ? `<button id="trackcomp">Track as competitor</button>` : ""}</div></div>
     <h2 class="sec">Why it ranks here</h2>

@@ -33,8 +33,14 @@ async function quick(url, query, organic) {
   const u = new URL(url);
   if (!/^https?:$/.test(u.protocol)) throw new Error("Not a web page.");
   if (!(await chrome.permissions.contains({ origins: [u.origin + "/*"] }))) return { needsAccess: true };
-  await ensureOffscreen();
-  const b = await chrome.runtime.sendMessage({ target: "offscreen", serp: { query, organic }, url: u.href });
+  // Cache per search and result so hovering the same result again gives the same numbers (pages change slowly; fetches don't).
+  const key = "bd:" + query + "|" + organic.slice(0, 10).map((o) => o.url).join(",") + "|" + u.href;
+  let b = (await chrome.storage.session.get(key))[key];
+  if (!b || Date.now() - b.at > 36e5) {
+    await ensureOffscreen();
+    b = await chrome.runtime.sendMessage({ target: "offscreen", serp: { query, organic }, url: u.href });
+    if (b && !b.error) await chrome.storage.session.set({ [key]: { ...b, at: Date.now() } }).catch(() => {});
+  }
   const scan = (await history(u.origin + "/", "site")).list[0];
   return { ...b, site: scan ? { overall: scan.scores.overall, seo: scan.scores.seo, aeo: scan.scores.aeo, geo: scan.scores.geo, at: scan.page.scannedAt } : null };
 }

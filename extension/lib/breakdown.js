@@ -15,7 +15,8 @@ const median = (xs) => { const s = xs.filter((x) => typeof x === "number").sort(
 
 // How much each factor counts toward the search match score.
 const WEIGHT = { kwTitle: 3, kwH1: 2, kwLead: 2, kwSubs: 1, kwDesc: 1, kwUrl: 1, words: 2, h2: 1, questions: 1, lists: 1, business: 2, faq: 1,
-  reviews: 1, breadcrumb: 1, internal: 1, external: 1, phone: 1, altShare: 1, ms: 1, https: 1, rendered: 2 };
+  reviews: 1, breadcrumb: 1, internal: 1, external: 1, phone: 1, altShare: 1, ms: 0, https: 1, rendered: 2 };
+// Load time is shown but not scored: one timed fetch swings by seconds between hovers, which made the score jump.
 // Floors that apply even when the rivals are weak.
 const FLOOR = { kwSubs: 1, words: 300, h2: 2, questions: 1, lists: 1, internal: 3, external: 1, altShare: 0.8 };
 // Plain reasons for the "why it ranks" list.
@@ -75,18 +76,22 @@ export async function breakdown(serp, url, { n = 3 } = {}) {
     const ok = passes(f, mine, ref);
     const theyOk = vals.map((x) => passes(f, x, ref));
     const most = rivals.length ? theyOk.filter(Boolean).length >= Math.ceil(rivals.length / 2) : false;
-    return { id: f.id, label: f.label, fix: f.fix, weight: WEIGHT[f.id] || 1, ok, behind: !ok && most, edge: ok && rivals.length > 0 && !most,
+    return { id: f.id, label: f.label, fix: f.fix, weight: WEIGHT[f.id] ?? 1, ok, theyOk, behind: !ok && most, edge: ok && rivals.length > 0 && !most,
       mine: show(f, mine), them: vals.map((x) => show(f, x)) };
   });
   const total = rows.reduce((a, r) => a + r.weight, 0);
   const score = Math.round(100 * rows.filter((r) => r.ok).reduce((a, r) => a + r.weight, 0) / total);
+  // The compared pages scored on the same yardstick, so the number means something next to theirs.
+  const others = rivals.map((_, i) => Math.round(100 * rows.filter((r) => r.theyOk[i]).reduce((a, r) => a + r.weight, 0) / total));
+  rows.forEach((r) => delete r.theyOk);
   // Stand-outs (things most of the compared pages lack) first; only called out when there are 2+ pages to compare.
   const why = rows.filter((r) => r.ok).sort((a, b) => Number(b.edge) - Number(a.edge) || b.weight - a.weight).slice(0, 5)
     .map((r) => (r.edge && rivals.length >= 2 ? WHY[r.id] + ", unlike most of the others" : WHY[r.id]));
   const gaps = rows.filter((r) => !r.ok).sort((a, b) => Number(b.behind) - Number(a.behind) || b.weight - a.weight);
   const relation = above.length ? "above" : "below";
   const tech = res.headers ? detectTech(res.html, res.headers) : null;
-  const out = { query: serp.query, url: me.url, host: me.host, position: target.position, title: me.title, score, rows, why, gaps, relation,
+  const out = { query: serp.query, url: me.url, host: me.host, position: target.position, title: me.title, score, others, rows, why, gaps, relation,
+    verdict: verdict(target.position, score, others, relation),
     rivals: rivals.map((r) => ({ host: r.host, position: r.position, url: r.url, title: r.title })),
     facts: { words: me.words, h2: me.h2, questions: me.questions.length, ms: me.ms, schema: me.schemaTypes.slice(0, 6) },
     tech: tech ? { line: techLine(tech), tools: tech.tools.slice(0, 4) } : null,
@@ -95,10 +100,28 @@ export async function breakdown(serp, url, { n = 3 } = {}) {
   return out;
 }
 
+/**
+ * One plain sentence that squares the on-page score with the position, so a #1 page with a middling score reads as
+ * "its edge is off-page" instead of looking like a wrong number.
+ */
+export function verdict(position, score, others, relation) {
+  if (!others.length) return "None of the other results could be read, so there's nothing to compare it with.";
+  const avg = Math.round(others.reduce((a, b) => a + b, 0) / others.length);
+  const them = relation === "above" ? "the pages above it" : "the next results";
+  const top = position != null && position <= 3;
+  const where = position ? `#${position}` : "where it is";
+  if (score >= avg + 5) return top ? `Its page matches this search better than ${them} (${score} vs ${avg} on average), which helps it hold ${where}.`
+    : `Its page matches this search as well as or better than ${them} (${score} vs ${avg}), so they most likely win on links, reviews or brand.`;
+  if (score <= avg - 5) return top ? `It ranks ${where} even though ${them} score higher on the page itself (${avg} vs ${score}). Its lead comes from what this can't measure: links, reviews, brand or site age.`
+    : `${relation === "above" ? "The pages above it" : "The other results"} match this search better on the page (${avg} vs ${score}). Closing the gaps below is the quickest win.`;
+  return top ? `On the page it's level with ${them} (${score} vs ${avg}). What keeps it at ${where} is likely links, reviews or brand.`
+    : `On the page it's level with ${them} (${score} vs ${avg}). Fixing the gaps below gives it an edge; the rest is links, reviews and brand.`;
+}
+
 export function fixPrompt(b) {
   const vs = b.rivals.map((r) => `#${r.position} ${r.host}`).join(", ");
   const list = b.gaps.slice(0, 8).map((g, i) => `${i + 1}. ${g.label}: this page ${g.mine}, ${b.relation === "above" ? "pages above it" : "next results"} ${g.them.join(" / ") || "–"}. ${g.fix}`).join("\n");
-  return `Help ${b.url} rank higher for "${b.query}" on Google (it's ${b.position ? "#" + b.position : "not in the top results"}). SEO God Mode compared it with ${vs || "the top results"} on ${new Date().toISOString().slice(0, 10)}; search match ${b.score}/100.
+  return `Help ${b.url} rank higher for "${b.query}" on Google (it's ${b.position ? "#" + b.position : "not in the top results"}). SEO God Mode compared it with ${vs || "the top results"} on ${new Date().toISOString().slice(0, 10)}; on-page score ${b.score}/100${b.others?.length ? " (theirs: " + b.others.join(", ") + ")" : ""}.
 ${list ? `What to change, most important first (OBSERVED on the pages):\n${list}` : "It already matches the top results on every on-page factor measured; the gap is probably off-page (links, reviews, brand)."}
 ${b.why.length ? `\nKeep what already works: ${b.why.join("; ")}.` : ""}
 Rules: use only facts that are on the site or that I confirm, and write [CONFIRM: ...] for anything you'd have to guess. Don't copy other sites' text, photos, reviews or claims. Keep the design. Verify the live page after deploying. Don't promise rankings.

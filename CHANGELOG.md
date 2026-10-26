@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.16.0 (2026-10-26): extension 1.11: scan button shows progress, hover scores make sense
+
+- **Scan button fills up:** while a scan runs, the button turns dark and fills with white from left to right as each step finishes (crawling, sitemap, PageSpeed, scoring).
+- **Hover scores are now "on-page" scores, shown next to the others':** the card shows the compared pages' scores on the same yardstick ("Others: #2 70 · #3 58") and one sentence that explains the position. A #1 result with a lower score than the pages below it now says its lead comes from links, reviews, brand or site age, which this can't measure.
+- **Same result, same score:** page load time is still shown but no longer counts toward the score (one timed fetch swung by seconds and moved the number), and a result's breakdown is kept for an hour, so hovering it again gives the same numbers.
+- **Fixed:** "See full breakdown" and "Copy fix prompt" could be cut off below the bottom of the window on a long card. They now sit in a footer that's always visible, and the card always fits on screen.
+
 ## 2.15.1 (2026-10-26): extension 1.10.2: updates find the real newest version
 
 - **Fixed:** in Track new site, keywords you were typing were erased if the suggestions finished loading at that moment.

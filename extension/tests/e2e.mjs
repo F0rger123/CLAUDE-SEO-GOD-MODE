@@ -99,6 +99,8 @@ async function scanVia(url, mode) {
   await panel.click(mode === "page" ? '#scope [data-scope="page"]' : '#mode [data-mode="site"]');
   await panel.waitForTimeout(200);
   await panel.click("#scan");
+  // The Scan button fills with white as the scan goes.
+  if (mode !== "page") await panel.waitForFunction(() => document.body.classList.contains("scanning") && parseFloat(document.getElementById("scan").style.getPropertyValue("--p")) > 0, null, { timeout: 10000 });
   await panel.waitForSelector(".dial .n", { timeout: 60000 }).catch(async (e) => { console.log("notice:", await panel.$eval("#notice", (n) => n.textContent)); throw e; });
   await panel.waitForFunction(() => !document.querySelector("#say.typing") && document.querySelector("#say")?.textContent, null, { timeout: 15000 });
   const nums = [await panel.$eval(".dial .n", (e) => +e.dataset.n), ...(await panel.$$eval(".bar .num", (els) => els.map((e) => +e.dataset.n)))];
@@ -371,6 +373,17 @@ await bs.site.hover('#rso .g:nth-of-type(2) h3');
 await bs.site.waitForFunction(() => /\d/.test(document.querySelector('[data-sgm="card"]')?.shadowRoot.querySelector(".ring")?.textContent || ""), null, { timeout: 20000 });
 const cardText = await bs.site.$eval('[data-sgm="card"]', (h) => h.shadowRoot.textContent);
 console.log("hover card:", cardText.slice(0, 200));
+assert.equal(await bs.site.$eval('[data-sgm="card"]', (h) => h.shadowRoot.querySelector(".ring small").textContent), "on-page");
+assert.match(cardText, /Others: \d+ for #\d+/); assert.match(cardText, /which helps it hold #2|level with|links, reviews/);
+// "See full breakdown" sits in the card's footer, always inside the window.
+const btnBox = await bs.site.evaluate(() => { const r = document.querySelector('[data-sgm="card"]').shadowRoot.querySelector("button.primary").getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: innerHeight }; });
+assert.ok(btnBox.top >= 0 && btnBox.bottom <= btnBox.h, "full breakdown button on screen: " + JSON.stringify(btnBox));
+// Hovering the same result again gives the same score.
+const firstScore = await bs.site.$eval('[data-sgm="card"]', (h) => h.shadowRoot.querySelector(".ring").firstChild.textContent);
+await bs.site.mouse.move(5, 5); await bs.site.waitForTimeout(700);
+await bs.site.hover('#rso .g:nth-of-type(2) h3');
+await bs.site.waitForFunction(() => /\d/.test(document.querySelector('[data-sgm="card"]')?.shadowRoot.querySelector(".ring")?.textContent || ""), null, { timeout: 20000 });
+assert.equal(await bs.site.$eval('[data-sgm="card"]', (h) => h.shadowRoot.querySelector(".ring").firstChild.textContent), firstScore, "same score on a second hover");
 assert.match(cardText, /Why it ranks here/); assert.match(cardText, /See full breakdown/); assert.match(cardText, /Copy fix prompt/); assert.doesNotMatch(cardText, /Compare all results/);
 await bs.site.screenshot({ path: path.join(repo, "assets", "extension-ongoogle.png") });
 // The hover card's "See full breakdown" opens the same result in the panel.

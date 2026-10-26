@@ -52,21 +52,23 @@
   .chipline{display:block;margin:0 0 6px}
   .chip{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:99px;font:700 11.5px/1.5 "Segoe UI",system-ui,sans-serif;border:1.5px solid var(--fg)}
   .chip.solid{background:var(--fg);color:var(--bg)}.chip.outline{background:transparent;color:var(--fg)}
-  .card{position:fixed;z-index:2147483647;width:390px;max-height:78vh;overflow:auto;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.25);font-size:13px;line-height:1.45}
+  .card{position:fixed;z-index:2147483647;width:390px;max-height:calc(100vh - 16px);display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.25);font-size:13px;line-height:1.45}
   .top{display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--rule)}
   .ring{width:62px;height:62px;border-radius:50%;border:5px solid var(--c,var(--fg));color:var(--c,var(--fg));display:grid;place-content:center;text-align:center;font:800 21px/1 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;letter-spacing:-.03em}
   .ring small{display:block;font:600 9px/1.2 "Segoe UI",system-ui,sans-serif;letter-spacing:0;color:var(--mut)}
   
   .host{font:750 14.5px/1.25 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif}
   .muted{color:var(--mut);font-size:12px}
-  .in{padding:2px 14px 14px}
+  .in{padding:2px 14px 12px;overflow:auto;flex:1 1 auto;min-height:0}
+  .foot{padding:10px 14px 12px;border-top:1px solid var(--rule);flex:none}.foot .muted{margin:8px 0 0}
   .site{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:var(--wash);font-size:12.5px}
   .h{font-weight:750;font-size:12.5px;margin:14px 0 6px}
   ul{margin:0;padding-left:16px}li{margin:3px 0}
   table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--rule)}
   th{color:var(--mut);font-weight:650}td.me{font-weight:750}tr.behind td:first-child{font-weight:750}tr.behind td.me{color:var(--r)}
   .gap b{display:block;font-size:12.5px}.gap p{margin:1px 0 8px;color:var(--mut);font-size:12px}
-  .btns{display:grid;grid-template-columns:1fr 1.3fr;gap:8px;margin-top:14px}
+  .btns{display:grid;grid-template-columns:1fr 1.3fr;gap:8px}
+  .verdict{margin:10px 0 0;font-size:12.5px;font-weight:600}
   button{font:650 12.5px "Segoe UI",system-ui,sans-serif;border:1px solid var(--rule2);border-radius:99px;padding:9px 12px;background:transparent;color:var(--fg);cursor:pointer;width:100%}
   button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}button:hover{border-color:var(--fg)}
   .launch{position:fixed;right:18px;bottom:18px;z-index:2147483646;display:flex;align-items:center;gap:9px;background:var(--fg);color:var(--bg);border-radius:99px;padding:10px 16px;font:700 13px "Segoe UI",system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3);cursor:pointer;border:0;width:auto}
@@ -94,13 +96,13 @@
     const rect = r.block.getBoundingClientRect();
     const titleRight = Math.min(rect.right, (r.a.getBoundingClientRect().left || 0) + 680);
     card.style.left = Math.max(8, Math.min(window.innerWidth - 406, titleRight + 24)) + "px";
-    card.style.top = Math.max(8, Math.min(window.innerHeight - 460, rect.top)) + "px";
     const pos = list.indexOf(r) + 1;
     const head = el("div", "top");
     const ring = el("div", "ring", d?.score != null ? String(d.score) : "…");
-    if (d?.score != null) { ring.append(el("small", "", "match")); ring.classList.add(d.score >= 80 ? "good" : d.score < 60 ? "bad" : "mid"); }
+    if (d?.score != null) { ring.append(el("small", "", "on-page")); ring.classList.add(d.score >= 80 ? "good" : d.score < 60 ? "bad" : "mid"); }
     const t = el("div");
     t.append(el("div", "host", host(r.url)), el("div", "muted", `#${pos} for “${query}”`));
+    if (d?.others?.length) t.append(el("div", "muted", `Others: ${d.others.map((x, i) => `${x} for #${d.rivals[i]?.position}`).join(", ")}`));
     if (d?.tech?.line) t.append(el("div", "muted", d.tech.line));
     if (!d) t.append(el("div", "muted", "Reading it and the pages above it…"));
     head.append(ring, t);
@@ -111,8 +113,9 @@
     if (d?.needsAccess) add(el("p", "muted", "Allow SEO God Mode to read other websites (Settings → Show on Google results) to see the breakdown here."));
     else if (d?.error) add(el("p", "muted", `Couldn't read this page (${d.error}).`));
     else if (d?.score != null) {
+      if (d.verdict) add(el("p", "verdict", d.verdict));
       add(el("div", "site", d.site ? `Full site rating: ${d.site.overall}/100 (SEO ${d.site.seo}, AEO ${d.site.aeo}, GEO ${d.site.geo}), scanned ${new Date(d.site.at).toLocaleDateString()}.`
-        : `Search match ${d.score}/100: how this page's on-page SEO stacks up against ${d.relation === "above" ? "the pages ranking above it" : "the next results"}. No full site rating yet; See full breakdown to run one.`));
+        : `The score rates this page's on-page SEO for this search against ${d.relation === "above" ? "the pages ranking above it" : "the next results"}, on the same yardstick. No full site rating yet; See full breakdown to run one.`));
       add(el("div", "h", "Why it ranks here"));
       const why = el("ul"); (d.why.length ? d.why : ["Nothing on the page stands out; likely links, reviews or brand strength (not measured)"]).forEach((w) => why.append(el("li", "", w))); add(why);
       if (d.rivals.length) {
@@ -134,9 +137,13 @@
     b.addEventListener("click", () => open(r.url));
     btns.append(b);
     if (!d?.prompt) btns.style.gridTemplateColumns = "1fr";
-    add(btns);
-    if (d?.score != null) add(el("p", "muted", "On-page signals only. Backlinks, reviews and site age aren't measured."));
+    // Buttons sit in a footer outside the scrolling part, so "See full breakdown" is always on screen.
+    const foot = el("div", "foot");
+    foot.append(btns);
+    if (d?.score != null) foot.append(el("p", "muted", "On-page signals only. Backlinks, reviews and site age aren't measured."));
+    card.append(foot);
     cardRoot.append(wrap(card));
+    card.style.top = Math.max(8, Math.min(window.innerHeight - card.offsetHeight - 8, rect.top)) + "px";
   }
   const organicFor = () => list.map((x) => ({ url: x.url, title: x.title }));
   function hover(r) {

@@ -21,7 +21,26 @@ const isSite = () => state.scan?.mode === "site";
 
 function notice(html) { const n = $("notice"); n.hidden = !html; n.innerHTML = html || ""; }
 function toast(text) { const t = $("toast"); t.textContent = text; t.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 1600); }
-function stage(text) { $("scan").querySelector(".label").textContent = text; }
+// How far along each scan step is (percent), so the Scan button can fill up as it goes.
+const STEPS = [[/access/i, 3], [/Reading the page/i, 8], [/robots\.txt, sitemap and crawlers/i, 12], [/homepage/i, 16], [/robots\.txt and the sitemap/i, 20],
+  [/Crawling page (\d+) of up to (\d+)/i, (m) => 20 + (45 * m[1]) / m[2]], [/sitemap URLs/i, 68], [/answers and AI/i, 74], [/PageSpeed/i, 80], [/Scoring/i, 88], [/AI crawlers/i, 94]];
+const fill = { target: 0, shown: 0, timer: null };
+function setFill(p) { fill.shown = p; $("scan").style.setProperty("--p", p.toFixed(1) + "%"); }
+function stage(text) {
+  $("scan").querySelector(".label").textContent = text;
+  if (!document.body.classList.contains("scanning")) return;
+  for (const [re, p] of STEPS) { const m = text.match(re); if (m) { fill.target = Math.max(fill.target, typeof p === "function" ? p(m) : p); break; } }
+}
+function startFill() {
+  fill.target = 0; setFill(0); document.body.classList.add("scanning");
+  // Ease toward the current step, and creep on slowly while a step takes a while, never reaching the end early.
+  fill.timer = setInterval(() => { fill.target += (97 - fill.target) * 0.002; setFill(fill.shown + (fill.target - fill.shown) * 0.12); }, 120);
+}
+function endFill(ok) {
+  clearInterval(fill.timer);
+  if (ok) setFill(100);
+  setTimeout(() => { document.body.classList.remove("scanning"); setFill(0); }, ok ? 450 : 0);
+}
 
 async function activeTab() {
   // sidepanel.html?tabId=N targets a specific tab (used when the panel is opened as a page, e.g. in tests).
@@ -40,6 +59,8 @@ async function ensureAccess(url, mode) {
 async function scan() {
   const btn = $("scan");
   btn.disabled = true; document.body.classList.add("busy"); notice("");
+  startFill();
+  let done = false;
   try {
     stage("Checking access…");
     let tab = await activeTab();
@@ -67,10 +88,12 @@ async function scan() {
     state.scan = await saveScan(scan);
     if (mode === "site" && (await trackedFor(page.origin))) await addScorePoint((await trackedFor(page.origin)).origin, state.scan);
     state.fresh = true;
+    done = true;
     render();
   } catch (e) {
     notice(esc(e.message || e));
   } finally {
+    endFill(done);
     btn.disabled = false; document.body.classList.remove("busy"); scanLabel();
   }
 }
