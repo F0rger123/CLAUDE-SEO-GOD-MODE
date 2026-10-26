@@ -27,7 +27,7 @@ What you get:
 • Compete: open any Google search and see why the top pages outrank yours, factor by factor, with a content brief.
 • Keyword ideas from Google autocomplete, with the changes your page needs.
 • Google Business Profile audit: claimed, category, reviews vs the map pack, hours, photos, description and more.
-• Track your sites and competitors: score history and keyword positions over time, with charts.
+• Track your businesses, the clients you manage and their competitors: score history, keyword positions and a side-by-side comparison.
 • Before/after proof: save a "before" scan, make your fixes, scan again, and download a dated report for your client or boss.
 
 Honest by design: every result is labeled as measured, an estimate, or not measured. Scores describe page health and AI-search readiness, not rankings.

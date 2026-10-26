@@ -235,7 +235,7 @@ select.search { appearance: auto; }
 .pos b { font-size: 22px; }
 .pos.s-pass b { color: var(--pass); } .pos.s-part b { color: var(--part); } .pos.s-fail b { color: var(--fail); }
 .serplist { list-style: none; margin: 10px 0; padding: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
-.serplist li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 7px 12px; font-size: 12.5px; }
+.serplist li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: start; padding: 7px 12px; font-size: 12.5px; }
 .serplist li + li { border-top: 1px solid var(--rule); }
 .serplist li > span { color: var(--muted); font-weight: 700; }
 .serplist small { display: block; color: var(--muted); }
@@ -289,3 +289,6 @@ table.mini tr.me td { font-weight: 700; background: color-mix(in srgb, var(--act
 .upd p { margin: 0 0 8px; font-size: 12.5px; }
 .pad { padding: 8px 10px; }
 label.btn { position: relative; }
+.addcomp { font-size: 12px; white-space: nowrap; }
+.addform { display: grid; gap: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 4px 12px 12px; margin: 10px 0; }
+.potential.done p { grid-column: 2 / -1; align-self: center; }

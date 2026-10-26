@@ -10,15 +10,41 @@ const MAX_POINTS = 1000;
 const originOf = (url) => new URL(/^https?:/i.test(url) ? url : "https://" + url).origin;
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 
-export async function trackedSites() { return (await chrome.storage.local.get(LIST))[LIST] || []; }
+/** What a tracked site is to you. Older entries without a role count as your own business. */
+export const ROLES = { mine: "My business", client: "Client (I manage its SEO)", competitor: "Competitor" };
+export const roleOf = (s) => (s?.role && ROLES[s.role] ? s.role : "mine");
+export const isOwned = (s) => roleOf(s) !== "competitor";
 
-export async function trackSite(url, name = "") {
+export async function trackedSites() { return ((await chrome.storage.local.get(LIST))[LIST] || []).map((s) => ({ ...s, role: roleOf(s), competitorOf: s.competitorOf || null })); }
+
+/** Track a site. role: mine | client | competitor; competitorOf: the business (origin) it competes with. */
+export async function trackSite(url, name = "", role = "mine", competitorOf = null) {
   const origin = originOf(url);
   const list = await trackedSites();
-  if (!list.some((s) => s.origin === origin)) list.push({ origin, name: name || hostOf(origin), addedAt: new Date().toISOString(), keywords: [] });
+  const cur = list.find((s) => s.origin === origin);
+  if (cur) { if (role === "competitor" && competitorOf && !cur.competitorOf && roleOf(cur) === "competitor") cur.competitorOf = competitorOf; }
+  else list.push({ origin, name: name || hostOf(origin), addedAt: new Date().toISOString(), keywords: [], role, competitorOf: role === "competitor" ? competitorOf : null });
   await chrome.storage.local.set({ [LIST]: list });
   return origin;
 }
+
+export async function setRole(origin, role, competitorOf = null) {
+  const list = await trackedSites();
+  const s = list.find((x) => x.origin === origin);
+  if (s) { s.role = role; s.competitorOf = role === "competitor" ? competitorOf : null; }
+  // A business that becomes a competitor can't keep competitors of its own.
+  if (role === "competitor") list.forEach((x) => { if (x.competitorOf === origin) x.competitorOf = competitorOf; });
+  await chrome.storage.local.set({ [LIST]: list });
+}
+
+export async function renameSite(origin, name) {
+  const list = await trackedSites();
+  const s = list.find((x) => x.origin === origin);
+  if (s && name.trim()) s.name = name.trim();
+  await chrome.storage.local.set({ [LIST]: list });
+}
+
+export const competitorsOf = (origin, list) => list.filter((s) => roleOf(s) === "competitor" && s.competitorOf === origin);
 
 export async function untrackSite(origin) {
   await chrome.storage.local.set({ [LIST]: (await trackedSites()).filter((s) => s.origin !== origin) });

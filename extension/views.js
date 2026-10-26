@@ -8,7 +8,7 @@ import { readGoogle } from "./lib/google.js";
 import { auditBusiness, DIRECTORIES, keywordIdeas, sameDomain, whyTheyRank } from "./lib/compete.js";
 import { rateSite, siteOrigins } from "./lib/siterate.js";
 import { grade } from "./lib/rubric.js";
-import { saveScan } from "./lib/proof.js";
+import { history, saveScan } from "./lib/proof.js";
 import * as T from "./lib/track.js";
 import * as U from "./lib/update.js";
 
@@ -32,16 +32,17 @@ async function access(origins, why) {
   return false;
 }
 
+/** The business Compete works for: one you own or manage, never a competitor. */
 async function mySite() {
-  const list = await T.trackedSites();
+  const list = (await T.trackedSites()).filter(T.isOwned);
   const { mySite: picked } = await chrome.storage.local.get("mySite");
   return list.find((s) => s.origin === picked) || list[0] || null;
 }
 
 const siteSelect = async () => {
-  const list = await T.trackedSites(), me = await mySite();
+  const list = (await T.trackedSites()).filter(T.isOwned), me = await mySite();
   if (!list.length) return `<div class="field"><label for="mysite">Your website</label><div class="row2"><input id="mysite" class="search" placeholder="yourbusiness.com"><button id="savesite">Save</button></div></div>`;
-  return `<div class="field"><label for="mysel">Your website</label><select id="mysel" class="search">${list.map((s) => `<option value="${esc(s.origin)}" ${s.origin === me?.origin ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>`;
+  return `<div class="field"><label for="mysel">Your website</label><select id="mysel" class="search">${list.map((s) => `<option value="${esc(s.origin)}" ${s.origin === me?.origin ? "selected" : ""}>${esc(s.name)}${s.role === "client" ? " (client)" : ""}</option>`).join("")}</select></div>`;
 };
 function bindSite(rerender) {
   const sel = $("mysel");
@@ -97,11 +98,15 @@ async function renderRank(onGoogle, tab) {
       <div class="pos ${pos ? (pos.position <= 3 ? "s-pass" : pos.position <= 10 ? "s-part" : "s-fail") : "s-fail"}"><span>${me ? esc(me.name) : "Your site"}</span><b>${pos ? "#" + pos.position : me ? "Not in top " + g.organic.length : "–"}</b></div></div>
     ${g.blocked ? `<p class="notice">Google is showing a robot check. Solve it in the tab, then press Compare again.</p>` : ""}
     ${await siteSelect()}
-    <ol class="serplist">${g.organic.slice(0, 10).map((o) => `<li class="${me && sameDomain(o.url, me.origin) ? "me" : DIRECTORIES.test(hostOf(o.url)) ? "dir" : ""}"><span>${o.position}</span><div><b>${esc(o.title)}</b><small>${esc(hostOf(o.url))}${DIRECTORIES.test(hostOf(o.url)) ? " · directory, skipped" : ""}</small></div></li>`).join("")}</ol>
+    <ol class="serplist">${g.organic.slice(0, 10).map((o) => `<li class="${me && sameDomain(o.url, me.origin) ? "me" : DIRECTORIES.test(hostOf(o.url)) ? "dir" : ""}"><span>${o.position}</span><div><b>${esc(o.title)}</b><small>${esc(hostOf(o.url))}${DIRECTORIES.test(hostOf(o.url)) ? " · directory, skipped" : ""}</small></div>${me && !sameDomain(o.url, me.origin) && !DIRECTORIES.test(hostOf(o.url)) ? `<button class="linkish addcomp" data-comp="${esc(new URL(o.url).origin)}" title="Track as a competitor of ${esc(me.name)}">+ Track</button>` : ""}</li>`).join("")}</ol>
     ${g.local?.length ? `<h2 class="sec">Map pack</h2><table class="mini"><tr><th>Business</th><th>Rating</th><th>Reviews</th></tr>${g.local.map((l) => `<tr><td>${esc(l.name)}</td><td>${l.rating ?? "–"}</td><td>${l.reviews ?? "–"}</td></tr>`).join("")}</table>` : ""}
     <div class="stack"><button id="cmp" class="primary run">${r ? "Compare again" : `Compare the top ${Math.min(8, g.organic.filter((o) => !DIRECTORIES.test(hostOf(o.url))).length)} pages with mine`}</button></div>
     <div id="rankout"></div>`;
   bindSite(() => renderCompete(ui));
+  s.querySelectorAll("[data-comp]").forEach((b) => (b.onclick = async () => {
+    await T.trackSite(b.dataset.comp, hostOf(b.dataset.comp), "competitor", me.origin);
+    b.textContent = "Tracked"; b.disabled = true; ui.toast(`Tracking ${hostOf(b.dataset.comp)} as a competitor of ${me.name}`);
+  }));
   $("cmp").onclick = async () => {
     if (!me) return ui.notice("Add your website first (the box above), so there's something to compare.");
     if (!(await access(ALL_SITES, "Comparing needs permission to read the ranking websites. Press Compare again and choose Allow."))) return;
@@ -229,27 +234,45 @@ Write the profile description and posts for me to paste (I make the edits at bus
 }
 
 // ====================================================================== TRACK
+const roleSelect = (id, role, owned, competitorOf) => `<div class="field"><label for="${id}">This site is</label>
+  <select id="${id}" class="search">${Object.entries(T.ROLES).map(([k, l]) => `<option value="${k}" ${k === role ? "selected" : ""}>${l}</option>`).join("")}</select>
+  <div class="field vs" ${role === "competitor" ? "" : "hidden"}><label for="${id}-of">Competitor of</label><select id="${id}-of" class="search">
+  <option value="">(not linked)</option>${owned.map((o) => `<option value="${esc(o.origin)}" ${o.origin === competitorOf ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></div></div>`;
+const bindRole = (id) => { const sel = $(id); if (sel) sel.addEventListener("change", () => (sel.parentElement.querySelector(".vs").hidden = sel.value !== "competitor")); };
+
+async function card(s, list) {
+  const h = await T.scoreHistory(s.origin);
+  const last = h[h.length - 1], prev = h[h.length - 2];
+  const d = last && prev ? last.overall - prev.overall : null;
+  const rivals = T.competitorsOf(s.origin, list).length;
+  const of = s.competitorOf && list.find((x) => x.origin === s.competitorOf);
+  return `<div class="tcard" data-open="${esc(s.origin)}"><div class="thead"><div><b>${esc(s.name)}</b><small>${last ? "Scanned " + when(last.t) : "Not scanned yet"} · ${s.keywords.length} keyword${s.keywords.length === 1 ? "" : "s"}${rivals ? ` · ${rivals} competitor${rivals === 1 ? "" : "s"}` : ""}${of ? ` · vs ${esc(of.name)}` : ""}</small></div>
+    <div class="tscore ${status(last?.overall)}">${last ? last.overall : "–"}${d ? `<i class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}</i>` : ""}</div></div>
+    ${h.length > 1 ? T.lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }], { height: 60, label: s.name + " score history" }) : ""}</div>`;
+}
+
 export async function renderTrack(helpers) {
   ui = helpers;
   const el = $("view");
   const list = await T.trackedSites();
   if (v.detail && list.some((s) => s.origin === v.detail)) return renderSiteDetail(v.detail);
-  const cards = await Promise.all(list.map(async (s) => {
-    const h = await T.scoreHistory(s.origin);
-    const last = h[h.length - 1], prev = h[h.length - 2];
-    const d = last && prev ? last.overall - prev.overall : null;
-    return `<div class="tcard" data-open="${esc(s.origin)}"><div class="thead"><div><b>${esc(s.name)}</b><small>${last ? "Scanned " + when(last.t) : "Not scanned yet"} · ${s.keywords.length} keyword${s.keywords.length === 1 ? "" : "s"}</small></div>
-      <div class="tscore ${status(last?.overall)}">${last ? last.overall : "–"}${d ? `<i class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}</i>` : ""}</div></div>
-      ${h.length > 1 ? T.lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }], { height: 60, label: s.name + " score history" }) : ""}</div>`;
-  }));
-  el.innerHTML = `<p class="lede">Follow your sites (and competitors). Every whole-site scan adds a point to the chart, and every Google search you analyze records where each site ranks.</p>
-    <form id="addsite" class="field"><label for="newsite">Add a website</label><div class="row2"><input id="newsite" class="search" placeholder="example.com"><button class="primary">Track</button></div></form>
-    ${list.length ? `<div class="tlist">${cards.join("")}</div><div class="btns stack"><button id="rescanall" class="run">Rescan all ${list.length}</button></div>` : `<p class="lede">No sites yet.</p>`}
+  const owned = list.filter(T.isOwned);
+  const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"]];
+  const sections = (await Promise.all(groups.map(async ([role, title]) => {
+    const xs = list.filter((s) => s.role === role);
+    return xs.length ? `<h2 class="sec">${title} <small>${xs.length}</small></h2><div class="tlist">${(await Promise.all(xs.map((s) => card(s, list)))).join("")}</div>` : "";
+  }))).join("");
+  el.innerHTML = `<p class="lede">Follow your own businesses, the clients you manage, and their competitors. Every whole-site scan adds a point to the chart, and every Google search you analyze records where each site ranks.</p>
+    <form id="addsite" class="addform"><div class="field"><label for="newsite">Add a website</label><input id="newsite" class="search" placeholder="example.com"></div>
+      ${roleSelect("newrole", owned.length ? "competitor" : "mine", owned, owned[0]?.origin)}<button class="primary">Track</button></form>
+    ${list.length ? sections + `<div class="btns stack"><button id="rescanall" class="run">Rescan all ${list.length}</button></div>` : `<p class="lede">No sites yet.</p>`}
     <h2 class="sec">Your data</h2><div class="btns"><button id="export">Export history</button><label class="btn">Import history<input id="import" type="file" accept="application/json" hidden></label></div>
     <p class="unknowns">History is saved in Chrome on this computer and survives extension updates. Export it to back it up or move it to another computer.</p>
     <div id="updatecard"></div>`;
+  bindRole("newrole");
   $("addsite").onsubmit = async (e) => { e.preventDefault(); const val = $("newsite").value.trim(); if (!val) return;
-    try { const o = await T.trackSite(val); ui.toast("Tracking " + hostOf(o)); renderTrack(ui); } catch { ui.notice("That doesn't look like a website address."); } };
+    const role = $("newrole").value, of = role === "competitor" ? $("newrole-of").value || null : null;
+    try { const o = await T.trackSite(val, "", role, of); ui.toast(`Tracking ${hostOf(o)} as ${T.ROLES[role].toLowerCase()}`); renderTrack(ui); } catch { ui.notice("That doesn't look like a website address."); } };
   el.querySelectorAll("[data-open]").forEach((c) => (c.onclick = () => { v.detail = c.dataset.open; renderTrack(ui); }));
   const ra = $("rescanall"); if (ra) ra.onclick = () => rescan(list.map((s) => s.origin));
   $("export").onclick = async () => ui.download(await T.exportAll(), `seo-god-mode-history-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
@@ -274,9 +297,55 @@ async function rescan(origins) {
   busy(false); ui.toast("Rescan done"); v.detail ? renderSiteDetail(v.detail) : renderTrack(ui);
 }
 
+/** Latest full whole-site scan saved for an origin (from a Site scan or a Track rescan). */
+const latestScan = async (origin) => (await history(origin + "/", "site")).list[0] || null;
+
+/** A business next to its competitors: scores, history, keyword positions, and the checks where they're ahead. */
+async function compareBlock(s, list) {
+  const rivals = T.competitorsOf(s.origin, list);
+  const all = [s, ...rivals];
+  const hist = await Promise.all(all.map((x) => T.scoreHistory(x.origin)));
+  const scans = await Promise.all(all.map((x) => latestScan(x.origin)));
+  const pos = await Promise.all(all.map((x) => T.positionHistory(x.origin)));
+  const last = (h) => h[h.length - 1];
+  const rows = all.map((x, i) => ({ x, p: last(hist[i]) })).sort((a, b) => (b.p?.overall ?? -1) - (a.p?.overall ?? -1));
+  const cell = (n, mine) => `<td class="${n == null || mine == null ? "" : n > mine ? "down" : ""}">${n ?? "–"}</td>`;
+  const me = last(hist[0]);
+  const cls = ["main", "k1", "k2", "k3", "k4"];
+  const chart = T.lineChart(all.slice(0, 5).map((x, i) => ({ name: x.name, cls: cls[i], points: hist[i].map((p) => ({ t: p.t, v: p.overall })) })), { label: "Overall score: you and competitors" });
+  const kws = [...new Set([...s.keywords, ...pos[0].map((p) => p.q)])].slice(0, 15);
+  const posOf = (i, q) => { const r = [...pos[i]].reverse().find((p) => p.q === q); return r ? (r.pos ? "#" + r.pos : "–") : "?"; };
+  // Check-level gaps from the latest full scans: where a competitor scores 20+ points higher on a check.
+  const mine = scans[0] ? Object.fromEntries(scans[0].results.map((r) => [r.id, r])) : {};
+  const gaps = [];
+  scans.slice(1).forEach((sc, i) => sc && sc.results.forEach((r) => { const m = mine[r.id];
+    if (m && r.ratio != null && m.ratio != null && r.ratio - m.ratio >= 0.2) gaps.push({ id: r.id, name: r.name, who: rivals[i].name, them: r.ratio, you: m.ratio, gain: m.gain || 0, tip: m.tip }); }));
+  const byCheck = Object.values(gaps.reduce((a, g) => { (a[g.id] ||= { ...g, who: [] }).who.push(g.who); return a; }, {})).sort((a, b) => b.who.length - a.who.length || b.gain - a.gain);
+  v.cmp = { s, rivals, byCheck, me };
+  return `<h2 class="sec">You vs competitors <small>${rivals.length}</small></h2>
+    ${rivals.length ? `<table class="mini"><tr><th>Site</th><th>Overall</th><th>SEO</th><th>AEO</th><th>GEO</th></tr>${rows.map(({ x, p }) => `<tr class="${x.origin === s.origin ? "me" : ""}"><td>${esc(x.name)}</td>${x.origin === s.origin ? `<td>${p?.overall ?? "–"}</td><td>${p?.seo ?? "–"}</td><td>${p?.aeo ?? "–"}</td><td>${p?.geo ?? "–"}</td>` : cell(p?.overall, me?.overall) + cell(p?.seo, me?.seo) + cell(p?.aeo, me?.aeo) + cell(p?.geo, me?.geo)}</tr>`).join("")}</table>
+      ${hist.some((h) => h.length) ? chart : ""}
+      ${byCheck.length ? `<h2 class="sec">Where they're ahead</h2><div class="list">${byCheck.slice(0, 10).map((g) => `<div class="factor"><span class="dot s-fail"></span><div><b>${esc(g.name)}</b><small>${esc(g.who.join(", "))} ${g.who.length === 1 ? "beats" : "beat"} you here${g.gain ? ` · +${g.gain} pts for you` : ""}</small>${g.tip ? `<p>${esc(g.tip)}</p>` : ""}</div></div>`).join("")}</div>
+        <div class="btns stack"><button id="cmpcopy" class="primary">Copy fix prompt</button></div>` : scans.slice(1).some(Boolean) ? `<p class="lede">No check where a competitor is clearly ahead. Compare search positions below and use Compete for single searches.</p>` : `<p class="lede">Rescan to compare check by check.</p>`}
+      ${kws.length ? `<h2 class="sec">Search positions</h2><table class="mini"><tr><th>Keyword</th>${all.map((x) => `<th>${esc(x.name.slice(0, 14))}</th>`).join("")}</tr>${kws.map((q) => `<tr><td>${esc(q)}</td>${all.map((_, i) => `<td>${posOf(i, q)}</td>`).join("")}</tr>`).join("")}</table>
+        <p class="unknowns">Positions update when you search a keyword on Google and open Compete.</p>` : ""}
+      <div class="btns stack"><button id="rescangroup" class="run">Rescan ${esc(s.name)} and ${rivals.length} competitor${rivals.length === 1 ? "" : "s"}</button></div>`
+    : `<p class="lede">No competitors linked yet. Add one below, or use "+ Track" on a Google results page in Compete.</p>`}
+    <form id="addcomp" class="field"><label for="compnew">Add a competitor of ${esc(s.name)}</label><div class="row2"><input id="compnew" class="search" placeholder="rival.com"><button>Add</button></div></form>`;
+}
+
+function comparePrompt(c) {
+  return `Help ${c.s.name} (${c.s.origin}) catch up with its competitors: ${c.rivals.map((r) => `${r.name} (${r.origin})`).join(", ")}.
+Latest SEO God Mode whole-site scores: ${c.s.name} ${c.me?.overall ?? "?"}/100. Checks where competitors score clearly higher (OBSERVED):
+${c.byCheck.map((g, i) => `${i + 1}. ${g.name}: ${g.who.join(", ")} ahead; worth about +${g.gain} pts. ${g.tip || ""}`).join("\n")}
+Learn from what they do, but write our own content from our real facts; never copy their text, photos, reviews or claims. Use [CONFIRM: ...] for anything you'd have to guess. Verify the live site after each change.`;
+}
+
 async function renderSiteDetail(origin) {
   const el = $("view");
-  const s = (await T.trackedSites()).find((x) => x.origin === origin);
+  const list = await T.trackedSites();
+  const s = list.find((x) => x.origin === origin);
+  const owned = list.filter((x) => T.isOwned(x) && x.origin !== origin);
   const h = await T.scoreHistory(origin), pos = await T.positionHistory(origin);
   const kws = [...new Set([...s.keywords, ...pos.map((p) => p.q)])];
   const latest = (q) => [...pos].reverse().find((p) => p.q === q);
@@ -284,12 +353,16 @@ async function renderSiteDetail(origin) {
   const maxPos = Math.max(10, ...pos.map((p) => p.pos || 0));
   const topK = kws.filter((q) => pos.some((p) => p.q === q && p.pos)).slice(0, 5);
   const cls = ["main", "k1", "k2", "k3", "k4"];
+  const of = s.competitorOf && list.find((x) => x.origin === s.competitorOf);
   el.innerHTML = `<button id="back" class="linkish">← All sites</button>
-    <div class="thead big"><div><b>${esc(s.name)}</b><small>${esc(origin)} · tracking since ${when(s.addedAt)}</small></div><div class="tscore ${status(h[h.length - 1]?.overall)}">${h[h.length - 1]?.overall ?? "–"}</div></div>
+    <div class="thead big"><div><b>${esc(s.name)}</b><small>${esc(origin)} · ${esc(T.ROLES[s.role])}${of ? ` of <button class="linkish" id="goof">${esc(of.name)}</button>` : ""} · since ${when(s.addedAt)}</small></div><div class="tscore ${status(h[h.length - 1]?.overall)}">${h[h.length - 1]?.overall ?? "–"}</div></div>
+    <details class="json"><summary>Edit name and role</summary><div class="pad"><div class="field"><label for="rename">Name</label><input id="rename" class="search" value="${esc(s.name)}"></div>
+      ${roleSelect("editrole", s.role, owned, s.competitorOf)}<button id="saverole" class="primary">Save</button></div></details>
     <h2 class="sec">Score history <small>${h.length} scan${h.length === 1 ? "" : "s"}</small></h2>
     ${T.lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }, { name: "SEO", cls: "k1", points: h.map((p) => ({ t: p.t, v: p.seo })) },
       { name: "AEO", cls: "k2", points: h.map((p) => ({ t: p.t, v: p.aeo })) }, { name: "GEO", cls: "k3", points: h.map((p) => ({ t: p.t, v: p.geo })) }], { label: "Score history" })}
     <div class="btns stack"><button id="rescan1" class="primary run">Rescan now</button><button id="opensite">Open site</button></div>
+    ${T.isOwned(s) ? await compareBlock(s, list) : ""}
     <h2 class="sec">Keyword positions <small>lower is better</small></h2>
     ${topK.length ? T.lineChart(topK.map((q, i) => ({ name: q, cls: cls[i], points: pos.filter((p) => p.q === q).map((p) => ({ t: p.t, v: p.pos })) })), { min: 1, max: maxPos, invert: true, label: "Keyword positions" }) : ""}
     ${kws.length ? `<table class="mini"><tr><th>Keyword</th><th>Now</th><th>Change</th><th></th></tr>${kws.map((q) => { const l = latest(q), p = prevOf(q); const d = l?.pos && p?.pos ? p.pos - l.pos : null;
@@ -299,8 +372,16 @@ async function renderSiteDetail(origin) {
     <p class="unknowns">Positions are recorded when you search on Google and open the Compete view (the extension never searches by itself). "–" means not in the results shown.</p>
     ${h.length ? `<h2 class="sec">Scans</h2><table class="mini"><tr><th>Date</th><th>Overall</th><th>SEO</th><th>AEO</th><th>GEO</th><th>Pages</th></tr>${[...h].reverse().slice(0, 30).map((p) => `<tr><td>${when(p.t)}</td><td>${p.overall}</td><td>${p.seo}</td><td>${p.aeo}</td><td>${p.geo}</td><td>${p.pages ?? ""}</td></tr>`).join("")}</table>` : ""}
     <div class="btns stack"><button id="untrack" class="linkish danger">Stop tracking this site</button></div>`;
+  bindRole("editrole");
   $("back").onclick = () => { v.detail = null; renderTrack(ui); };
+  const go = $("goof"); if (go) go.onclick = () => renderSiteDetail(of.origin);
+  $("saverole").onclick = async () => { const role = $("editrole").value;
+    await T.renameSite(origin, $("rename").value); await T.setRole(origin, role, role === "competitor" ? $("editrole-of").value || null : null); ui.toast("Saved"); renderSiteDetail(origin); };
   $("rescan1").onclick = () => rescan([origin]);
+  const rg = $("rescangroup"); if (rg) rg.onclick = () => rescan([origin, ...T.competitorsOf(origin, list).map((r) => r.origin)]);
+  const cc = $("cmpcopy"); if (cc) cc.onclick = () => ui.copy(comparePrompt(v.cmp), "Fix prompt copied");
+  const ac = $("addcomp"); if (ac) ac.onsubmit = async (e) => { e.preventDefault(); const val = $("compnew").value.trim(); if (!val) return;
+    try { const o = await T.trackSite(val, "", "competitor", origin); await T.setRole(o, "competitor", origin); ui.toast(`Tracking ${hostOf(o)} as a competitor`); renderSiteDetail(origin); } catch { ui.notice("That doesn't look like a website address."); } };
   $("opensite").onclick = () => chrome.tabs.create({ url: origin + "/" });
   $("kwadd").onsubmit = async (e) => { e.preventDefault(); await T.setKeywords(origin, [...s.keywords, ...$("kwnew").value.split(",")]); renderSiteDetail(origin); };
   $("untrack").onclick = async () => { if (!confirm(`Stop tracking ${s.name}? Its history stays until you clear the extension's data.`)) return; await T.untrackSite(origin); v.detail = null; renderTrack(ui); };

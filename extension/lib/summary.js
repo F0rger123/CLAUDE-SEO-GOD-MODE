@@ -42,6 +42,13 @@ export function summaryText(scan) {
   const order = scan.priority?.length ? scan.priority : [...failed].sort((a, b) => (b.gain || 0) - (a.gain || 0)).map((r) => r.id);
   const byId = Object.fromEntries(failed.map((r) => [r.id, r]));
   const ranked = order.map((id) => byId[id]).filter(Boolean);
+  // A perfect score gets no to-do list: nothing measured needs work.
+  if ((scores.overall ?? 0) >= 100 || !failed.length) {
+    const lines = [`${what} scores ${scores.overall}/100. There's currently nothing you need to do from here.`];
+    if (failed.length) lines.push(`${failed.length} tiny optional tweak${failed.length === 1 ? " is" : "s are"} listed under Issues if you want them, but they won't move the score.`);
+    lines.push("Rescan after you change the site to keep it there. Rankings and AI citations also depend on things a public scan can't see, like reviews, links and Search Console data.");
+    return lines.join("\n");
+  }
   const v = VERDICT.find(([min]) => (scores.overall ?? 0) >= min)[1];
   const pot = potentials(scan);
   const out = [`${what} ${v} Overall ${scores.overall}/100${pot.top5 > pot.now ? `, potential about ${pot.top5} after the top 5 fixes` : ""}.`];

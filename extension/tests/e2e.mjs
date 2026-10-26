@@ -270,15 +270,36 @@ const biz = await cp.$eval("#sub", (e) => e.textContent);
 assert.match(biz, /Hi Roofing/); assert.match(biz, /Claim this business/); assert.match(biz, /14 reviews vs map pack median/);
 await noToast(); await cp.waitForTimeout(300);
 await cp.screenshot({ path: path.join(repo, "assets", "extension-business.png") });
-// Track detail: score chart and the recorded keyword position
+// Track a ranking site as a competitor straight from the results list.
+await cp.click('[data-sub="rank"]');
+await cp.waitForSelector(".addcomp");
+await cp.click(`.addcomp[data-comp="${rival}"]`);
+// Track detail: roles, score chart, recorded keyword position, and the competitor comparison
 await cp.click('#mode [data-mode="track"]');
 await cp.waitForSelector(".tcard");
-await cp.click(".tcard");
+const sectionsText = await cp.$eval("#view", (e) => e.textContent);
+assert.match(sectionsText, /Your businesses/); assert.match(sectionsText, /Competitors/); assert.match(sectionsText, /vs 127\.0\.0\.1/);
+await cp.click(`.tcard[data-open="${badBase}"]`);
 await cp.waitForSelector("svg.chart");
+assert.match(await cp.$eval("#view", (e) => e.textContent), /You vs competitors/);
+await cp.click("#rescangroup");
+await cp.waitForSelector("#cmpcopy", { timeout: 90000 });
+const cmpText = await cp.$eval("#view", (e) => e.textContent);
+assert.match(cmpText, /Where they're ahead/); assert.match(cmpText, /localhost beats you here/);
+// Mark the site as a client instead of "my business"; it stays an owned site with its competitors.
+await cp.click("details.json summary");
+await cp.selectOption("#editrole", "client");
+await cp.click("#saverole");
+await cp.waitForFunction(() => /Client \(I manage its SEO\)/.test(document.querySelector("#view").textContent));
 const detail = await cp.$eval("#view", (e) => e.textContent);
 assert.match(detail, /roof repair york pa/); assert.match(detail, /#4/);
+const perfect = await cp.evaluate(async () => { const m = await import("./lib/summary.js");
+  const base = { mode: "site", scores: { overall: 100, seo: 100, aeo: 100, geo: 100 }, priority: [] };
+  return [m.summaryText({ ...base, results: [{ id: "x", ratio: 1, weight: 5, cat: "seo", name: "X" }] }),
+    m.summaryText({ ...base, results: [{ id: "y", ratio: 0.98, weight: 1, cat: "seo", name: "Y", gain: 0.1 }] })]; });
+for (const t of perfect) { assert.match(t, /nothing you need to do/); assert.doesNotMatch(t, /polish|Biggest wins/); }
 const exported = JSON.parse(await cp.evaluate(async () => (await import("./lib/track.js")).exportAll()));
-assert.ok(exported.data.tracked.length === 1 && Object.keys(exported.data).some((k) => k.startsWith("kwpos:")), "export has sites and positions");
+assert.ok(exported.data.tracked.length === 2 && exported.data.tracked.some((t) => t.role === "competitor" && t.competitorOf === badBase) && Object.keys(exported.data).some((k) => k.startsWith("kwpos:")), "export has sites and positions");
 await noToast(); await cp.waitForTimeout(300);
 await cp.screenshot({ path: path.join(repo, "assets", "extension-track.png") });
 await noClaude(cp, "compete and track views");

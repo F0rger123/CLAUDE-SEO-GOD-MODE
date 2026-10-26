@@ -41,7 +41,9 @@ Search what you want to rank for on Google as normal, open the panel and pick **
 
 ## Track
 
-Add any website (yours or a competitor's) and press **Rescan**. Every whole-site scan of a tracked site adds a point to its score chart (overall, SEO, AEO, GEO), and every Google search you analyze in Compete records where each tracked site ranks, so you get a keyword position chart too. Click a site for its full history, keywords and scans. History is stored in Chrome on your computer (with unlimited storage) and survives updates; **Export history** backs it up and **Import history** merges it on another computer.
+Mark each site you add as **My business**, **Client (I manage its SEO)** for agencies, or **Competitor** (linked to the business it competes with). The list is grouped that way. Open a business or client to see **You vs competitors**: everyone's latest Overall, SEO, AEO and GEO side by side, an overall-score chart with all of them, the checks where a competitor is clearly ahead (with the fix and points it's worth to you, plus a fix prompt), and a search-position table for your keywords across all of them. **Rescan** the business and its competitors in one go. In Compete, "+ Track" on any result adds that site as a competitor of the business you picked.
+
+Add any website and press **Rescan**. Every whole-site scan of a tracked site adds a point to its score chart (overall, SEO, AEO, GEO), and every Google search you analyze in Compete records where each tracked site ranks, so you get a keyword position chart too. Click a site for its full history, keywords and scans. History is stored in Chrome on your computer (with unlimited storage) and survives updates; **Export history** backs it up and **Import history** merges it on another computer.
 
 ## Updates
 

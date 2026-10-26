@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.11.0 (2026-10-26): extension 1.6: business / client / competitor roles and competitor comparison
+
+- Track: every site is **My business**, **Client (I manage its SEO)** or **Competitor** (linked to a business). The list is grouped by role; the role and name can be edited.
+- **You vs competitors** on each business or client: latest scores side by side, a shared overall-score chart, checks where a competitor is clearly ahead (from the latest full scans) with a fix prompt, search positions for your keywords across all of them, and one button to rescan the group.
+- Compete: "+ Track" on a results row adds that site as a competitor of the chosen business; "Your website" lists only your businesses and clients.
+- Summary: a 100/100 site (or one with nothing failing) now says there's nothing you need to do, instead of "only small polish left"; the potential card says nothing is left to fix.
+
 ## 2.10.1 (2026-10-26): extension 1.5.1: Compete checked against real Google pages
 
 Ran the reader on a live Google results page, a business panel and a Google Maps place page (in a normal Chrome session) and fixed what didn't match:

@@ -95,10 +95,11 @@ function renderScores(scores, pot) {
       <path class="val ${status(scores.overall)}" d="M13 75 A62 62 0 0 1 137 75" stroke-width="12" stroke-dasharray="0 ${len.toFixed(1)}"/></svg>
       <div class="read"><div class="n" data-n="${scores.overall}">0</div><div class="cap">Overall, grade ${grade(scores.overall)}</div></div></div>
     <div class="bars">${bar("seo", "SEO", "search basics")}${bar("aeo", "AEO", "answer engines")}${bar("geo", "GEO", "AI search")}</div>
-    <div class="potential" aria-label="Now ${scores.overall}, potential ${pot.top5}">
+    ${pot.top5 <= pot.now ? `<div class="potential done"><div class="now"><span>Now</span><b>${scores.overall}</b><i>${grade(scores.overall)}</i></div><span></span>
+      <p>Nothing left to fix from this scan. Rescan after changes to keep it here.</p></div>` : `<div class="potential" aria-label="Now ${scores.overall}, potential ${pot.top5}">
       <div class="now"><span>Now</span><b>${scores.overall}</b><i>${grade(scores.overall)}</i></div><span class="arrow" aria-hidden="true">→</span>
       <div class="pot"><span>Potential</span><b data-n="${pot.top5}">0</b><i>${grade(pot.top5)}</i></div>
-      <p>after the top 5 fixes in the fix prompt${pot.all > pot.top5 ? `, up to <b>${pot.all}</b> if you fix everything` : ""}. Estimate.</p></div>`;
+      <p>after the top 5 fixes in the fix prompt${pot.all > pot.top5 ? `, up to <b>${pot.all}</b> if you fix everything` : ""}. Estimate.</p></div>`}`;
   $("scores").hidden = false;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     $("scores").querySelector(".val").setAttribute("stroke-dasharray", `${(len * (scores.overall ?? 0) / 100).toFixed(1)} ${len.toFixed(1)}`);
