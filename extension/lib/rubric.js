@@ -120,12 +120,9 @@ export const CHECKS = [
     steps: ["Open with who you are / what this page answers in 1–3 plain sentences, then the detail."], platform: {},
     goal: "Draft a 40–60 word opening paragraph that directly answers this page's main question, using only facts on the site. Keep the brand voice." },
   { id: "faq", cat: "aeo", name: "FAQ matches its schema", weight: 15, tag: "OBSERVED",
-    test: (p) => { const faq = p.jsonld.find((o) => types(o).includes("FAQPage"));
-      if (!faq) return { ratio: p.questionHeadings.length >= 3 ? 0.6 : 0, detail: "no FAQPage schema" };
-      const qs = [].concat(faq.mainEntity || []).map((q) => (q.name || "").toLowerCase().replace(/\s+/g, " ").trim());
-      const vis = p.renderedText.toLowerCase();
-      const miss = qs.filter((q) => q && !vis.includes(q.slice(0, 60)));
-      return { ratio: miss.length ? 0.5 : 1, detail: miss.length ? `${miss.length} schema question(s) not visible` : `${qs.length} FAQ question(s) match` }; },
+    test: (p) => { const f = p.faq || { total: 0, missing: 0 };
+      if (!f.total) return { ratio: p.questionHeadings.length >= 3 ? 0.6 : 0, detail: "no FAQPage schema" };
+      return { ratio: f.missing ? 0.5 : 1, detail: f.missing ? `${f.missing} of ${f.total} schema question(s) not on the page` : `${f.total} FAQ question(s) match the page` }; },
     why: "FAQ content answers follow-up questions; schema must match what's visible.", steps: ["Add an FAQ section with real questions; add FAQPage schema only for those exact Q&As."], platform: {},
     goal: "Add an FAQ section with real customer questions and matching FAQPage JSON-LD (only for visible Q&As)." },
   { id: "structure", cat: "aeo", name: "Scannable sections (2+ H2s)", weight: 10, tag: "INFERRED",

@@ -47,6 +47,13 @@ export async function collectPageFacts() {
     } catch (e) { jsonldErrors.push(String(e.message || e).slice(0, 120)); }
   }
 
+  // FAQ schema vs visible text, checked against the whole page (normalized quotes and spacing).
+  const norm = (s) => clean(s).toLowerCase().replace(/[‘’ʼ]/g, "'").replace(/[“”]/g, '"');
+  const pageText = norm(document.body?.innerText || "") + " " + norm(document.body?.textContent || "");
+  const faqQuestions = jsonld.filter((o) => [].concat(o["@type"] || []).includes("FAQPage"))
+    .flatMap((o) => [].concat(o.mainEntity || [])).map((q) => norm(q?.name || "")).filter(Boolean);
+  const faq = { total: faqQuestions.length, missing: faqQuestions.filter((q) => !pageText.includes(q.slice(0, 80))).length };
+
   const here = location.origin;
   const anchors = $$("a[href]").map((a) => a.href).filter((h) => /^https?:/i.test(h));
   const images = $$("img").map((img) => ({
@@ -86,6 +93,6 @@ export async function collectPageFacts() {
     lcpMs: lcpEntries.length ? Math.round(lcpEntries[lcpEntries.length - 1].startTime) : null,
     cls: shiftEntries.filter((e) => !e.hadRecentInput).reduce((a, e) => a + e.value, 0),
     transferKB: nav ? Math.round((nav.transferSize || nav.encodedBodySize || 0) / 1024) : null,
-    renderedText: text.slice(0, 2000), platform, scannedAt: new Date().toISOString(),
+    renderedText: text.slice(0, 2000), faq, platform, scannedAt: new Date().toISOString(),
   };
 }
