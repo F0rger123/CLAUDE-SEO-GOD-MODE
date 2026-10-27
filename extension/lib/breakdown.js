@@ -110,12 +110,12 @@ export function verdict(position, score, others, relation) {
   const them = relation === "above" ? "the pages above it" : "the next results";
   const top = position != null && position <= 3;
   const where = position ? `#${position}` : "where it is";
-  if (score >= avg + 5) return top ? `Its page matches this search better than ${them} (${score} vs ${avg} on average), which helps it hold ${where}.`
-    : `Its page matches this search as well as or better than ${them} (${score} vs ${avg}), so they most likely win on links, reviews or brand.`;
-  if (score <= avg - 5) return top ? `It ranks ${where} even though ${them} score higher on the page itself (${avg} vs ${score}). Its lead comes from what this can't measure: links, reviews, brand or site age.`
-    : `${relation === "above" ? "The pages above it" : "The other results"} match this search better on the page (${avg} vs ${score}). Closing the gaps below is the quickest win.`;
-  return top ? `On the page it's level with ${them} (${score} vs ${avg}). What keeps it at ${where} is likely links, reviews or brand.`
-    : `On the page it's level with ${them} (${score} vs ${avg}). Fixing the gaps below gives it an edge; the rest is links, reviews and brand.`;
+  if (score >= avg + 5) return top ? `Its page matches this search better than ${them} (this page ${score}, theirs ${avg} on average), which helps it hold ${where}.`
+    : `Its page matches this search as well as or better than ${them} (this page ${score}, theirs ${avg} on average), so they most likely win on links, reviews or brand.`;
+  if (score <= avg - 5) return top ? `It ranks ${where} even though ${them} score higher on the page itself (this page ${score}, theirs ${avg} on average). Its lead comes from what this can't measure: links, reviews, brand or site age.`
+    : `${relation === "above" ? "The pages above it" : "The other results"} match this search better on the page (this page ${score}, theirs ${avg} on average). Closing the gaps below is the quickest win.`;
+  return top ? `On the page it's level with ${them} (this page ${score}, theirs ${avg} on average). What keeps it at ${where} is likely links, reviews or brand.`
+    : `On the page it's level with ${them} (this page ${score}, theirs ${avg} on average). Fixing the gaps below gives it an edge; the rest is links, reviews and brand.`;
 }
 
 export function fixPrompt(b) {

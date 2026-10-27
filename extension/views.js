@@ -15,6 +15,7 @@ import { getSettings, overlayRegistered, runDaily, saveSettings, syncOverlay } f
 import { techBlock, techProfile } from "./lib/tech.js";
 import { breakdown } from "./lib/breakdown.js";
 import * as T from "./lib/track.js";
+import * as K from "./lib/kwcheck.js";
 import * as U from "./lib/update.js";
 
 const $ = (id) => document.getElementById(id);
@@ -593,11 +594,13 @@ async function renderSiteDetail(origin) {
       { name: "AEO", cls: "k2", points: h.map((p) => ({ t: p.t, v: p.aeo })) }, { name: "GEO", cls: "k3", points: h.map((p) => ({ t: p.t, v: p.geo })) }], { label: "Score history" })}
     <h2 class="sec">What it ranks for <small>lower is better</small></h2>
     ${topK.length ? T.lineChart(topK.map((q, i) => ({ name: q, cls: cls[i], points: pos.filter((p) => p.q === q).map((p) => ({ t: p.t, v: p.pos })) })), { min: 1, max: maxPos, invert: true, label: "Keyword positions" }) : ""}
+    ${kws.length ? `<div class="btns"><button id="checkall" class="primary">Check ${kws.length > 1 ? `all ${Math.min(kws.length, CHECK_MAX)} keywords` : "this keyword"} on Google</button></div><p id="kwstatus" class="lede" hidden></p>` : ""}
     ${kws.length ? `<table class="mini ranks"><tr><th>Search</th><th>Now</th><th></th><th></th><th></th></tr>${kws.map((q) => { const r = byQ[q]; const d = r?.pos && r?.prev ? r.prev - r.pos : null;
-      return `<tr><td>${esc(q)}</td><td class="num ${posCls(r?.pos)}">${r ? (r.pos ? "#" + r.pos : "–") : "?"}</td><td class="num ${d > 0 ? "up" : d < 0 ? "down" : ""}">${d ? (d > 0 ? "▲" : "▼") + Math.abs(d) : ""}</td><td><a href="https://www.google.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener" title="Search it on Google to record the position">Check</a></td><td><button class="kwdel" data-delkw="${esc(q)}" title="Stop tracking “${esc(q)}”" aria-label="Stop tracking ${esc(q)}">×</button></td></tr>`; }).join("")}</table>`
+      return `<tr><td>${esc(q)}</td><td class="num ${posCls(r?.pos)}">${r ? (r.pos ? "#" + r.pos : "–") : "?"}</td><td class="num ${d > 0 ? "up" : d < 0 ? "down" : ""}">${d ? (d > 0 ? "▲" : "▼") + Math.abs(d) : ""}</td><td><button class="linkish" data-checkkw="${esc(q)}" title="Search “${esc(q)}” on Google now and update the position">Check</button></td><td><button class="kwdel" data-delkw="${esc(q)}" title="Stop tracking “${esc(q)}”" aria-label="Stop tracking ${esc(q)}">×</button></td></tr>`; }).join("")}</table>`
       : `<p class="lede">No searches yet. Search one on Google, or add keywords below.</p>`}
     <form id="kwadd" class="field"><label for="kwnew">Add keywords (comma separated)</label><div class="row2"><input id="kwnew" class="search" placeholder="roof repair york pa, metal roofing"><button>Add</button></div></form>
-    <p class="unknowns">“?” not searched yet, “–” not in the results shown. Positions are recorded when you search on Google; the extension never searches by itself.</p>
+    <p class="unknowns">“?” not checked yet, “–” not in the results shown. Check searches Google in a background tab, one keyword every few seconds, only when you press it. Searching on Google yourself updates positions too. Results vary by location.</p>
+    ${await kwReportBlock(origin)}
     <h2 class="sec">Hosting and tech</h2><div id="techout"><p class="lede">Looking it up…</p></div>
     ${T.isOwned(s) ? await compareBlock(s, list) : ""}
     ${h.length ? fold("All scans", h.length, `<table class="mini"><tr><th>Date</th><th>Overall</th><th>SEO</th><th>AEO</th><th>GEO</th><th>Pages</th></tr>${[...h].reverse().slice(0, 30).map((p) => `<tr><td>${when(p.t)}</td><td>${p.overall}</td><td>${p.seo}</td><td>${p.aeo}</td><td>${p.geo}</td><td>${p.pages ?? ""}</td></tr>`).join("")}</table>`) : ""}`;
@@ -615,8 +618,68 @@ async function renderSiteDetail(origin) {
   $("opensite").onclick = () => chrome.tabs.create({ url: origin + "/" });
   $("kwadd").onsubmit = async (e) => { e.preventDefault(); await T.setKeywords(origin, [...s.keywords, ...$("kwnew").value.split(",")]); renderSiteDetail(origin); };
   $("removesite").onclick = () => confirmRemove($("removebox"), origin, s.name, () => { v.detail = null; renderTrack(ui); });
+  const ca = $("checkall"); if (ca) ca.onclick = () => checkKeywords(origin, kws.slice(0, CHECK_MAX));
+  el.querySelectorAll("[data-checkkw]").forEach((b) => (b.onclick = () => checkKeywords(origin, [b.dataset.checkkw])));
+  el.querySelectorAll("[data-checknew]").forEach((b) => (b.onclick = async () => { const q = b.dataset.checknew; await T.setKeywords(origin, [...s.keywords, q]); checkKeywords(origin, [q]); }));
+  el.querySelectorAll("[data-trackkw]").forEach((b) => (b.onclick = async () => { await T.setKeywords(origin, [...s.keywords, b.dataset.trackkw]); ui.toast(`Tracking “${b.dataset.trackkw}”`); renderSiteDetail(origin); }));
+  const kp = $("kwprompt"); if (kp) kp.onclick = async () => ui.copy(K.keywordPrompt(origin, await K.getReport(origin)), "Fix prompt copied");
   el.querySelectorAll("[data-delkw]").forEach((b) => (b.onclick = async () => { await T.removeKeyword(origin, b.dataset.delkw); ui.toast(`Stopped tracking “${b.dataset.delkw}”`); renderSiteDetail(origin); }));
   showTech($("techout"), origin);
+}
+
+const CHECK_MAX = 15;
+
+/**
+ * Press Check: search the keywords on Google (background tab), record the positions, then compare the pages for the
+ * keywords not in the top 3 and suggest new ones. Asks for Google (to search) and other sites (to compare) in one go.
+ */
+async function checkKeywords(origin, qs) {
+  if (v.checking) return;
+  const want = [...GOOGLE, "https://*/*", "http://*/*"];
+  if (!(await chrome.permissions.contains({ origins: want }))) await chrome.permissions.request({ origins: want }).catch(() => false);
+  if (!(await chrome.permissions.contains({ origins: GOOGLE }))) return ui.notice("Checking needs access to google.com to read the results. Press Check again and choose Allow.");
+  const canRead = await chrome.permissions.contains({ origins: ["https://*/*", "http://*/*"] });
+  v.checking = true;
+  const say = (t) => { const st = $("kwstatus"); if (st) { st.hidden = false; st.textContent = t; } };
+  document.querySelectorAll("#checkall, [data-checkkw], [data-checknew]").forEach((b) => (b.disabled = true));
+  document.body.classList.add("busy");
+  try {
+    const { results, blocked } = await K.searchKeywords(qs, { origin, onProgress: say });
+    if (results.some((r) => !r.error)) await K.buildReport(origin, results, { canRead, onProgress: say });
+    if (blocked) ui.notice("Google is showing a robot check in the tab that just opened. Solve it there, then press Check again.");
+    const done = results.filter((r) => !r.error);
+    ui.toast(done.length === 1 ? `“${done[0].q}”: ${done[0].pos ? "#" + done[0].pos : "not in the top " + done[0].of}` : `Checked ${done.length} keyword${done.length === 1 ? "" : "s"}`);
+  } catch (e) { ui.notice(esc(e.message || e)); }
+  finally {
+    v.checking = false; document.body.classList.remove("busy");
+    if (document.body.dataset.mode === "track" && v.detail === origin && !v.editing) renderSiteDetail(origin);
+  }
+}
+
+/** The saved keyword report: where the site is top 3 and where it isn't, why, a fix prompt, and new keywords to try. */
+async function kwReportBlock(origin) {
+  const r = await K.getReport(origin);
+  if (!r?.rows.length) return "";
+  const by = { top: [], close: [], behind: [] };
+  r.rows.forEach((x) => by[K.group(x.pos)].push(x));
+  const sortPos = (a, b) => (a.pos ?? 99) - (b.pos ?? 99);
+  const tops = (x) => x.top.map((t) => `#${t.position} ${esc(t.host)}`).join(", ");
+  const weak = [...by.close, ...by.behind].sort(sortPos);
+  const cls = { close: "s-part", behind: "s-fail" };
+  return `<h2 class="sec">Keyword report <small>checked ${esc(when(r.t))}</small></h2>
+    <div class="kwsum"><span class="s-pass"><b>${by.top.length}</b> top 3</span><span class="s-part"><b>${by.close.length}</b> page 1</span><span class="s-fail"><b>${by.behind.length}</b> not on page 1</span></div>
+    ${by.top.length ? `<p class="lede"><b>Ranking well:</b> ${by.top.sort(sortPos).map((x) => `“${esc(x.q)}” #${x.pos}`).join(", ")}.</p>` : ""}
+    ${weak.length ? `<div class="list">${weak.map((x) => `<div class="factor"><span class="dot ${cls[K.group(x.pos)]}"></span><div>
+      <b>${esc(x.q)} · ${x.pos ? "#" + x.pos : "not in the top " + (x.of || 10)}</b>
+      <small>Top: ${tops(x)}${x.score != null ? ` · on-page ${x.score} vs ${(x.others || []).join(", ") || "–"}` : ""}</small>
+      ${x.verdict ? `<p>${esc(x.verdict)}</p>` : ""}
+      ${x.gaps?.length ? `<ul class="kwgaps">${x.gaps.map((g) => `<li><b>${esc(g.label)}</b> (you ${esc(g.mine)}, them ${esc(g.them.join(" / ") || "–")}): ${esc(g.fix)}</li>`).join("")}</ul>`
+        : x.error ? `<p>Couldn't compare the pages (${esc(x.error)}).</p>` : x.score == null ? `<p>Allow reading other websites (press Check again and choose Allow) to see what the top pages do differently.</p>` : ""}
+    </div></div>`).join("")}</div>` : `<p class="lede">Every checked keyword is in the top 3.</p>`}
+    <div class="btns stack"><button id="kwprompt" class="primary">Copy fix prompt</button></div>
+    ${r.ideas.length ? `<h2 class="sec">New keywords to try <small>from Google's questions and related searches</small></h2>
+      <ul class="ideas">${r.ideas.map((x) => `<li><span>${esc(x.q)} <small>${x.kind === "question" ? "question" : "related"}</small></span><span class="acts">
+        <button class="linkish" data-checknew="${esc(x.q)}">Check</button><button class="linkish" data-trackkw="${esc(x.q)}">+ Track</button></span></li>`).join("")}</ul>` : ""}`;
 }
 
 /** Hosting and tech for a site, into el. Asks for access only when the user presses the button. */

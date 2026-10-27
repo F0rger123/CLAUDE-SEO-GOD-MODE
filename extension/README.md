@@ -54,7 +54,7 @@ You can switch hover cards and automatic positions off, and turn on **notificati
 
 ## Compete
 
-Search what you want to rank for on Google as normal, open the panel and pick **Compete**. The extension reads the results page you opened; it never runs searches by itself.
+Search what you want to rank for on Google as normal, open the panel and pick **Compete**. The extension reads the results page you opened; it only runs searches itself when you press **Check** in Track.
 
 Compete opens on a home screen: **where your site ranks** for every search you've made (position, change since last time, when it was checked), **suggested keywords**, and the three tools. Each tool opens on its own with **‹ Compete** to go back, and long results (every factor, top pages, the brief) fold away until you open them. Opening Compete on a Google results page goes straight to Why they rank.
 
@@ -67,7 +67,9 @@ Compete opens on a home screen: **where your site ranks** for every search you'v
 
 **Track new site** asks one thing at a time: the address, what the site is to you, whose competitor it is (for competitors), and which searches it should rank for (suggested from its own pages; tick the ones that matter). Mark each site as **My business**, **Client (I manage its SEO)** for agencies, or **Competitor** (linked to the business it competes with). The list is grouped that way. Open a business or client to see **You vs competitors**: everyone's latest Overall, SEO, AEO and GEO side by side, an overall-score chart with all of them, the checks where a competitor is clearly ahead (with the fix and points it's worth to you, plus a fix prompt), and a search-position table for your keywords across all of them. **Rescan** the business and its competitors in one go. In Compete, "+ Track" on any result adds that site as a competitor of the business you picked.
 
-Add any website and it's scanned straight away. Every whole-site scan of a tracked site adds a point to its score chart (overall, SEO, AEO, GEO), and every Google search you analyze in Compete records where each tracked site ranks, so you get a keyword position chart too. Click a site for its full history, keywords and scans. History is stored in Chrome on your computer (with unlimited storage) and survives updates; **Export history** backs it up and **Import history** merges it on another computer.
+Add any website and it's scanned straight away. Every whole-site scan of a tracked site adds a point to its score chart (overall, SEO, AEO, GEO), and every Google search you analyze in Compete records where each tracked site ranks, so you get a keyword position chart too. Click a site for its full history, keywords and scans.
+
+**Check keywords:** press **Check** next to a keyword (or **Check all keywords on Google**) and the extension searches it on Google in a background tab and updates the position straight away. Then it builds a **keyword report**: how many keywords are in the top 3, on page 1, or further down; for each one not in the top 3, who's on top, your page's on-page score next to theirs, and what to change; a **Copy fix prompt** for all of them; and **new keywords to try** from Google's questions and related searches, each with Check and + Track. Searches run one every few seconds, only when you press Check; if Google shows a robot check, the tab comes forward for you to solve. History is stored in Chrome on your computer (with unlimited storage) and survives updates; **Export history** backs it up and **Import history** merges it on another computer.
 
 ## Updates
 
@@ -108,7 +110,7 @@ Scores are out of 100 per area. **Overall = 60% SEO + 20% AEO + 20% GEO.** Every
 
 ## Privacy
 
-Scans run in your browser and history stays in `chrome.storage.local` on your device. Outside the site you scan, it only contacts: Google PageSpeed Insights (the homepage URL, on whole-site scans), the Google results or Maps page you open (read on screen, only when you use Compete), the pages ranking there (to compare them), Google autocomplete (the keyword you type, for keyword ideas), and GitHub (to check for updates). The CDN/firewall check briefly sets a crawler user-agent on requests to that homepage. There's no analytics and no account. Full policy: [docs/PRIVACY.md](../docs/PRIVACY.md).
+Scans run in your browser and history stays in `chrome.storage.local` on your device. Outside the site you scan, it only contacts: Google PageSpeed Insights (the homepage URL, on whole-site scans), the Google results or Maps page you open (read on screen, only when you use Compete), the pages ranking there (to compare them), Google search (your tracked keywords, only when you press Check in Track), Google autocomplete (the keyword you type, for keyword ideas), and GitHub (to check for updates). The CDN/firewall check briefly sets a crawler user-agent on requests to that homepage. There's no analytics and no account. Full policy: [docs/PRIVACY.md](../docs/PRIVACY.md).
 
 ## Limits
 

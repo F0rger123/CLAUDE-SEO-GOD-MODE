@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.17.0 (2026-10-27): extension 1.12: Check updates positions, keyword report, new keywords to try
+
+- **Check updates your position:** Check next to a tracked keyword used to open Google in a new tab, and the position only changed if the overlay was on, and never twice within an hour. Now Check searches the keyword on Google in a background tab, reads the results and updates the position on the spot. **Check all keywords on Google** does every keyword (up to 15), one every few seconds. A newer reading within the hour replaces the old one instead of being ignored.
+- **Keyword report after every check:** counts of keywords in the top 3, on page 1, and further down. For each keyword not in the top 3, it compares your page with the top three results automatically: who's on top, your on-page score next to theirs, a sentence on why, and what to change. **Copy fix prompt** covers all of them, closest to the top first, and lists the top-3 keywords to protect.
+- **New keywords to try:** from the People also ask questions and related searches on the results pages it read, minus keywords you already track, each with **Check** and **+ Track**.
+- If Google shows a robot check, checking stops and the tab comes forward for you to solve. It never tries to get past one.
+- Hover cards and breakdowns now say "this page 52, theirs 60 on average" instead of "60 vs 52".
+
 ## 2.16.0 (2026-10-26): extension 1.11: scan button shows progress, hover scores make sense
 
 - **Scan button fills up:** while a scan runs, the button turns dark and fills with white from left to right as each step finishes (crawling, sitemap, PageSpeed, scoring).

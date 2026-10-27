@@ -51,7 +51,7 @@ export async function untrackSite(origin) {
   const list = (await trackedSites()).filter((s) => s.origin !== origin);
   list.forEach((s) => { if (s.competitorOf === origin) s.competitorOf = null; });
   await chrome.storage.local.set({ [LIST]: list });
-  await chrome.storage.local.remove([trendKey(origin), posKey(origin), "sitescans:" + origin, "baseline:sitescans:" + origin]);
+  await chrome.storage.local.remove([trendKey(origin), posKey(origin), "sitescans:" + origin, "baseline:sitescans:" + origin, "kwreport:" + origin]);
   const { mySite } = await chrome.storage.local.get("mySite");
   if (mySite === origin) await chrome.storage.local.remove("mySite");
 }
@@ -65,12 +65,14 @@ export async function removeKeyword(origin, q) {
   const k = posKey(origin);
   const rows = (await chrome.storage.local.get(k))[k] || [];
   await chrome.storage.local.set({ [k]: rows.filter((r) => r.q !== q) });
+  const rk = "kwreport:" + origin, rep = (await chrome.storage.local.get(rk))[rk];
+  if (rep) await chrome.storage.local.set({ [rk]: { ...rep, rows: rep.rows.filter((r) => r.q !== q) } });
 }
 
 /** Delete every tracked site and all history (scores, positions, saved scans). Settings are kept. */
 export async function deleteAll() {
   const all = await chrome.storage.local.get(null);
-  await chrome.storage.local.remove(Object.keys(all).filter((k) => k === LIST || k === "mySite" || /^(trend|kwpos|scans|sitescans|baseline):/.test(k)));
+  await chrome.storage.local.remove(Object.keys(all).filter((k) => k === LIST || k === "mySite" || /^(trend|kwpos|kwreport|scans|sitescans|baseline):/.test(k)));
 }
 
 export async function setKeywords(origin, keywords) {
@@ -106,12 +108,14 @@ export async function recordPositions(serp) {
     const hit = serp.organic.find((o) => hostOf(o.url) === hostOf(s.origin));
     const k = posKey(s.origin);
     const rows = (await chrome.storage.local.get(k))[k] || [];
-    // One reading per keyword per hour is plenty; re-opening the panel shouldn't add duplicates.
-    if (!rows.some((r) => r.q === q && Math.abs(new Date(r.t) - new Date(t)) < 3600e3)) {
-      rows.push({ t, q, pos: hit ? hit.position : null, of: serp.organic.length, url: hit?.url || null,
-        top: serp.organic.slice(0, 3).map((o) => hostOf(o.url)) });
-      await chrome.storage.local.set({ [k]: rows.slice(-MAX_POINTS * 5) });
-    }
+    // One reading per keyword per hour: a newer reading within the hour replaces it (so Check always shows the
+    // latest position) instead of adding a duplicate point.
+    const reading = { t, q, pos: hit ? hit.position : null, of: serp.organic.length, url: hit?.url || null,
+      top: serp.organic.slice(0, 3).map((o) => hostOf(o.url)) };
+    const same = rows.findIndex((r) => r.q === q && Math.abs(new Date(r.t) - new Date(t)) < 3600e3);
+    if (same >= 0) rows.splice(same, 1);
+    rows.push(reading);
+    await chrome.storage.local.set({ [k]: rows.slice(-MAX_POINTS * 5) });
     if (s.keywords.includes(q) || hit) await setKeywords(s.origin, [...s.keywords, q]);
     out.push({ origin: s.origin, name: s.name, pos: hit ? hit.position : null });
   }
@@ -122,7 +126,7 @@ export async function positionHistory(origin) { return (await chrome.storage.loc
 
 export async function exportAll() {
   const all = await chrome.storage.local.get(null);
-  const keep = Object.fromEntries(Object.entries(all).filter(([k]) => k === LIST || /^(trend|kwpos|scans|sitescans|baseline):/.test(k)));
+  const keep = Object.fromEntries(Object.entries(all).filter(([k]) => k === LIST || /^(trend|kwpos|kwreport|scans|sitescans|baseline):/.test(k)));
   return JSON.stringify({ app: "seo-god-mode", version: chrome.runtime.getManifest().version, exportedAt: new Date().toISOString(), data: keep }, null, 1);
 }
 
@@ -133,7 +137,7 @@ export async function importAll(text) {
   const cur = await chrome.storage.local.get(Object.keys(parsed.data));
   const merged = {};
   for (const [k, v] of Object.entries(parsed.data)) {
-    if (!/^(tracked|trend:|kwpos:|scans:|sitescans:|baseline:)/.test(k)) continue;
+    if (!/^(tracked|trend:|kwpos:|kwreport:|scans:|sitescans:|baseline:)/.test(k)) continue;
     if (k === LIST) { const m = new Map((cur[k] || []).map((s) => [s.origin, s])); v.forEach((s) => m.set(s.origin, { ...s, ...(m.get(s.origin) || {}), keywords: [...new Set([...(m.get(s.origin)?.keywords || []), ...(s.keywords || [])])] })); merged[k] = [...m.values()]; }
     else if (Array.isArray(v)) { const m = new Map([...(cur[k] || []), ...v].map((x) => [x.t || x.id || JSON.stringify(x), x])); merged[k] = [...m.values()].sort((a, b) => String(a.t || a.id).localeCompare(String(b.t || b.id))); }
     else if (!(k in cur)) merged[k] = v;

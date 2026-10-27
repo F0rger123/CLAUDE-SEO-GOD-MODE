@@ -12,6 +12,8 @@ One request goes to a third party: a whole-site scan asks **Google PageSpeed Ins
 
 **Compete view (only when you use it):** it reads the Google search results page or Google Maps page you have open (what's on screen), loads the web pages ranking there to compare them with yours, and sends the keyword you type to Google autocomplete (`suggestqueries.google.com`) for keyword ideas. It never runs Google searches by itself.
 
+**Track → Check (only when you press it):** it searches each of that site's keywords on Google in a background tab of your own browser, one every few seconds, reads the results the same way, and saves the positions on your computer. For keywords not in the top 3 it loads your page and the top three results to compare them. If Google shows a robot check, it stops and shows you the tab; it never tries to get past one.
+
 **On Google overlay (only if you turn it on):** it reads the Google results pages you open, and when you hover a result it loads that page and up to three pages ranking near it to compare them. If "record my positions" is on, it saves where your tracked sites rank for that search, on your computer. Notifications, if you allow them, are shown by Chrome on your computer.
 
 **Hosting and tech (Site, Track and hover cards):** to show what a site is built with and where it's hosted, the extension reads that site's homepage headers and code, and looks up the site's public name-server and mail-server records with Google Public DNS (`dns.google`). Only the domain name is sent.
