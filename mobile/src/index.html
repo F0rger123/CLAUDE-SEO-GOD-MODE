@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#000000">
+  <title>SEO God Mode</title>
+  <link rel="stylesheet" href="lib/sidepanel.css">
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body class="viewmode">
+  <header>
+    <div class="top">
+      <div class="brand"><span class="mark" aria-hidden="true"></span>SEO God Mode</div>
+      <button id="quickadd" class="quickadd" hidden>+ Quick add</button>
+    </div>
+    <nav id="mode" class="mode three" aria-label="Sections" hidden>
+      <button data-tab="sites" aria-pressed="true">Sites</button><button data-tab="compare" aria-pressed="false">Compare</button><button data-tab="account" aria-pressed="false">Account</button>
+    </nav>
+    <div id="status" class="url"></div>
+  </header>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <main id="view" class="view"></main>
+  <div id="sheet" class="sheet" hidden><div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="sheettitle"></div></div>
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>

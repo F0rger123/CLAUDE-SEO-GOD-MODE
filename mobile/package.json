@@ -1,0 +1,19 @@
+{
+  "name": "seo-god-mode-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SEO God Mode for Android: tracked sites, scores and competitors, synced with the Chrome extension.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "sync": "node build.mjs && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.6.0"
+  }
+}

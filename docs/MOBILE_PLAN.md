@@ -1,6 +1,6 @@
 # Plan: SEO God Mode for Android, synced with the Chrome extension
 
-Status: planned, not started (2026-10-28).
+Status: steps 1 to 4 and 6 built (2026-10-28): database, extension sync (1.14), the app, and the APK build. Step 5 (rating sites from the phone) is not started.
 
 ## What you get
 

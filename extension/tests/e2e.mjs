@@ -14,6 +14,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { fakeSupabase } from "./fakesupabase.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const extSrc = path.resolve(here, "..");
@@ -450,6 +451,69 @@ await bs.panel.click(".tcard .confirm [data-yes]");
 await bs.panel.waitForFunction((o) => !document.querySelector(`[data-open="${o}"]`), rival);
 const left = await bs.panel.evaluate(async (o) => { const all = await chrome.storage.local.get(null); return { sites: all.tracked.map((t) => t.origin), trend: !!all["trend:" + o], linked: all.tracked.filter((t) => t.competitorOf === o).length }; }, rival);
 assert.deepEqual(left.sites, [badBase]); assert.equal(left.trend, false, "competitor's history deleted");
+
+// ---- Phone sync (stand-in database): sign in from Settings, the phone app sees the same sites, and a competitor added
+// on the phone shows up in the extension, ready to scan.
+const sb = fakeSupabase(); await sb.route(ctx);
+const xp = bs.panel;
+await xp.click('#mode [data-mode="google"]');
+await xp.waitForSelector("#syncemail");
+await xp.fill("#syncemail", "owner@example.com"); await xp.click("#syncgo");
+await xp.waitForSelector("#synccode"); await xp.fill("#synccode", "123456"); await xp.click("#syncgo");
+await xp.waitForFunction(() => /Signed in as owner@example\.com/.test(document.getElementById("syncbox").textContent), null, { timeout: 20000 });
+assert.ok(sb.tables.sites.some((r) => r.origin === badBase && !r.deleted_at), "tracked site sent");
+assert.ok(sb.tables.site_data.some((r) => r.key === "trend:" + badBase), "score history sent");
+assert.ok(sb.tables.site_data.some((r) => r.key === "scan:" + badBase && r.value?.scores), "newest whole-site scan sent");
+await noToast(); await xp.evaluate(() => document.getElementById("syncbox").scrollIntoView({ block: "center" })); await xp.waitForTimeout(200);
+await xp.screenshot({ path: path.join(repo, "assets", "extension-sync.png") });
+
+await promisify(execFile)(process.execPath, [path.join(repo, "mobile", "build.mjs")]);
+const www = path.join(repo, "mobile", "www");
+const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
+const app = http.createServer((req, res) => { const f = path.join(www, decodeURIComponent(req.url.split("?")[0]).replace(/\/$/, "/index.html"));
+  if (!f.startsWith(www) || !fs.existsSync(f)) { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { "content-type": types[path.extname(f)] || "application/octet-stream" }); res.end(fs.readFileSync(f)); });
+await new Promise((r) => app.listen(0, "127.0.0.1", r));
+const phone = await ctx.newPage();
+phone.on("pageerror", (e) => { console.log("phone error:", e.message); panelErrors.push("phone: " + e.message); });
+await phone.setViewportSize({ width: 390, height: 844 });
+await phone.goto(`http://127.0.0.1:${app.address().port}/`);
+await phone.fill("#semail", "owner@example.com"); await phone.click("#sgo");
+await phone.fill("#scode", "123456"); await phone.click("#sgo");
+await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
+assert.match(await phone.$eval("#status", (e) => e.textContent), /Synced/);
+await phone.screenshot({ path: path.join(repo, "assets", "mobile-sites.png") });
+await phone.click(`[data-open="${badBase}"]`);
+await phone.waitForSelector(".scorebox");
+const siteText = await phone.$eval("#view", (e) => e.textContent);
+assert.match(siteText, /Summary/); assert.match(siteText, /Top fixes/); assert.match(siteText, /Keywords/);
+await phone.screenshot({ path: path.join(repo, "assets", "mobile-site.png") });
+await phone.click("#quickadd");
+await phone.click('[data-qa="competitor"]');
+await phone.fill("#qurl", "rival-roofing.example");
+await phone.click(`[data-of="${badBase}"]`);
+assert.equal(await phone.$eval("#qurl", (e) => e.value), "rival-roofing.example", "address kept when picking the business");
+await phone.screenshot({ path: path.join(repo, "assets", "mobile-quickadd.png") });
+await phone.click("#qsave");
+await phone.waitForFunction(() => document.getElementById("sheet").hidden);
+assert.ok(sb.tables.sites.some((r) => r.origin === "https://rival-roofing.example" && r.role === "competitor" && r.competitor_of === badBase), "competitor saved online");
+await xp.evaluate(() => chrome.runtime.sendMessage({ type: "syncNow" }));
+const pulled = await xp.evaluate(async () => chrome.storage.local.get(["tracked", "phoneAdded"]));
+assert.ok(pulled.tracked.some((s) => s.origin === "https://rival-roofing.example" && s.competitorOf === badBase), "extension got the phone's competitor");
+assert.deepEqual(pulled.phoneAdded, ["https://rival-roofing.example"]);
+await xp.click('#mode [data-mode="track"]');
+await xp.click("#back").catch(() => {});
+await xp.waitForSelector("#scanphone");
+assert.match(await xp.$eval("#view", (e) => e.textContent), /Added on your phone: rival-roofing\.example/);
+await phone.click('#mode [data-tab="compare"]');
+await phone.waitForSelector("table.mini"); await phone.waitForTimeout(400);
+assert.match(await phone.$eval("#view", (e) => e.textContent), /rival-roofing\.example/);
+await phone.screenshot({ path: path.join(repo, "assets", "mobile-compare.png") });
+await noClaude(phone, "phone app");
+// Signed-out requests are refused, like the real database.
+const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sites?select=*", { headers: { apikey: "x" } })).status);
+assert.equal(anon, 401);
+app.close();
 
 await ctx.close(); s1.close(); s2.close();
 assert.deepEqual(panelErrors, [], "no script errors in the panel");

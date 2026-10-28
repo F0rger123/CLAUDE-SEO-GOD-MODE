@@ -8,7 +8,7 @@ import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proo
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
 import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
-import { focusResult, quickAdd, renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
+import { focusResult, quickAdd, trackChanged, renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
 import { staleCode } from "./lib/daily.js";
 
 const $ = (id) => document.getElementById(id);
@@ -352,6 +352,7 @@ document.querySelectorAll("#scope button").forEach((b) => (b.onclick = () => set
 // The background asks for a view (from a click on Google or a notification) by writing openMode.
 // A click on "See full breakdown" also names the result to open (focus).
 chrome.storage.onChanged.addListener((c) => {
+  if (c.syncPulledAt) clearTimeout(window.trackTimer), (window.trackTimer = setTimeout(trackChanged, 400));
   const o = c.openMode?.newValue;
   if (!o?.mode) return;
   if (o.focus) focusResult(o.focus);
@@ -419,6 +420,8 @@ async function setMode(mode) {
     if (got.openMode?.focus && Date.now() - got.openMode.at < 15000) focusResult(got.openMode.focus);
   } catch {}
   await setMode(mode);
+  // Fetch anything changed on the phone (does nothing while sync is off).
+  chrome.runtime.sendMessage({ type: "syncNow" }).catch(() => {});
   // Files already updated but Chrome still runs the old code: one button finishes the update.
   const stale = await staleCode();
   if (stale) {

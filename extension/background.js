@@ -5,11 +5,17 @@
  *    full breakdowns for hover cards (via the offscreen document), automatic position recording, and "Open in SEO God Mode".
  *  - Once a day (lib/daily.js, shared with the panel's buttons): checks GitHub for a newer extension version and which tracked sites are due a rescan;
  *    shows a badge on the icon and (if the user allowed it) a notification.
+ *  - Phone sync, once you sign in under Settings (lib/sync.js).
  * Messages are only accepted from this extension's own pages and content scripts.
  */
 import { recordPositions, trackedSites } from "./lib/track.js";
 import { getSettings as settings, runDaily, staleCode, syncOverlay } from "./lib/daily.js";
 import { history } from "./lib/proof.js";
+import { onStorageChange, startSync, stopSync, syncNow } from "./lib/sync.js";
+
+// Phone sync (lib/sync.js): sends changes after you sign in, and fetches the phone's changes every minute.
+chrome.storage.onChanged.addListener(onStorageChange);
+chrome.alarms.onAlarm.addListener((a) => a.name === "sync" && syncNow());
 
 chrome.runtime.onInstalled.addListener(async () => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -74,6 +80,9 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
       case "settings": return settings();
       case "syncOverlay": return { on: await syncOverlay(!!msg.on) };
       case "checkNow": return runDaily(true);
+      case "syncStart": return startSync();
+      case "syncNow": return syncNow();
+      case "syncStop": await stopSync(); return { ok: true };
       default: return { error: "unknown" };
     }
   })().then(reply, (e) => reply({ error: String(e.message || e) }));

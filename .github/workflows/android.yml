@@ -1,0 +1,59 @@
+name: Android app
+
+# Builds the Android app (mobile/) into a signed APK and attaches it to the "android-app" release, so the phone can
+# download it from https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app. Runs when the app or
+# the extension code it shares changes. The release is never marked "latest", so the extension's download link stays.
+on:
+  push:
+    branches: [main]
+    paths: ["mobile/**", "extension/lib/**", "extension/sidepanel.css", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Build the web app and the Android project
+        working-directory: mobile
+        run: |
+          npm install --no-audit --no-fund
+          node build.mjs
+          npx cap add android
+          npx capacitor-assets generate --android
+          npx cap sync android
+          # Each build gets a higher version code, so it installs over the previous one.
+          VERSION=$(node -p "require('./package.json').version")
+          sed -i "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"[^\"]*\"/versionName \"${VERSION}.${GITHUB_RUN_NUMBER}\"/" android/app/build.gradle
+      - name: Build the signed APK
+        working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          ./gradlew --no-daemon assembleRelease \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/release.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias=seogodmode \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEYSTORE_PASSWORD"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/SEO-God-Mode.apk"
+          rm -f "$RUNNER_TEMP/release.jks"
+      - name: Publish to the android-app release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="SEO God Mode for Android, synced with the Chrome extension. On your phone: download SEO-God-Mode.apk below, open it, and allow your browser to install apps if Android asks. Sign in with the same email as the extension (Settings > Sync with your phone). Build ${GITHUB_RUN_NUMBER} from ${GITHUB_SHA::7}."
+          if gh release view android-app >/dev/null 2>&1; then gh release edit android-app --notes "$NOTES" --latest=false
+          else gh release create android-app --title "SEO God Mode for Android" --notes "$NOTES" --latest=false; fi
+          gh release upload android-app SEO-God-Mode.apk --clobber

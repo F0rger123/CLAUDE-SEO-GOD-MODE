@@ -1,6 +1,6 @@
 # Privacy policy: SEO God Mode browser extension
 
-_Last updated: 2026-10-26 (extension 1.8)_
+_Last updated: 2026-10-28 (extension 1.14)_
 
 SEO God Mode ("the extension") checks web pages for SEO, AEO and AI-search readiness. It's published by Agency Zero (https://theagencyzero.com) as part of the open-source CLAUDE SEO GOD MODE project.
 
@@ -20,13 +20,15 @@ One request goes to a third party: a whole-site scan asks **Google PageSpeed Ins
 
 **Updates:** once a day it asks GitHub for the latest release number. If you turn on one-click updates, a small helper on your computer downloads the release zip from GitHub into the extension folder you chose. Nothing about you is sent.
 
+**Sync with your phone (off unless you sign in):** if you sign in under Settings › Sync with your phone, your email address is sent to SEO God Mode's database host (Supabase, at `ouinmglpmeqriowdbwes.supabase.co`) to email you a sign-in code. While you're signed in, your tracked sites (address, name, whether it's yours, a client or a competitor, and its keywords), their score history, recorded positions, keyword reports and the newest whole-site scan of each are stored there, so the Android app can show them, and changes made in the app come back. Each account can only read its own rows. **Turn off sync** signs out and stops sending; ask us (below) to delete the stored copy.
+
 ## What it stores
 
 Scan results (scores, check results and the page facts behind them) are saved in your browser's local extension storage on your device, so you can compare before and after. It keeps up to 25 full scans per page and per site, plus a compact history for the sites you track (scores over time and the keyword positions you recorded). Export it from the Track view to back it up. You can remove them at any time by removing the extension or clearing its data.
 
 ## What it shares
 
-Nothing about you. The extension has no servers, no analytics, no advertising and no accounts. Apart from the requests listed above, it doesn't send, sell, transfer or share any data with anyone. Prompts and reports leave your device only when you copy or download them yourself.
+Nothing about you. The extension has no analytics and no advertising, and no account unless you choose to sign in for phone sync (above). Apart from the requests listed above, it doesn't send, sell, transfer or share any data with anyone. Prompts and reports leave your device only when you copy or download them yourself.
 
 ## Contact
 

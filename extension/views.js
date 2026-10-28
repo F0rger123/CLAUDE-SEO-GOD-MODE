@@ -17,6 +17,7 @@ import { breakdown, OFF_PAGE } from "./lib/breakdown.js";
 import * as T from "./lib/track.js";
 import * as K from "./lib/kwcheck.js";
 import * as U from "./lib/update.js";
+import { cloud } from "./lib/sync.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -409,7 +410,9 @@ export async function renderTrack(helpers) {
     const xs = list.filter((s) => s.role === role);
     return xs.length ? `<h2 class="sec">${title} <small>${xs.length}</small></h2><div class="tlist">${(await Promise.all(xs.map((s) => card(s, list)))).join("")}</div>` : "";
   }))).join("");
-  el.innerHTML = `<div class="trackhead"><p class="lede">Your businesses, the clients you manage, and their competitors. Each scan adds a point to the chart; each Google search records where they rank.</p>
+  const { phoneAdded = [] } = await chrome.storage.local.get("phoneAdded");
+  const fromPhone = list.filter((s) => phoneAdded.includes(s.origin));
+  el.innerHTML = `${fromPhone.length ? `<div class="upd"><p><b>Added on your phone:</b> ${fromPhone.map((s) => esc(s.name)).join(", ")}.</p><div class="btns"><button id="scanphone" class="primary run">Scan ${fromPhone.length === 1 ? "it" : `all ${fromPhone.length}`} now</button><button id="skipphone">Later</button></div></div>` : ""}<div class="trackhead"><p class="lede">Your businesses, the clients you manage, and their competitors. Each scan adds a point to the chart; each Google search records where they rank.</p>
       <button id="tracknew" class="primary">Track new site</button></div>
     ${list.length ? sections + `<div class="btns stack"><button id="rescanall" class="run">Rescan all ${list.length}</button></div>`
       : `<div class="emptybox"><b>Nothing tracked yet</b><p>Add your own site first, then its competitors. History, rankings and hosting details build up from there.</p></div>`}`;
@@ -417,7 +420,12 @@ export async function renderTrack(helpers) {
   el.querySelectorAll("[data-open]").forEach((c) => (c.onclick = () => { v.detail = c.dataset.open; renderTrack(ui); }));
   el.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => confirmRemove(b.closest(".tcard"), b.dataset.del, b.dataset.name, () => renderTrack(ui))));
   const ra = $("rescanall"); if (ra) ra.onclick = () => rescan(list.map((s) => s.origin));
+  const sp = $("scanphone"); if (sp) sp.onclick = async () => { await chrome.storage.local.set({ phoneAdded: [] }); rescan(fromPhone.map((s) => s.origin)); };
+  const kp = $("skipphone"); if (kp) kp.onclick = async () => { await chrome.storage.local.set({ phoneAdded: [] }); renderTrack(ui); };
 }
+
+/** Redraw Track when the phone added or changed sites (only if nothing is being typed). */
+export function trackChanged() { if (document.body.dataset.mode === "track" && !v.wizard && !v.editing && ui) v.detail ? renderSiteDetail(v.detail) : renderTrack(ui); }
 
 // ---------------------------------------------------------------------- Track new: step by step
 /** opts.role / opts.of fix those answers (for "Add competitor" on a business). back: where Cancel returns. */
@@ -732,6 +740,7 @@ export async function renderGoogle(helpers) {
       <label class="settog"><span><b>Rescan reminder</b><small>When a tracked site hasn't been scanned for</small></span>
         <select id="s-days" class="search">${[3, 7, 14, 30].map((d) => `<option value="${d}" ${d === s.rescanDays ? "selected" : ""}>${d} days</option>`).join("")}</select></label>
     </div>
+    <h2 class="sec">Sync with your phone</h2><div id="syncbox"></div>
     <div id="updatecard"></div>
     <h2 class="sec">Your data</h2><div class="btns"><button id="export">Export history</button><label class="btn">Import history<input id="import" type="file" accept="application/json" hidden></label></div>
     <p class="unknowns">History is saved in Chrome on this computer and survives updates. Export it to back it up or move it to another computer.</p>
@@ -762,6 +771,7 @@ export async function renderGoogle(helpers) {
     box.querySelector("#delyes").onclick = async () => { await T.deleteAll(); v.detail = null; ui.toast("Deleted all tracking data"); box.innerHTML = ""; };
   };
   renderUpdateCard($("updatecard"));
+  renderSync($("syncbox"));
 }
 
 /** Two-step remove for a tracked site: the first click shows what goes, the second deletes it. */
@@ -777,6 +787,49 @@ function confirmRemove(box, origin, name, done) {
 
 // ====================================================================== updates
 /** Update status. "Check again" asks GitHub (skipping the cache) and recounts sites due a rescan, right here in the panel. */
+export const APP_URL = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app";
+
+/** Settings: sign in with an emailed code to sync tracked sites with the Android app. */
+async function renderSync(el, step = null) {
+  if (!el) return;
+  const s = await cloud.current();
+  const { syncStatus: st } = await chrome.storage.local.get("syncStatus");
+  if (s) {
+    el.innerHTML = `<div class="upd"><p><b>On.</b> Signed in as ${esc(s.email || "you")}. ${st?.error ? `Last try failed: ${esc(st.error)}.` : st ? `Last synced ${ago(st.at)}.` : ""}</p>
+      <p class="unknowns">Your tracked sites, competitors, keywords, scores, positions, keyword reports and newest whole-site scans are kept in SEO God Mode's online database, where only your sign-in can read them. Changes go both ways about once a minute.</p>
+      <div class="btns"><button id="syncnow">Sync now</button><a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Get the Android app</a><button id="syncoff">Turn off sync</button></div></div>`;
+    $("syncnow").onclick = async () => { const r = await chrome.runtime.sendMessage({ type: "syncNow" }); ui.toast(r?.ok ? "Synced" : "Sync failed"); renderSync(el); };
+    $("syncoff").onclick = async () => { await chrome.runtime.sendMessage({ type: "syncStop" }); ui.toast("Sync is off. Your data stays on this computer"); renderSync(el); };
+    return;
+  }
+  el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. Sign in with your email on both; there's no password.</p>
+    ${step ? `<form id="syncform" class="field"><label for="synccode">Code from the email sent to ${esc(step.email)}</label><input id="synccode" class="search" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"></form>
+      <div class="btns"><button id="syncgo" class="primary">Sign in and sync</button><button id="syncback">Use another email</button></div>`
+    : `<form id="syncform" class="field"><label for="syncemail">Your email</label><input id="syncemail" class="search" type="email" autocomplete="email" placeholder="you@example.com"></form>
+      <div class="btns"><button id="syncgo" class="primary">Email me a code</button><a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
+    <p class="unknowns">Off until you sign in. Nothing leaves this computer while it's off.</p>`;
+  $("syncform").onsubmit = (e) => { e.preventDefault(); $("syncgo").click(); };
+  if (step) $("syncback").onclick = () => renderSync(el);
+  $("syncgo").onclick = async () => {
+    const b = $("syncgo"); b.disabled = true;
+    try {
+      if (!step) {
+        const email = $("syncemail").value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("That doesn't look like an email address.");
+        await cloud.sendCode(email);
+        return renderSync(el, { email });
+      }
+      const code = $("synccode").value.replace(/\s/g, "");
+      if (!/^\d{6,10}$/.test(code)) throw new Error("Type the number from the email.");
+      await cloud.verify(step.email, code);
+      ui.toast("Signed in. Syncing…");
+      const r = await chrome.runtime.sendMessage({ type: "syncStart" });
+      if (!r?.ok) ui.notice(esc(r?.error || "Sync failed"));
+      renderSync(el);
+    } catch (e) { b.disabled = false; ui.notice(esc(e.message || e)); }
+  };
+}
+
 export async function renderUpdateCard(el, force = false) {
   if (!el) return;
   let due = null;
