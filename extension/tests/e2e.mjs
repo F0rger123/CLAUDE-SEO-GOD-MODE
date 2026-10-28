@@ -248,6 +248,22 @@ await cp.click("#wz-next");
 await cp.waitForSelector(".tcard");
 // Adding a site scans it straight away (no Rescan click needed).
 await cp.waitForFunction(() => /\d/.test(document.querySelector(".tcard .tscore")?.textContent || ""), null, { timeout: 60000 });
+// Quick add in the header: pick "A competitor", the site in the tab is filled in, then it asks whose competitor it is.
+await cp.click("#quickadd");
+await cp.waitForSelector("#qamenu:not([hidden])");
+await cp.screenshot({ path: path.join(repo, "assets", "extension-quickadd.png") });
+await cp.click('[data-qa="competitor"]');
+await cp.waitForSelector("#wz-url");
+assert.equal(await cp.$eval("#qamenu", (e) => e.hidden), true, "menu closes");
+await cp.fill("#wz-url", "rival-roofing.example");
+await cp.click("#wz-next");
+assert.match(await cp.$eval("#view", (e) => e.textContent), /Whose competitor is it\?/);
+assert.ok(await cp.$(`[data-of="${badBase}"]`), "your business offered as the one it competes with");
+await cp.click("#wz-cancel");
+await cp.waitForSelector(".tcard");
+// When the page side is already ahead, the wording points to reviews, Maps and links.
+const offPage = await cp.evaluate(async () => (await import("./lib/breakdown.js")).verdict(1, 80, [60, 62], "next"));
+assert.match(offPage, /Google reviews.*Google Maps listing.*links from other websites.*nothing else on the page/);
 // Settings: updates. "Check again" runs in the panel (no message to the background worker) and shows the result.
 await cp.click('#mode [data-mode="google"]');
 await cp.waitForSelector("#updatecard .upd");

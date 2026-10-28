@@ -37,6 +37,14 @@ header { padding: 14px 16px 14px; background: var(--head); color: var(--head-ink
 .top { display: flex; align-items: center; justify-content: space-between; }
 .brand { display: flex; align-items: center; gap: 9px; font: 800 16px/1 var(--display); letter-spacing: -.02em; }
 .mark { width: 12px; height: 12px; background: var(--head-ink); transform: rotate(45deg); border-radius: 2px; box-shadow: 4px -4px 0 -2px var(--head-muted); }
+.topright { display: flex; align-items: center; gap: 8px; }
+header .quickadd { padding: 4px 11px; font-size: 12px; font-weight: 700; background: transparent; color: var(--head-ink); border-color: #3a3a3a; }
+header .quickadd:hover, header .quickadd[aria-expanded="true"] { border-color: var(--head-ink); }
+.qamenu { position: absolute; right: 12px; top: 46px; width: min(290px, calc(100% - 24px)); z-index: 10; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--rule-2); border-radius: var(--r-lg); padding: 10px; display: grid; gap: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, .28); }
+.qamenu[hidden] { display: none; }
+.qamenu p { margin: 2px 4px 2px; font-size: 12px; color: var(--muted); }
+.qamenu .tile { padding: 9px 30px 9px 12px; }
 .platform { font-size: 11.5px; color: var(--head-ink); border: 1px solid #3a3a3a; border-radius: 99px; padding: 1px 9px; }
 .mode { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; margin-top: 12px; background: var(--head-wash); border-radius: 999px; }
 .mode button { border: 0; background: transparent; padding: 6px 4px; font-size: 12.5px; color: var(--head-muted); border-radius: 999px; justify-content: center; }

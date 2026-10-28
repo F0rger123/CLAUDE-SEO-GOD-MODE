@@ -104,17 +104,20 @@ export async function breakdown(serp, url, { n = 3 } = {}) {
  * One plain sentence that squares the on-page score with the position, so a #1 page with a middling score reads as
  * "its edge is off-page" instead of looking like a wrong number.
  */
+/** Said whenever the page side is done: what's left is off the website. */
+export const OFF_PAGE = "The next biggest wins are off the website: more Google reviews, a stronger Google Maps listing (Business Profile) and links from other websites. There's nothing else on the page itself that would move it much.";
+
 export function verdict(position, score, others, relation) {
   if (!others.length) return "None of the other results could be read, so there's nothing to compare it with.";
   const avg = Math.round(others.reduce((a, b) => a + b, 0) / others.length);
   const them = relation === "above" ? "the pages above it" : "the next results";
   const top = position != null && position <= 3;
   const where = position ? `#${position}` : "where it is";
-  if (score >= avg + 5) return top ? `Its page matches this search better than ${them} (this page ${score}, theirs ${avg} on average), which helps it hold ${where}.`
-    : `Its page matches this search as well as or better than ${them} (this page ${score}, theirs ${avg} on average), so they most likely win on links, reviews or brand.`;
+  if (score >= avg + 5) return top ? `Its page matches this search better than ${them} (this page ${score}, theirs ${avg} on average), which helps it hold ${where}. ${OFF_PAGE}`
+    : `Its page matches this search as well as or better than ${them} (this page ${score}, theirs ${avg} on average), so they most likely win off the page. ${OFF_PAGE}`;
   if (score <= avg - 5) return top ? `It ranks ${where} even though ${them} score higher on the page itself (this page ${score}, theirs ${avg} on average). Its lead comes from what this can't measure: links, reviews, brand or site age.`
     : `${relation === "above" ? "The pages above it" : "The other results"} match this search better on the page (this page ${score}, theirs ${avg} on average). Closing the gaps below is the quickest win.`;
-  return top ? `On the page it's level with ${them} (this page ${score}, theirs ${avg} on average). What keeps it at ${where} is likely links, reviews or brand.`
+  return top ? `On the page it's level with ${them} (this page ${score}, theirs ${avg} on average). What keeps it at ${where} is likely off the page. ${OFF_PAGE}`
     : `On the page it's level with ${them} (this page ${score}, theirs ${avg} on average). Fixing the gaps below gives it an edge; the rest is links, reviews and brand.`;
 }
 
@@ -122,7 +125,7 @@ export function fixPrompt(b) {
   const vs = b.rivals.map((r) => `#${r.position} ${r.host}`).join(", ");
   const list = b.gaps.slice(0, 8).map((g, i) => `${i + 1}. ${g.label}: this page ${g.mine}, ${b.relation === "above" ? "pages above it" : "next results"} ${g.them.join(" / ") || "–"}. ${g.fix}`).join("\n");
   return `Help ${b.url} rank higher for "${b.query}" on Google (it's ${b.position ? "#" + b.position : "not in the top results"}). SEO God Mode compared it with ${vs || "the top results"} on ${new Date().toISOString().slice(0, 10)}; on-page score ${b.score}/100${b.others?.length ? " (theirs: " + b.others.join(", ") + ")" : ""}.
-${list ? `What to change, most important first (OBSERVED on the pages):\n${list}` : "It already matches the top results on every on-page factor measured; the gap is probably off-page (links, reviews, brand)."}
+${list ? `What to change, most important first (OBSERVED on the pages):\n${list}` : "It already matches the top results on every on-page factor measured. " + OFF_PAGE}
 ${b.why.length ? `\nKeep what already works: ${b.why.join("; ")}.` : ""}
 Rules: use only facts that are on the site or that I confirm, and write [CONFIRM: ...] for anything you'd have to guess. Don't copy other sites' text, photos, reviews or claims. Keep the design. Verify the live page after deploying. Don't promise rankings.
 Not measured here: ${b.notMeasured.join("; ")}.`;

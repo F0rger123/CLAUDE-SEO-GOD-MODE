@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.18.0 (2026-10-28): extension 1.13: Quick add, and what to do once the page side is done
+
+- **Quick add:** a **+ Quick add** button in the header adds the site in the current tab as a client, a website of yours, or a competitor. For a competitor it then asks whose competitor it is. It opens the usual Track steps with the address filled in.
+- **Once a site is ahead on the page, it says what's next:** when a page scores at or above the pages it competes with (hover cards, breakdowns, the keyword report and You vs competitors in Track), or a site scores 85 or more, the summary now says the next biggest wins are off the website: more Google reviews, a stronger Google Maps listing (Business Profile) and links from other websites, and that there's nothing else on the page that would move it much. The fix prompts say the same.
+
 ## 2.17.0 (2026-10-27): extension 1.12: Check updates positions, keyword report, new keywords to try
 
 - **Check updates your position:** Check next to a tracked keyword used to open Google in a new tab, and the position only changed if the overlay was on, and never twice within an hour. Now Check searches the keyword on Google in a background tab, reads the results and updates the position on the spot. **Check all keywords on Google** does every keyword (up to 15), one every few seconds. A newer reading within the hour replaces the old one instead of being ignored.

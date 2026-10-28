@@ -96,6 +96,7 @@ export function keywordPrompt(origin, report) {
   return `Help ${origin} rank higher on Google for these keywords (SEO God Mode keyword check, ${new Date().toISOString().slice(0, 10)}; positions read from Google, page facts OBSERVED).
 ${weak.length ? `Not in the top 3, closest first:\n${weak.map(line).join("\n")}` : "Every checked keyword is in the top 3."}
 ${strong.length ? `\nAlready top 3 (don't break these): ${strong.map((r) => `"${r.q}" #${r.pos}`).join(", ")}.` : ""}
+If a page already scores at or above the top results on the page, say so: the on-page work is done there, and the next biggest wins are more Google reviews, a stronger Google Business Profile and links from other websites.
 For each weak keyword: pick the one page that should rank for it (create it if no page fits and say so), then change its title, H1, opening lines and sections to answer the search, and link to it from related pages. Don't target two keywords with the same page if they need different answers.
 Rules: use only facts that are on the site or that I confirm, and write [CONFIRM: ...] for anything you'd have to guess. Don't copy competitors' text, photos, reviews or claims. Use each keyword naturally; no stuffing. Keep the design. Verify the live pages after deploying. Don't promise rankings.
 Not measured: backlinks, reviews and Google Business Profile strength, site age, clicks. Positions vary by location and person.`;

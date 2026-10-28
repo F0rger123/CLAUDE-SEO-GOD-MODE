@@ -10,7 +10,13 @@
   <header>
     <div class="top">
       <div class="brand"><span class="mark" aria-hidden="true"></span>SEO God Mode</div>
-      <span id="platform" class="platform" hidden></span>
+      <div class="topright"><span id="platform" class="platform" hidden></span><button id="quickadd" class="quickadd" aria-haspopup="true" aria-expanded="false">+ Quick add</button></div>
+    </div>
+    <div id="qamenu" class="qamenu" role="menu" aria-label="Quick add" hidden>
+      <p>Add the site in this tab as</p>
+      <button class="tile" role="menuitem" data-qa="client"><b>A client</b><small>You manage its SEO.</small></button>
+      <button class="tile" role="menuitem" data-qa="mine"><b>A website of mine</b><small>Your own business.</small></button>
+      <button class="tile" role="menuitem" data-qa="competitor"><b>A competitor</b><small>Then pick whose competitor it is.</small></button>
     </div>
     <div id="updbar" class="updbar" hidden></div>
     <div id="mode" class="mode" role="group" aria-label="What to scan">

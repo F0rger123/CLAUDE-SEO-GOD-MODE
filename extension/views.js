@@ -13,7 +13,7 @@ import { rateSite, siteOrigins } from "./lib/siterate.js";
 import { history, saveScan } from "./lib/proof.js";
 import { getSettings, overlayRegistered, runDaily, saveSettings, syncOverlay } from "./lib/daily.js";
 import { techBlock, techProfile } from "./lib/tech.js";
-import { breakdown } from "./lib/breakdown.js";
+import { breakdown, OFF_PAGE } from "./lib/breakdown.js";
 import * as T from "./lib/track.js";
 import * as K from "./lib/kwcheck.js";
 import * as U from "./lib/update.js";
@@ -234,9 +234,9 @@ async function renderResult() {
     <div class="upd"><p>${scan ? `<b>Full site rating ${scan.scores.overall}/100</b> (SEO ${scan.scores.seo}, AEO ${scan.scores.aeo}, GEO ${scan.scores.geo}), scanned ${when(scan.page.scannedAt)}.` : "<b>No full site rating yet.</b> It crawls the site and runs all 39 checks."}</p>
       <div class="btns"><button id="ratesite">${scan ? "Rate the whole site again" : "Rate the whole site"}</button>${!tracked && me && !sameDomain(b.url, me.origin) ? `<button id="trackcomp">Track as competitor</button>` : ""}</div></div>
     <h2 class="sec">Why it ranks here</h2>
-    ${b.why.length ? `<ul class="qs">${b.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : `<p class="lede">Nothing on the page stands out against the others, so its position likely comes from links, reviews or brand strength (not measured).</p>`}
+    ${b.why.length ? `<ul class="qs">${b.why.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : `<p class="lede">Nothing on the page stands out against the others. ${OFF_PAGE}</p>`}
     ${diff.length || other.length ? `<h2 class="sec">${diff.length ? "What the pages above it do differently" : "To rank higher"} <small>most important first</small></h2>
-      <div class="list">${(diff.length ? diff : other).slice(0, 8).map((x) => `<div class="factor"><span class="dot s-fail"></span><div><b>${esc(x.label)}</b><small>This page: ${esc(x.mine)} · ${b.relation === "above" ? "above it" : "others"}: ${esc(x.them.join(" / ") || "–")}</small><p>${esc(x.fix)}</p></div></div>`).join("")}</div>` : `<p class="lede">It matches the others on every on-page factor measured. The gap is off-page.</p>`}
+      <div class="list">${(diff.length ? diff : other).slice(0, 8).map((x) => `<div class="factor"><span class="dot s-fail"></span><div><b>${esc(x.label)}</b><small>This page: ${esc(x.mine)} · ${b.relation === "above" ? "above it" : "others"}: ${esc(x.them.join(" / ") || "–")}</small><p>${esc(x.fix)}</p></div></div>`).join("")}</div>` : `<p class="lede">It matches the others on every on-page factor measured. ${OFF_PAGE}</p>`}
     <div class="btns stack"><button id="bdcopy" class="primary">Copy fix prompt</button></div>
     ${fold("Every factor side by side", b.rows.length, `<table class="mini"><tr><th>Factor</th><th>This</th>${b.rivals.map((r) => `<th title="${esc(r.host)}">#${r.position}</th>`).join("")}</tr>${b.rows.map((r) => `<tr class="${r.behind ? "bad" : ""}"><td>${esc(r.label)}</td><td class="num">${esc(r.mine)}</td>${r.them.map((t) => `<td>${esc(t)}</td>`).join("")}</tr>`).join("")}</table>`, true)}
     ${diff.length && other.length ? fold("Other improvements", other.length, `<div class="list">${other.map((x) => `<div class="factor"><span class="dot s-part"></span><div><b>${esc(x.label)}</b><p>${esc(x.fix)}</p></div></div>`).join("")}</div>`) : ""}
@@ -281,7 +281,7 @@ const RULES = `Rules: use only facts that are on the site or that I confirm, and
 function rankPrompt(r) {
   return `Help my page rank for "${r.query}". My page: ${r.myUrl} (currently ${r.myPosition ? "#" + r.myPosition : "not in the top " + (r.rivals.length + r.skipped.length)}).
 I compared it with the ${r.rivals.length} pages ranking above it (SEO God Mode, ${new Date().toISOString().slice(0, 10)}). On-page factors where they're ahead (OBSERVED):
-${r.behind.map((f, i) => `${i + 1}. ${f.label}: top pages ${f.display[0]}, mine ${f.display[1]}. ${f.fix}`).join("\n") || "- None. The gap is probably off-page (links, reviews, brand)."}
+${r.behind.map((f, i) => `${i + 1}. ${f.label}: top pages ${f.display[0]}, mine ${f.display[1]}. ${f.fix}`).join("\n") || "- None on the page. " + OFF_PAGE}
 ${r.topicGaps.length ? `\nTopics the top pages cover that mine doesn't (only add what we really offer): ${r.topicGaps.map((t) => t.topic).join(", ")}.` : ""}
 ${r.paa.length || r.rivalQuestions.length ? `\nQuestions to answer as headings with a 40–60 word direct answer: ${[...r.paa, ...r.rivalQuestions].slice(0, 8).map((q) => `"${q}"`).join(", ")}.` : ""}
 Target depth: about ${r.brief.targetWords ?? "?"} words in ${r.brief.sections ?? "?"} sections.${r.brief.schema.length ? ` Schema the top pages use: ${r.brief.schema.join(", ")} (add only where it matches visible content).` : ""}
@@ -422,8 +422,19 @@ export async function renderTrack(helpers) {
 // ---------------------------------------------------------------------- Track new: step by step
 /** opts.role / opts.of fix those answers (for "Add competitor" on a business). back: where Cancel returns. */
 function startWizard(opts = {}) {
-  v.wizard = { step: 0, url: "", role: opts.role || null, of: opts.of ?? null, fixed: !!opts.role, kws: new Set(), detected: null, back: opts.back || null };
+  v.wizard = newWizard(opts);
   renderTrack(ui);
+}
+const newWizard = (opts) => ({ step: 0, url: opts.url || "", role: opts.role || null, of: opts.of ?? null, fixed: !!opts.role, kws: new Set(), detected: null, back: opts.back || null });
+
+/** Header "Quick add": track the site in the current tab as a client, your own website or a competitor (asks whose). */
+export async function quickAdd(role, helpers) {
+  ui = helpers;
+  const tab = await helpers.activeTab().catch(() => null);
+  const url = /^https?:/i.test(tab?.url || "") ? new URL(tab.url).origin : "";
+  v.detail = null;
+  v.wizard = newWizard({ role, url });
+  await helpers.setMode("track");
 }
 async function wizardSteps() {
   const w = v.wizard, owned = (await T.trackedSites()).filter(T.isOwned);
@@ -549,7 +560,10 @@ async function compareBlock(s, list) {
     if (m && r.ratio != null && m.ratio != null && r.ratio - m.ratio >= 0.2) gaps.push({ id: r.id, name: r.name, who: rivals[i].name, them: r.ratio, you: m.ratio, gain: m.gain || 0, tip: m.tip }); }));
   const byCheck = Object.values(gaps.reduce((a, g) => { (a[g.id] ||= { ...g, who: [] }).who.push(g.who); return a; }, {})).sort((a, b) => b.who.length - a.who.length || b.gain - a.gain);
   v.cmp = { s, rivals, byCheck, me };
+  const theirs = rows.filter(({ x }) => x.origin !== s.origin).map(({ p }) => p?.overall).filter((n) => n != null);
+  const ahead = me?.overall != null && theirs.length && theirs.every((n) => n <= me.overall);
   return `<h2 class="sec">You vs competitors <small>${rivals.length}</small></h2>
+    ${ahead ? `<p class="verdict">${esc(s.name)} scores ${me.overall}, at or above every tracked competitor (best of theirs ${Math.max(...theirs)}). ${OFF_PAGE}</p>` : ""}
     ${rivals.length ? `<table class="mini"><tr><th>Site</th><th>Overall</th><th>SEO</th><th>AEO</th><th>GEO</th></tr>${rows.map(({ x, p }) => `<tr class="${x.origin === s.origin ? "me" : ""}"><td>${esc(x.name)}</td>${x.origin === s.origin ? `<td>${p?.overall ?? "–"}</td><td>${p?.seo ?? "–"}</td><td>${p?.aeo ?? "–"}</td><td>${p?.geo ?? "–"}</td>` : cell(p?.overall, me?.overall) + cell(p?.seo, me?.seo) + cell(p?.aeo, me?.aeo) + cell(p?.geo, me?.geo)}</tr>`).join("")}</table>
       ${hist.some((h) => h.length) ? chart : ""}
       ${byCheck.length ? `<h2 class="sec">Where they're ahead</h2><div class="list">${byCheck.slice(0, 10).map((g) => `<div class="factor"><span class="dot s-fail"></span><div><b>${esc(g.name)}</b><small>${esc(g.who.join(", "))} ${g.who.length === 1 ? "beats" : "beat"} you here${g.gain ? ` · +${g.gain} pts for you` : ""}</small>${g.tip ? `<p>${esc(g.tip)}</p>` : ""}</div></div>`).join("")}</div>
@@ -564,6 +578,7 @@ function comparePrompt(c) {
   return `Help ${c.s.name} (${c.s.origin}) catch up with its competitors: ${c.rivals.map((r) => `${r.name} (${r.origin})`).join(", ")}.
 Latest SEO God Mode whole-site scores: ${c.s.name} ${c.me?.overall ?? "?"}/100. Checks where competitors score clearly higher (OBSERVED):
 ${c.byCheck.map((g, i) => `${i + 1}. ${g.name}: ${g.who.join(", ")} ahead; worth about +${g.gain} pts. ${g.tip || ""}`).join("\n")}
+Once these are done, the website side is as strong as theirs; the next biggest wins are more Google reviews, a stronger Google Business Profile and links from other websites.
 Learn from what they do, but write our own content from our real facts; never copy their text, photos, reviews or claims. Use [CONFIRM: ...] for anything you'd have to guess. Verify the live site after each change.`;
 }
 

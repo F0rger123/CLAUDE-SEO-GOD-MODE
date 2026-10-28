@@ -34,6 +34,9 @@ export function potentials(scan) {
   return { now, top5: scan.scores.potential_after_top5 ?? Math.min(100, now + sum(order.slice(0, 5))), all: Math.min(100, now + sum(failed)) };
 }
 
+/** The website side is strong, so what's left is off the site. */
+const NEXT = "The next biggest wins are off the website: more Google reviews, a stronger Google Maps listing (Business Profile) and links from other websites. Past that, there's nothing else on the site that would move it much.";
+
 export function summaryText(scan) {
   const { scores, results } = scan;
   const site = scan.mode === "site";
@@ -46,7 +49,8 @@ export function summaryText(scan) {
   if ((scores.overall ?? 0) >= 100 || !failed.length) {
     const lines = [`${what} scores ${scores.overall}/100. There's currently nothing you need to do from here.`];
     if (failed.length) lines.push(`${failed.length} tiny optional tweak${failed.length === 1 ? " is" : "s are"} listed under Issues if you want them, but they won't move the score.`);
-    lines.push("Rescan after you change the site to keep it there. Rankings and AI citations also depend on things a public scan can't see, like reviews, links and Search Console data.");
+    lines.push("Rescan after you change the site to keep it there.");
+    lines.push(NEXT);
     return lines.join("\n");
   }
   const v = VERDICT.find(([min]) => (scores.overall ?? 0) >= min)[1];
@@ -69,6 +73,7 @@ export function summaryText(scan) {
     .map((r) => (checkById[r.id]?.name || r.name).replace(/\s*\(.*\)$/, ""));
   if (good.length) out.push(`Already working: ${list(good.map((g, i) => (i ? low(g) : g)))}.`);
   if (failed.length) out.push(`Copy the fix prompt to get it all done in order.`);
+  if ((scores.overall ?? 0) >= 85) out.push(`After these, ${low(NEXT)}`);
   // Verdict (and weakest area) as one opening line, then one line per point.
   const lead = out.splice(0, areas.length && scores[areas[0]] < 80 ? 2 : 1).join(" ");
   return [lead, ...out].map(cap).join("\n");

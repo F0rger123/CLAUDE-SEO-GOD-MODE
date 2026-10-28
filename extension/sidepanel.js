@@ -8,7 +8,7 @@ import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proo
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
 import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
-import { focusResult, renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
+import { focusResult, quickAdd, renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
 import { staleCode } from "./lib/daily.js";
 
 const $ = (id) => document.getElementById(id);
@@ -399,6 +399,16 @@ async function setMode(mode) {
     $("empty").hidden = false;
   }
   scanLabel();
+}
+
+// Quick add: a small menu under the header.
+{
+  const btn = $("quickadd"), menu = $("qamenu");
+  const open = (on) => { menu.hidden = !on; btn.setAttribute("aria-expanded", String(on)); if (on) menu.querySelector("button").focus(); };
+  btn.onclick = (e) => { e.stopPropagation(); open(menu.hidden); };
+  menu.querySelectorAll("[data-qa]").forEach((b) => (b.onclick = () => { open(false); quickAdd(b.dataset.qa, helpers); }));
+  document.addEventListener("click", (e) => { if (!menu.hidden && !menu.contains(e.target)) open(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { open(false); btn.focus(); } });
 }
 
 (async () => {
