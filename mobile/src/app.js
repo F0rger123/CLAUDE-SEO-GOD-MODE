@@ -102,8 +102,9 @@ function renderSignIn(step = null) {
   $("view").innerHTML = `<h1 class="q">Sign in</h1>
     <p class="lede">Use the same email you signed in with in the extension (Settings › Sync with your phone). We email you a sign-in link; there's no password.</p>
     <form id="sform" class="field">${step
-      ? `<label for="scode">Sign-in link from the email sent to ${esc(step.email)}</label><input id="scode" class="search big" autocomplete="off" placeholder="Paste the link">
-        <p class="unknowns">In the email, press and hold <b>Log In</b>, choose <b>Copy link</b>, and paste it here. Don't tap the link. If you already did, copy the address of the page it opened and paste that.</p>`
+      ? `<p class="lede"><b>Check your email on this phone and tap Log In.</b> The page that opens brings you back here, signed in.</p>
+        <label for="scode">Or paste the sign-in here</label><input id="scode" class="search big" autocomplete="off" placeholder="Paste here">
+        <p class="unknowns">If the app doesn't open by itself, press <b>Open SEO God Mode</b> on that page, or press <b>Copy sign-in</b> there and paste it here.</p>`
       : `<label for="semail">Your email</label><input id="semail" class="search big" type="email" autocomplete="email" placeholder="you@example.com">`}</form>
     <div class="btns stack"><button id="sgo" class="primary">${step ? "Sign in" : "Email me a sign-in link"}</button>${step ? `<button id="sback">Use another email</button>` : ""}</div>`;
   $("sform").onsubmit = (e) => { e.preventDefault(); $("sgo").click(); };
@@ -313,6 +314,16 @@ async function start() {
   // While the app is open: every 20 seconds, and whenever it comes back to the front.
   poll = setInterval(() => document.visibilityState === "visible" && pull(), 20000);
 }
+
+// The sign-in page opens the app with seogodmode://login?access_token=…, at launch or while it's open.
+async function fromLink(url) {
+  if (!/access_token=/.test(url || "")) return;
+  try { await cloud.signIn("", url); toast("Signed in"); notice(""); } catch (e) { notice(esc(e.message || e)); }
+  start();
+}
+const AppPlugin = window.Capacitor?.Plugins?.App || window.Capacitor?.registerPlugin?.("App");
+AppPlugin?.addListener?.("appUrlOpen", ({ url }) => fromLink(url));
+AppPlugin?.getLaunchUrl?.().then((r) => fromLink(r?.url)).catch(() => {});
 
 document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; S.open = null; notice(""); render(); scrollTo(0, 0); }));
 $("quickadd").onclick = () => quickAdd();

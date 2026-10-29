@@ -6,7 +6,7 @@ import { SB_URL } from "../lib/cloud.js";
 export function fakeSupabase() {
   const tables = { sites: [], site_data: [] };
   const keyOf = { sites: (r) => r.user_id + "|" + r.origin, site_data: (r) => r.user_id + "|" + r.key };
-  const users = new Map(), codes = [], used = new Set();
+  const users = new Map(), codes = [], used = new Set(), otpUrls = [];
   let tick = 0;
   // Server time, always increasing (microseconds), like Postgres now() across transactions.
   const now = () => new Date(Date.now() + tick++).toISOString().replace("Z", "000+00:00");
@@ -21,7 +21,7 @@ export function fakeSupabase() {
     const req = route.request(), url = new URL(req.url()), m = req.method();
     if (m === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
     const body = req.postData() ? JSON.parse(req.postData()) : null;
-    if (url.pathname === "/auth/v1/otp") { codes.push(body.email); return json(route, 200, {}); }
+    if (url.pathname === "/auth/v1/otp") { codes.push(body.email); otpUrls.push(req.url()); return json(route, 200, {}); }
     if (url.pathname === "/auth/v1/verify") {
       // A code ("123456"), or the link's token ("hash-<email>"), which works once.
       if (body.token === "123456") return json(route, 200, session(userFor(body.email)));
@@ -50,5 +50,5 @@ export function fakeSupabase() {
     }
     return json(route, 405, { message: "method not allowed" });
   }
-  return { tables, codes, users, route: (ctx) => ctx.route(SB_URL + "/**", handle) };
+  return { tables, codes, users, otpUrls, route: (ctx) => ctx.route(SB_URL + "/**", handle) };
 }

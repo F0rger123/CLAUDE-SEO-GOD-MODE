@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>Sign in to SEO God Mode</title>
+  <!--
+    Where the sign-in email's "Log In" link lands. Supabase puts the session in the part of the address after "#",
+    which never leaves this browser (it isn't sent to GitHub). On Android this opens the SEO God Mode app with it;
+    on a computer, Copy puts it on the clipboard to paste into the extension (Settings > Sync with your phone).
+  -->
+  <style>
+    :root { --paper: #fff; --ink: #000; --muted: #6b6b6b; --rule: #e3e3e3; --fail: #dc2626; }
+    @media (prefers-color-scheme: dark) { :root { --paper: #000; --ink: #fff; --muted: #9a9a9a; --rule: #262626; --fail: #f87171; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 "Segoe UI", -apple-system, system-ui, sans-serif; }
+    header { background: #000; color: #fff; padding: 18px 20px; display: flex; align-items: center; gap: 10px; font: 800 17px/1 "Segoe UI", system-ui, sans-serif; }
+    .mark { width: 12px; height: 12px; background: #fff; transform: rotate(45deg); border-radius: 2px; box-shadow: 4px -4px 0 -2px #a8a8a8; }
+    main { max-width: 460px; margin: 0 auto; padding: 28px 20px 40px; }
+    h1 { font-size: 24px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -.02em; }
+    p { margin: 0 0 16px; color: var(--muted); }
+    .btn { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 50px; border-radius: 999px; font: 700 16px/1 inherit;
+           border: 1px solid var(--ink); background: var(--ink); color: var(--paper); text-decoration: none; cursor: pointer; margin: 10px 0; }
+    .btn.alt { background: transparent; color: var(--ink); }
+    .err { color: var(--fail); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header><span class="mark" aria-hidden="true"></span>SEO God Mode</header>
+  <main>
+    <section id="ok" hidden>
+      <h1>Almost signed in</h1>
+      <p id="phone" hidden>Open the app to finish signing in.</p>
+      <a id="open" class="btn" hidden>Open SEO God Mode</a>
+      <p id="desk">Copy this sign-in and paste it where you asked for the email: in the extension, that's Settings › Sync with your phone.</p>
+      <button id="copy" class="btn alt" type="button">Copy sign-in</button>
+      <p id="copied" hidden>Copied. Paste it into the sign-in box. It works for about an hour.</p>
+    </section>
+    <section id="bad" hidden>
+      <h1>This link didn't work</h1>
+      <p class="err" id="why"></p>
+      <p>Each link works once and expires after an hour. Ask for a new one from the app or the extension.</p>
+    </section>
+  </main>
+  <script>
+    const hash = location.hash.slice(1), p = new URLSearchParams(hash);
+    if (p.get("access_token") && p.get("refresh_token")) {
+      document.getElementById("ok").hidden = false;
+      const signin = location.origin + location.pathname + "#" + hash;
+      const android = /Android/i.test(navigator.userAgent);
+      if (android) {
+        const intent = "intent://login?" + hash + "#Intent;scheme=seogodmode;package=com.theagencyzero.seogodmode;end";
+        const open = document.getElementById("open");
+        open.href = intent; open.hidden = false; document.getElementById("phone").hidden = false;
+        document.getElementById("desk").textContent = "Signing in on a computer instead? Copy this and paste it into the extension (Settings › Sync with your phone).";
+        location.href = intent;
+      }
+      document.getElementById("copy").onclick = async () => {
+        try { await navigator.clipboard.writeText(signin); document.getElementById("copied").hidden = false; }
+        catch { prompt("Copy this:", signin); }
+      };
+    } else {
+      document.getElementById("bad").hidden = false;
+      document.getElementById("why").textContent = p.get("error_description") || new URLSearchParams(location.search).get("error_description") || "There's no sign-in in this link.";
+    }
+  </script>
+</body>
+</html>

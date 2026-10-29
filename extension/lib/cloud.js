@@ -9,6 +9,8 @@
 export const SB_URL = "https://ouinmglpmeqriowdbwes.supabase.co";
 export const SB_KEY = "sb_publishable_5Ec2QcbhogpOxxs8LhUAMA_eoWOAWvQ";
 export const EPOCH = "1970-01-01T00:00:00Z";
+/** Where the email's Log In link lands: opens the app on Android, or offers Copy on a computer (site/signin/). */
+export const SIGNIN_URL = "https://f0rger123.github.io/CLAUDE-SEO-GOD-MODE/signin/";
 const PAGE = 500;
 
 const toSession = (j, old = {}) => ({ access: j.access_token, refresh: j.refresh_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000,
@@ -59,7 +61,7 @@ export function makeCloud(store) {
   return {
     current: () => store.load(),
     /** Emails a sign-in code. New emails get an account automatically. */
-    sendCode: (email) => auth("otp", { email, create_user: true }),
+    sendCode: (email) => auth("otp?redirect_to=" + encodeURIComponent(SIGNIN_URL), { email, create_user: true }),
     /**
      * Sign in with what came in the email. Supabase's own email sender sends a "Log In" link (its text can't be changed
      * without a custom mail server), so this takes the link copied from the email, the address of the page the link
@@ -78,7 +80,7 @@ export function makeCloud(store) {
         const u = new URL(text);
         try { j = await auth("verify", { type: u.searchParams.get("type") || "magiclink", token_hash: u.searchParams.get("token") }); }
         catch (e) { throw /expired|invalid|used/i.test(e.message) ? new Error("That link was already used or has expired. Email yourself a new one and paste it without opening it.") : e; }
-      } else throw new Error("Paste the Log In link from the email (press and hold it, then Copy link).");
+      } else throw new Error("Paste what you copied from the sign-in page (or the Log In link from the email).");
       const s = toSession(j); await store.save(s); return s;
     },
     signOut: () => store.save(null),

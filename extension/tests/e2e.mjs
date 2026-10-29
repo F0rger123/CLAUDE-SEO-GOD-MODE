@@ -459,7 +459,9 @@ const xp = bs.panel;
 await xp.click('#mode [data-mode="google"]');
 await xp.waitForSelector("#syncemail");
 await xp.fill("#syncemail", "owner@example.com"); await xp.click("#syncgo");
-await xp.waitForSelector("#synccode"); await xp.fill("#synccode", "https://ouinmglpmeqriowdbwes.supabase.co/auth/v1/verify?token=hash-owner@example.com&type=magiclink&redirect_to=http://localhost:3000"); await xp.click("#syncgo");
+await xp.waitForSelector("#synccode");
+assert.match(sb.otpUrls.at(-1), /redirect_to=https%3A%2F%2Ff0rger123\.github\.io%2FCLAUDE-SEO-GOD-MODE%2Fsignin%2F/, "email link lands on the sign-in page");
+await xp.fill("#synccode", "https://ouinmglpmeqriowdbwes.supabase.co/auth/v1/verify?token=hash-owner@example.com&type=magiclink&redirect_to=http://localhost:3000"); await xp.click("#syncgo");
 await xp.waitForFunction(() => /Signed in as owner@example\.com/.test(document.getElementById("syncbox").textContent), null, { timeout: 20000 });
 assert.ok(sb.tables.sites.some((r) => r.origin === badBase && !r.deleted_at), "tracked site sent");
 assert.ok(sb.tables.site_data.some((r) => r.key === "trend:" + badBase), "score history sent");
@@ -519,6 +521,14 @@ await noClaude(phone, "phone app");
 const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sites?select=*", { headers: { apikey: "x" } })).status);
 assert.equal(anon, 401);
 app.close();
+// The page the email's Log In link lands on: a computer gets Copy sign-in; a bad link says why.
+let landing = await ctx.newPage();
+await landing.goto(pathToFileURL(path.join(repo, "site", "signin", "index.html")).href + "#access_token=a.b.c&refresh_token=r1&expires_in=3600&type=magiclink");
+assert.equal(await landing.isVisible("#copy"), true); assert.equal(await landing.isVisible("#open"), false);
+await landing.close(); landing = await ctx.newPage();
+await landing.goto(pathToFileURL(path.join(repo, "site", "signin", "index.html")).href + "#error=access_denied&error_description=Email+link+is+invalid+or+has+expired");
+assert.match(await landing.textContent("#why"), /invalid or has expired/);
+await landing.close();
 
 await ctx.close(); s1.close(); s2.close();
 assert.deepEqual(panelErrors, [], "no script errors in the panel");

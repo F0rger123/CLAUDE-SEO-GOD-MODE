@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.19.2 (2026-10-29): extension 1.14.2 and app: tap the email's Log In link
+
+- **Tapping Log In works now:** the link used to land on a broken localhost:3000 page. It now lands on SEO God Mode's sign-in page (on GitHub Pages). On Android that page opens the app and signs you in; on a computer it has **Copy sign-in** to paste into the extension. The sign-in stays in your browser; the page never sends it anywhere.
+
 ## 2.19.1 (2026-10-29): extension 1.14.1 and app: sign in with the emailed link
 
 - **Sign-in works with Supabase's standard email:** its built-in sender only allows a "Log In" link, not a code, unless you set up your own mail server. Sign-in now takes that link: copy it from the email (press and hold or right-click Log In) and paste it in. If you already opened the link, pasting the address of the page it opened also works. A code still works if the email has one.

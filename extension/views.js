@@ -803,8 +803,8 @@ async function renderSync(el, step = null) {
     return;
   }
   el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. Sign in with your email on both; there's no password. Supabase sends the email, at most a couple an hour.</p>
-    ${step ? `<form id="syncform" class="field"><label for="synccode">Sign-in link from the email sent to ${esc(step.email)}</label><input id="synccode" class="search" autocomplete="off" placeholder="https://…supabase.co/auth/v1/verify?token=…"></form>
-      <p class="unknowns">In the email, right-click <b>Log In</b> and choose <b>Copy link address</b>, then paste it here. Don't open the link. If you already did, paste the address of the page it opened instead.</p>
+    ${step ? `<form id="syncform" class="field"><label for="synccode">Sign-in from the email sent to ${esc(step.email)}</label><input id="synccode" class="search" autocomplete="off" placeholder="Paste here"></form>
+      <p class="unknowns">Open the email on this computer and click <b>Log In</b>. On the page that opens, press <b>Copy sign-in</b> and paste it here.</p>
       <div class="btns"><button id="syncgo" class="primary">Sign in and sync</button><button id="syncback">Use another email</button></div>`
     : `<form id="syncform" class="field"><label for="syncemail">Your email</label><input id="syncemail" class="search" type="email" autocomplete="email" placeholder="you@example.com"></form>
       <div class="btns"><button id="syncgo" class="primary">Email me a sign-in link</button><a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
