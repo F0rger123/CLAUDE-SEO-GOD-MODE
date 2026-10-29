@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.21.0 (2026-10-29): extension 1.16 and app: optional account, no email
+## 2.21.1 (2026-10-29): extension 1.16.1 and app: optional account, no email
 
 - **Sign in or create account (optional):** sync still works with just the code, but you can now make an account with a **username and password** (no email, nothing is sent), in the extension (**Settings › Sync with your phone**) or the app's connect screen. The account remembers your sync code: sign in on a new phone or computer and your sites appear, without typing the code. You can also use the app on its own, with no computer, and keep your sites in the account. **Save to an account** adds an account to a code you already use.
 - The app's first screen is clearer: **Start without an account**, **Sign in or create account**, or type the code from the extension.
