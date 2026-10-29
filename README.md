@@ -103,7 +103,7 @@ flowchart LR
   B["Phone app<br/>look up, compare, quick add"] <-->|"reads and adds"| C
 ```
 
-**Install it:** on your phone, tap the button above (or open the [android-app release](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app)), open **SEO-God-Mode.apk**, and allow your browser to install apps if Android asks. Then, in the Chrome extension, open **Settings › Sync with your phone**, press **Turn on sync**, and type the code it shows into the app. No account needed. An account is optional: **Sign in or create account** (email and password, in the app or the extension) remembers your code, so you sign in on a new device instead of typing it, and you can use the app on its own without a computer. Scanning sites and checking Google stay in the extension.
+**Install it:** on your phone, tap the button above (or open the [android-app release](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app)), open **SEO-God-Mode.apk**, and allow your browser to install apps if Android asks. Then, in the Chrome extension, open **Settings › Sync with your phone**, press **Turn on sync**, and type the code it shows into the app. Phone only? Tap **Start without an account**. No account needed. An account is optional: **Sign in or create account** (a username and password, no email, in the app or the extension) remembers your code, so you sign in on a new device instead of typing it, and you can use the app on its own without a computer. Scanning sites and checking Google stay in the extension.
 
 ## 🥊 Stays ahead of your competitors
 

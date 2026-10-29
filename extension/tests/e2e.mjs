@@ -481,6 +481,7 @@ phone.on("pageerror", (e) => { console.log("phone error:", e.message); panelErro
 await phone.setViewportSize({ width: 390, height: 844 });
 await phone.goto(`http://127.0.0.1:${app.address().port}/`);
 // A wrong code is refused with a plain message; the extension's code connects (any case, spaces instead of dashes).
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Start without an account/);
 await phone.fill("#scode", "1234"); await phone.click("#sgo");
 await phone.waitForFunction(() => /isn't a sync code/.test(document.getElementById("notice").textContent));
 await phone.fill("#scode", code.toLowerCase().replace(/-/g, " ")); await phone.click("#sgo");
@@ -514,25 +515,39 @@ await phone.waitForSelector("table.mini"); await phone.waitForTimeout(400);
 assert.match(await phone.$eval("#view", (e) => e.textContent), /rival-roofing\.example/);
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-compare.png") });
 await noClaude(phone, "phone app");
-// Optional account: the extension saves its code to a new account; the phone signs out, then signs in with the account
+// Optional account (username + password, no email): the extension saves its code to a new account; the phone signs out, then signs in with the account
 // (no code typed) and gets the same sites. A wrong password is refused.
 await xp.click('#mode [data-mode="google"]');
 await xp.waitForSelector("#acctsave"); await xp.click("#acctsave");
-await xp.fill("#acctemail", "owner@example.com"); await xp.fill("#acctpw", "correct horse");
+await xp.fill("#acctuser", "Owner.Roofing"); await xp.fill("#acctpw", "correct horse");
 await xp.click("#acctup");
 await xp.waitForSelector("#acctname", { timeout: 15000 });
 assert.equal(await xp.$eval("#code", (e) => e.textContent.trim()), code, "extension kept its code");
-assert.deepEqual([...sb.accounts.values()], [code.replace(/-/g, "")], "account remembers the code");
+assert.deepEqual([...sb.accounts].map(([n, a]) => [n, a.code]), [["owner.roofing", code.replace(/-/g, "")]], "account remembers the code");
 await phone.click('#mode [data-tab="account"]');
 await phone.click("#signout");
 await phone.waitForSelector("#sacct"); await phone.click("#sacct");
-await phone.fill("#aemail", "owner@example.com"); await phone.fill("#apw", "wrong password");
+await phone.fill("#auser", "owner.roofing"); await phone.fill("#apw", "wrong password");
 await phone.click("#ain");
-await phone.waitForFunction(() => /Wrong email or password/.test(document.getElementById("notice").textContent));
+await phone.waitForFunction(() => /Wrong username or password/.test(document.getElementById("notice").textContent));
 await phone.fill("#apw", "correct horse"); await phone.click("#ain");
 await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
 await phone.click('#mode [data-tab="account"]');
-assert.match(await phone.$eval("#view", (e) => e.textContent), /Signed in as owner@example\.com/);
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Signed in as owner\.roofing/);
+// Phone only, no computer: sign out, start without an account (empty list), then save it to a new account later.
+await phone.click("#signout");
+await phone.waitForSelector("#snew"); await phone.click("#snew");
+const fresh = await phone.$eval(".synccode", (e) => e.textContent.trim());
+assert.notEqual(fresh, code, "new code for a phone-only start");
+await phone.click("#sgo");
+await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
+assert.equal(await phone.$$eval("[data-open]", (x) => x.length), 0, "starts empty");
+await phone.click('#mode [data-tab="account"]'); await phone.click("#acctsave");
+await phone.fill("#auser", "owner.roofing"); await phone.fill("#apw", "another password"); await phone.click("#aup");
+await phone.waitForFunction(() => /username is taken/.test(document.getElementById("notice").textContent));
+await phone.fill("#auser", "phone.only"); await phone.click("#aup");
+await phone.waitForFunction(() => /Signed in as phone\.only/.test(document.getElementById("view").textContent), null, { timeout: 15000 });
+assert.equal(sb.accounts.get("phone.only").code, fresh.replace(/-/g, ""), "phone-only account keeps its code");
 // The tables can't be read directly, like the real database.
 const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sync_sites?select=*", { headers: { apikey: "x" } })).status);
 assert.equal(anon, 401);

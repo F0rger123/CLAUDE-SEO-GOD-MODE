@@ -2,7 +2,7 @@
 -- Turning on sync in the extension makes a random 20-character sync code (about 100 bits). Every device that knows the
 -- code shares one copy of the tracked sites and their history. Synced rows are filed under its
 -- SHA-256 hash. The tables can't be read or written directly by anyone using the public key; only the functions
--- below reach them, and each one needs the code. Accounts are optional (end of this file).
+-- below reach them, and each one needs the code. Accounts (username + password, no email) are optional: end of file.
 -- Run once in Supabase: SQL Editor -> New query -> paste this file -> Run. It removes the email-based tables from
 -- 20261028000000_sync.sql (nothing had synced into them). Safe to run again.
 
@@ -98,35 +98,47 @@ revoke all on function public.sgm_pull(text, text, timestamptz), public.sgm_push
 grant execute on function public.sgm_pull(text, text, timestamptz), public.sgm_push_sites(text, jsonb), public.sgm_push_data(text, jsonb) to anon, authenticated;
 revoke all on function private.sgm_space(text) from public, anon, authenticated;
 
--- Optional accounts (email + password, made in the app or extension). An account only remembers its sync code, so
--- signing in on a new phone or computer finds your sites without typing the code. Sync itself still runs on the code.
--- Needs Authentication -> Sign In / Providers -> Email -> "Confirm email" turned off, so signing up sends no email.
-create table if not exists private.sync_accounts (
-  user_id uuid primary key references auth.users (id) on delete cascade,
+-- Optional accounts: a username and password, made in the app or the extension. No email, and nothing to set up in
+-- Supabase Auth. An account only remembers its sync code, so signing in on a new phone or computer finds your sites
+-- without typing the code. Passwords are stored as bcrypt hashes. Ten wrong passwords lock the account for 15 minutes.
+create table if not exists private.sgm_accounts (
+  name text primary key check (name ~ '^[a-z0-9._@-]{3,60}$'),
+  pw text not null,
   code text not null,
-  updated_at timestamptz not null default now()
+  failed int not null default 0,
+  locked_until timestamptz,
+  created_at timestamptz not null default now()
 );
-revoke all on private.sync_accounts from public, anon, authenticated;
+revoke all on private.sgm_accounts from public, anon, authenticated;
 
--- The signed-in account's sync code, or null if it has none yet.
-create or replace function public.sgm_account_code() returns text
-language plpgsql stable security definer set search_path = '' as $$
+-- p_create true: make the account for p_code (this device's code). false: sign in. Returns {"code": ...} or {"error": ...}
+-- (an error is returned, not raised, so a wrong password still counts toward the lock).
+create or replace function public.sgm_account(p_name text, p_password text, p_create boolean, p_code text default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  n text := lower(btrim(coalesce(p_name, '')));
+  a private.sgm_accounts;
 begin
-  if auth.uid() is null then raise exception 'Sign in first' using errcode = '42501'; end if;
-  return (select code from private.sync_accounts where user_id = auth.uid());
+  if n !~ '^[a-z0-9._@-]{3,60}$' then return jsonb_build_object('error', 'Pick a username of 3 to 60 letters, numbers, dots, dashes or underscores.'); end if;
+  if length(coalesce(p_password, '')) < 8 or length(p_password) > 72 then return jsonb_build_object('error', 'Use a password of 8 to 72 characters.'); end if;
+  if p_create then
+    perform private.sgm_space(p_code);
+    if exists (select 1 from private.sgm_accounts where name = n) then return jsonb_build_object('error', 'That username is taken. Pick another, or sign in.'); end if;
+    insert into private.sgm_accounts (name, pw, code)
+      values (n, extensions.crypt(p_password, extensions.gen_salt('bf', 10)), upper(regexp_replace(p_code, '[^0-9A-Za-z]', '', 'g')));
+    return jsonb_build_object('code', (select code from private.sgm_accounts where name = n));
+  end if;
+  select * into a from private.sgm_accounts where name = n for update;
+  if not found then return jsonb_build_object('error', 'Wrong username or password.'); end if;
+  if a.locked_until > now() then return jsonb_build_object('error', 'Too many wrong passwords. Try again in 15 minutes.'); end if;
+  if a.pw = extensions.crypt(p_password, a.pw) then
+    update private.sgm_accounts set failed = 0, locked_until = null where name = n;
+    return jsonb_build_object('code', a.code);
+  end if;
+  update private.sgm_accounts set failed = case when a.failed + 1 >= 10 then 0 else a.failed + 1 end,
+    locked_until = case when a.failed + 1 >= 10 then now() + interval '15 minutes' end where name = n;
+  return jsonb_build_object('error', 'Wrong username or password.');
 end $$;
 
--- Remember a sync code on the signed-in account. Keeps the account's existing code if it already has one, and returns
--- the code the account uses.
-create or replace function public.sgm_account_link(p_code text) returns text
-language plpgsql security definer set search_path = '' as $$
-declare v text := upper(regexp_replace(coalesce(p_code, ''), '[^0-9A-Za-z]', '', 'g'));
-begin
-  if auth.uid() is null then raise exception 'Sign in first' using errcode = '42501'; end if;
-  perform private.sgm_space(v);
-  insert into private.sync_accounts (user_id, code) values (auth.uid(), v) on conflict (user_id) do nothing;
-  return (select code from private.sync_accounts where user_id = auth.uid());
-end $$;
-
-revoke all on function public.sgm_account_code(), public.sgm_account_link(text) from public, anon;
-grant execute on function public.sgm_account_code(), public.sgm_account_link(text) to authenticated;
+revoke all on function public.sgm_account(text, text, boolean, text) from public;
+grant execute on function public.sgm_account(text, text, boolean, text) to anon, authenticated;

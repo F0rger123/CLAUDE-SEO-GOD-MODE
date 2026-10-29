@@ -1,9 +1,11 @@
 # Changelog
 
-## 2.21.0 (2026-10-29): extension 1.16 and app: optional account
+## 2.21.0 (2026-10-29): extension 1.16 and app: optional account, no email
 
-- **Sign in or create account (optional):** sync still works with just the code, but you can now make an account with an email and password, in the extension (**Settings › Sync with your phone**) or the app's connect screen. The account remembers your sync code: sign in on a new phone or computer and your sites appear, without typing the code. You can also use the app on its own, with no computer, and keep your sites in the account. **Save to an account** adds an account to a code you already use. No emails are sent.
-- In Supabase, turn off **Authentication › Sign In / Providers › Email › Confirm email** and run `supabase/migrations/20261029000000_sync_codes.sql` (it now also adds the account part, and is safe to run again).
+- **Sign in or create account (optional):** sync still works with just the code, but you can now make an account with a **username and password** (no email, nothing is sent), in the extension (**Settings › Sync with your phone**) or the app's connect screen. The account remembers your sync code: sign in on a new phone or computer and your sites appear, without typing the code. You can also use the app on its own, with no computer, and keep your sites in the account. **Save to an account** adds an account to a code you already use.
+- The app's first screen is clearer: **Start without an account**, **Sign in or create account**, or type the code from the extension.
+- Passwords are stored as bcrypt hashes; ten wrong passwords lock an account for 15 minutes. There's no password reset, so keep the password or the sync code.
+- Run `supabase/migrations/20261029000000_sync_codes.sql` once in Supabase (it now also adds accounts, and is safe to run again). No Supabase Auth settings needed.
 - The app goes back to the Sites tab after signing out and in.
 
 ## 2.20.0 (2026-10-29): extension 1.15 and app: sync with a code, no email

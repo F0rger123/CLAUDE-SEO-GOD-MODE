@@ -1,6 +1,6 @@
 /**
  * SEO God Mode for Android: your tracked sites, scores, positions and competitors, synced with the Chrome extension.
- *  - Connect with the sync code from the extension (no account or email).
+ *  - Start without an account, connect with the sync code from the extension, or sign in (username + password, no email).
  *  - Sites: everything you track, grouped like the extension's Track view. Paste a link to look it up or add it.
  *  - A site: scores, history, summary and fix prompt from its newest whole-site scan, keyword positions and report,
  *    and its competitors side by side. Add or remove keywords and competitors; change what it is to you.
@@ -100,13 +100,15 @@ function renderSignIn(fresh = null) {
   $("status").textContent = "Your tracked sites, on your phone";
   $("view").innerHTML = fresh ? `<h1 class="q">Your sync code</h1>
       <p class="synccode">${esc(fresh)}</p>
-      <p class="lede">Write it down or copy it somewhere safe. Type it into the Chrome extension (Settings › Sync with your phone › I have a code) to see the same sites on your computer. Anyone with the code can see and change your tracked sites.</p>
+      <p class="lede">No account needed: your sites are kept under this code. Copy it somewhere safe. To see the same sites on your computer, type it into the Chrome extension (Settings › Sync with your phone › I have a code). Anyone with the code can see and change your tracked sites. You can make an account later in Account, so you can sign in instead.</p>
       <div class="btns stack"><button id="scopy">Copy code</button><button id="sgo" class="primary">Continue</button></div>`
-    : `<h1 class="q">Connect</h1>
-      <p class="lede">In the Chrome extension, open <b>Settings › Sync with your phone</b> and press <b>Turn on sync</b>. Type the code it shows here. No account or email needed.</p>
+    : `<h1 class="q">Get started</h1>
+      <p class="lede">No account or email needed.</p>
+      <div class="btns stack"><button id="snew" class="primary">Start without an account</button><button id="sacct">Sign in or create account</button></div>
+      <h2 class="sec">Already use the Chrome extension?</h2>
+      <p class="lede">In the extension, open <b>Settings › Sync with your phone</b> and press <b>Turn on sync</b>. Type the code it shows here.</p>
       <form id="sform" class="field"><label for="scode">Sync code</label><input id="scode" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
-      <div class="btns stack"><button id="sgo" class="primary">Connect</button><button id="sacct">Sign in or create account</button><button id="snew">I don't use the extension yet: start fresh</button></div>
-      <p class="unknowns">No account needed. An account is optional: it remembers your sync code, so you can sign in instead of typing it.</p>`;
+      <div class="btns stack"><button id="sgo">Connect</button></div>`;
   if (fresh) {
     $("scopy").onclick = () => copy(fresh, "Sync code copied");
     $("sgo").onclick = () => cloud.use(fresh).then(start);
@@ -121,18 +123,19 @@ function renderSignIn(fresh = null) {
   };
 }
 
-// Optional account (email + password): it only remembers the sync code. Sign in on a new phone to get the same sites.
+// Optional account (username + password, no email): it only remembers the sync code. Sign in on a new phone to get the same sites.
 function renderAccountForm() {
   const connected = !$("mode").hidden;
   $("view").innerHTML = `<h1 class="q">${connected ? "Save to an account" : "Sign in"}</h1>
-      <p class="lede">${connected ? "Keep your sync code in an account, so signing in on another phone or computer finds these sites." : "Sign in to get your sites, or create an account to keep them. Works without a computer. No email is sent."}</p>
-      <form id="aform" class="field"><label for="aemail">Email</label><input id="aemail" class="search big" type="email" autocomplete="username">
+      <p class="lede">${connected ? "Keep your sync code in an account, so signing in on another phone or computer finds these sites." : "Sign in to get your sites, or create an account to keep them. Works without a computer. Just a username and password: no email."}</p>
+      <form id="aform" class="field"><label for="auser">Username</label><input id="auser" class="search big" autocomplete="username" autocapitalize="none" spellcheck="false">
         <label for="apw">Password (8 characters or more)</label><input id="apw" class="search big" type="password" autocomplete="current-password"></form>
+      <p class="unknowns">There's no password reset (no email), so keep your password, or your sync code, somewhere safe.</p>
       <div class="btns stack"><button id="ain" class="primary">Sign in</button><button id="aup">Create account</button><button id="aback">Back</button></div>`;
   const go = async (kind) => {
     notice("");
     try {
-      const r = await cloud.account(kind, $("aemail").value, $("apw").value);
+      const r = await cloud.account(kind, $("auser").value, $("apw").value);
       if (r.switched) await clearCache();
       toast(kind === "signup" ? "Account made" : "Signed in");
       start();
@@ -267,14 +270,14 @@ function renderCompare() {
 async function renderAccount() {
   const s = await cloud.current();
   $("view").innerHTML = `<h2 class="sec first">Account</h2>
-    <div class="upd">${s?.email ? `<p>Signed in as <b>${esc(s.email)}</b>. Sign in with it on another phone or computer to see the same sites.</p>` : ""}<p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
+    <div class="upd">${s?.user ? `<p>Signed in as <b>${esc(s.user)}</b>. Sign in with it on another phone or computer to see the same sites.</p>` : ""}<p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
     <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database under this code, and cached on this phone so the app opens offline. Anyone with the code can see and change them, so keep it private.</p>
-    <div class="btns"><button id="copycode">Copy code</button>${s?.email ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.email ? "Sign out" : "Disconnect this phone"}</button></div></div>
+    <div class="btns"><button id="copycode">Copy code</button>${s?.user ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.user ? "Sign out" : "Disconnect this phone"}</button></div></div>
     <h2 class="sec">How it works</h2>
     <p class="lede">Scanning websites and checking Google positions run in the Chrome extension on your computer. This app shows the results and lets you add and organise sites, keywords and competitors; changes reach the extension within a minute while Chrome is open.</p>
     <p class="unknowns">SEO God Mode · Built by <a href="https://theagencyzero.com" target="_blank" rel="noopener">theagencyzero.com</a></p>`;
   $("copycode").onclick = () => copy(s?.code || "", "Sync code copied");
-  if (!s?.email) $("acctsave").onclick = () => renderAccountForm();
+  if (!s?.user) $("acctsave").onclick = () => renderAccountForm();
   $("signout").onclick = async () => { await cloud.signOut(); await clearCache(); start(); };
 }
 
