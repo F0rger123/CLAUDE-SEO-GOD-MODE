@@ -5,9 +5,11 @@
  *  - A site: scores, history, summary and fix prompt from its newest whole-site scan, keyword positions and report,
  *    and its competitors side by side. Add or remove keywords and competitors; change what it is to you.
  *  - Compare: a business next to its competitors, scores and positions.
- *  - Quick add: a client, a website of yours, or a competitor (then whose). The extension lists sites added here so
- *    you can scan them on the computer.
- * Scanning websites and checking Google stay in the extension. Data is cached on the phone, so it opens offline.
+ *  - Quick add: a client, a website of yours, or a competitor (then whose).
+ *  - Rate any website right here: the same whole-site crawl, checks and scores as the extension (lib/siterate.js),
+ *    with no account or database needed. Scans of tracked sites sync to the extension.
+ * Checking Google positions stays in the extension. Everything is saved on the phone first and synced when it can
+ * be, so the app works offline and before the sync server is set up.
  */
 import { EPOCH, makeCloud, newCode, siteFromRow, siteRow } from "./lib/cloud.js";
 import { lineChart } from "./lib/track.js";
@@ -15,6 +17,11 @@ import { summaryText } from "./lib/summary.js";
 import { fixAllPrompt } from "./lib/prompts.js";
 import { group, keywordPrompt } from "./lib/kwcheck.js";
 import { OFF_PAGE } from "./lib/breakdown.js";
+import { rateSite } from "./lib/siterate.js";
+import { SB_URL } from "./lib/cloud.js";
+import { haptic, installNativeFetch, isNative, newerBuild } from "./native.js";
+
+installNativeFetch([SB_URL]);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -38,7 +45,9 @@ const idb = async (mode, fn) => { const d = await dbp; return new Promise((res, 
 const getK = (k) => idb("readonly", (s) => s.get(k));
 const setK = (k, v) => idb("readwrite", (s) => s.put(v, k));
 
-const S = { sites: new Map(), data: new Map(), cursor: { sites: EPOCH, data: EPOCH }, tab: "sites", open: null, lastSync: 0, error: null, busy: false };
+const S = { sites: new Map(), data: new Map(), cursor: { sites: EPOCH, data: EPOCH }, tab: "sites", open: null, lastSync: 0, error: null, busy: false,
+  // Changes saved here but not sent yet: site rows by origin, and data keys.
+  pending: { sites: {}, keys: [] }, scanning: null, lookup: null };
 const trend = (o) => S.data.get("trend:" + o) || [];
 const kwpos = (o) => S.data.get("kwpos:" + o) || [];
 const scanOf = (o) => S.data.get("scan:" + o) || null;
@@ -50,47 +59,72 @@ async function loadCache() {
   S.data = new Map(Object.entries((await getK("data")) || {}));
   S.cursor = (await getK("cursor")) || { sites: EPOCH, data: EPOCH };
   S.lastSync = (await getK("lastSync")) || 0;
+  S.pending = (await getK("pending")) || { sites: {}, keys: [] };
 }
-const saveCache = () => Promise.all([setK("sites", [...S.sites.values()]), setK("data", Object.fromEntries(S.data)), setK("cursor", S.cursor), setK("lastSync", S.lastSync)]);
+const saveCache = () => Promise.all([setK("sites", [...S.sites.values()]), setK("data", Object.fromEntries(S.data)), setK("cursor", S.cursor), setK("lastSync", S.lastSync), setK("pending", S.pending)]);
+const pendingCount = () => Object.keys(S.pending.sites).length + S.pending.keys.length;
+
+/** Send what's waiting. Throws (and keeps it waiting) if the server can't take it. */
+async function flush() {
+  const sites = Object.values(S.pending.sites), keys = [...S.pending.keys];
+  if (sites.length) await cloud.putSites(sites);
+  if (keys.length) await cloud.putData(keys.map((key) => { const value = S.data.get(key) ?? null; return { key, value, deleted_at: value == null ? new Date().toISOString() : null }; }));
+  for (const r of sites) if (S.pending.sites[r.origin] === r) delete S.pending.sites[r.origin];
+  S.pending.keys = S.pending.keys.filter((k) => !keys.includes(k));
+  await saveCache();
+}
 
 /** Fetch everything changed since the last sync. */
 async function pull({ quiet = true } = {}) {
-  if (S.busy) return;
+  // Already syncing: go again right after, so a change saved meanwhile isn't left waiting.
+  if (S.busy) { S.again = true; return; }
   S.busy = true; paintStatus();
   try {
+    await flush();
     const sites = await cloud.changes("sites", S.cursor.sites);
-    for (const r of sites) r.deleted_at ? S.sites.delete(r.origin) : S.sites.set(r.origin, siteFromRow(r));
+    for (const r of sites) if (!S.pending.sites[r.origin]) r.deleted_at ? S.sites.delete(r.origin) : S.sites.set(r.origin, siteFromRow(r));
     if (sites.length) S.cursor.sites = sites[sites.length - 1].updated_at;
     const data = await cloud.changes("site_data", S.cursor.data);
-    for (const r of data) r.deleted_at || r.value == null ? S.data.delete(r.key) : S.data.set(r.key, r.value);
+    for (const r of data) if (!S.pending.keys.includes(r.key)) r.deleted_at || r.value == null ? S.data.delete(r.key) : S.data.set(r.key, r.value);
     if (data.length) S.cursor.data = data[data.length - 1].updated_at;
     S.lastSync = Date.now(); S.error = null;
     await saveCache();
     if (sites.length || data.length || !quiet) render();
   } catch (e) {
-    S.error = String(e.message || e);
+    S.error = e.notReady ? "notready" : String(e.message || e);
     if (e.signedOut) return start();
-  } finally { S.busy = false; paintStatus(); }
+  } finally {
+    S.busy = false; paintStatus();
+    if (S.again) { S.again = false; pull(); }
+  }
 }
 
-/** Save one site (new or changed) online, then refresh. */
+/** Save one site (new or changed) on the phone, then send it when it can. */
 async function putSite(site, deleted = false) {
-  await cloud.putSites([siteRow(site, deleted)]);
+  S.pending.sites[site.origin] = siteRow(site, deleted);
   deleted ? S.sites.delete(site.origin) : S.sites.set(site.origin, site);
   await saveCache();
   render();
   pull();
 }
+/** Save data keys (already set in S.data) on the phone, then send them when it can. */
+async function putData(keys) {
+  S.pending.keys = [...new Set([...S.pending.keys, ...keys])];
+  await saveCache();
+  pull();
+}
 
 // ------------------------------------------------------------------ UI helpers
 let toastT;
-function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2200); }
-function notice(html) { const n = $("notice"); n.hidden = !html; n.innerHTML = html || ""; }
+function toast(t) { haptic("ok"); const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2200); }
+function notice(html) { if (html) haptic("warn"); const n = $("notice"); n.hidden = !html; n.innerHTML = html || ""; }
 async function copy(text, msg) { try { await navigator.clipboard.writeText(text); toast(msg); } catch { notice("Couldn't copy. Long-press the text below to copy it."); } }
 function paintStatus() {
   const el = $("status");
   if (!el || $("mode").hidden) return;
-  el.innerHTML = `${S.busy ? "Syncing…" : S.error ? `Offline: ${esc(S.error)}` : S.lastSync ? `Synced ${ago(S.lastSync)}` : "Not synced yet"} <button class="linkish" id="syncbtn">Sync</button>`;
+  const waiting = pendingCount();
+  el.innerHTML = `${S.busy ? "Syncing…" : S.error === "notready" ? "Saved on this phone. Sync starts once the sync server is set up"
+    : S.error ? `Saved on this phone${waiting ? ` (${waiting} to send)` : ""}. Offline: ${esc(S.error)}` : S.lastSync ? `Synced ${ago(S.lastSync)}` : "Not synced yet"} <button class="linkish" id="syncbtn">Sync</button>`;
   $("syncbtn").onclick = () => pull({ quiet: false });
 }
 
@@ -150,7 +184,60 @@ function renderAccountForm() {
 async function clearCache() {
   await Promise.all(["sites", "data", "cursor", "lastSync"].map((k) => setK(k, undefined)));
   S.sites.clear(); S.data.clear(); S.cursor = { sites: EPOCH, data: EPOCH }; S.lastSync = 0; S.tab = "sites"; S.open = null; S.compare = null;
+  S.pending = { sites: {}, keys: [] }; await setK("pending", undefined);
 }
+
+// ------------------------------------------------------------------ rate a website on the phone
+/** A whole-site scan in the extension's format (like a Track rescan), so summaries, prompts and sync all work. */
+function scanFrom(r, origin) {
+  const scannedAt = new Date().toISOString();
+  return { id: scannedAt, mode: "site", page: { url: r.site, origin, platform: "Unknown", scannedAt, jsonld: [], pageless: true }, site: null,
+    scores: r.scores, results: r.checks, priority: r.priority, kits: r.kits, unknown: r.unknown, pagesRated: r.pages_rated,
+    hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages };
+}
+/** Keep a scan for a tracked site: newest scan and a point on its score history, then sync. */
+async function keepScan(origin, scan) {
+  const s = scan.scores, h = trend(origin);
+  S.data.set("scan:" + origin, scan);
+  S.data.set("trend:" + origin, [...h, { t: scan.page.scannedAt, overall: s.overall, seo: s.seo, aeo: s.aeo, geo: s.geo, potential: s.potential_after_top5 ?? null,
+    pages: scan.pagesRated ?? null, failing: scan.results.filter((r) => r.ratio != null && r.ratio < 0.999).length }].slice(-200));
+  await putData(["scan:" + origin, "trend:" + origin]);
+}
+/** Rate a site (tracked or not). Shows progress in #scanprog while it runs. */
+async function scanSite(origin) {
+  if (S.scanning) return notice("A scan is already running. Wait for it to finish.");
+  S.scanning = { origin, text: "Starting…" };
+  const show = () => { const el = $("scanprog"); if (el) el.textContent = S.scanning ? `${hostOf(origin)}: ${S.scanning.text}` : ""; };
+  render();
+  try {
+    const r = await rateSite(origin + "/", { psi: isNative, onProgress: (text) => { S.scanning.text = text; show(); } });
+    const scan = scanFrom(r, origin);
+    if (S.sites.has(origin)) await keepScan(origin, scan);
+    else S.lookup = { origin, scan };
+    toast(`${hostOf(origin)} scored ${scan.scores.overall}`);
+  } catch (e) {
+    if (!S.sites.has(origin)) S.lookup = { origin, scan: null };
+    notice(esc(e.message || e));
+  } finally { S.scanning = null; render(); }
+}
+
+function renderLookup(o) {
+  const scan = S.lookup?.origin === o ? S.lookup.scan : null, running = S.scanning?.origin === o;
+  const failed = scan ? scan.results.filter((r) => r.ratio != null && r.ratio < 0.999 && r.cat !== "info").sort((a, b) => (b.gain || 0) - (a.gain || 0)) : [];
+  $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
+    <div class="hero"><div><b>${esc(hostOf(o))}</b><small>Not tracked · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(o)}</a></small></div></div>
+    ${running ? `<div class="emptybox"><b>Rating the whole site…</b><p id="scanprog">${esc(hostOf(o))}: ${esc(S.scanning.text)}</p><p>Same crawl, checks and scores as the Chrome extension. Takes up to a minute.</p></div>`
+      : scan ? `${scoreBoxes(scan.scores)}<h2 class="sec">Summary <small>${scan.pagesRated} pages</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
+        ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>` : ""}
+        <div class="btns stack">${failed.length ? `<button id="copyfix">Copy fix prompt</button>` : ""}<button id="track" class="primary">Track this site</button><button id="rescan">Scan again</button></div>`
+      : `<div class="emptybox"><b>Couldn't rate it</b><p>Check the address and your connection, then try again.</p></div><div class="btns stack"><button id="rescan" class="primary">Try again</button></div>`}`;
+  $("back").onclick = () => { S.open = null; render(); };
+  if ($("copyfix")) $("copyfix").onclick = () => copy(fixAllPrompt(scan), "Fix prompt copied");
+  if ($("track")) $("track").onclick = () => quickAdd({ url: o });
+  if ($("rescan")) $("rescan").onclick = () => scanSite(o);
+}
+const fixRow = (r) => `<div class="factor"><span class="dot ${r.ratio > 0.5 ? "s-part" : "s-fail"}"></span><div><b>${esc(r.name)}</b><small>${esc(r.detail || "")}${r.gain ? ` · +${Math.round(r.gain)} pts` : ""}</small></div></div>`;
+
 
 // ------------------------------------------------------------------ sites
 function card(s) {
@@ -166,15 +253,16 @@ function card(s) {
 function renderSites() {
   const list = [...S.sites.values()];
   const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"]];
-  $("view").innerHTML = `<form id="paste" class="field"><label for="pasteurl">Look up a website</label><div class="row"><input id="pasteurl" class="search big" inputmode="url" autocomplete="off" placeholder="Paste a link"><button class="primary">Go</button></div></form>
+  $("view").innerHTML = `<form id="paste" class="field"><label for="pasteurl">Rate any website</label><div class="row"><input id="pasteurl" class="search big" inputmode="url" autocomplete="off" placeholder="Paste a link"><button class="primary">Rate it</button></div></form>
     ${list.length ? groups.map(([role, title]) => { const xs = list.filter((s) => s.role === role); return xs.length ? `<h2 class="sec">${title} <small>${xs.length}</small></h2><div class="tlist">${xs.map(card).join("")}</div>` : ""; }).join("")
-      : `<div class="emptybox"><b>Nothing tracked yet</b><p>Sites you track in the Chrome extension show up here once sync is on there. Or press + Quick add.</p></div>`}`;
+      : `<div class="emptybox"><b>Nothing tracked yet</b><p>Paste a link above to rate any website, or press + Quick add to track one. Sites you track in the Chrome extension show up here once sync is on there.</p></div>`}`;
   $("paste").onsubmit = (e) => {
     e.preventDefault();
     let o; try { o = originOf($("pasteurl").value); } catch { return notice("That doesn't look like a website address. Try something like example.com."); }
     notice("");
     if (S.sites.has(o)) return openSite(o);
-    quickAdd({ url: o });
+    S.lookup = null; S.open = o; scrollTo(0, 0);
+    scanSite(o);
   };
   bindOpen();
 }
@@ -187,7 +275,8 @@ function scoreBoxes(p) {
 
 function renderSite(o) {
   const s = S.sites.get(o);
-  if (!s) { S.open = null; return renderSites(); }
+  if (!s) return S.lookup?.origin === o || S.scanning?.origin === o ? renderLookup(o) : ((S.open = null), renderSites());
+  const running = S.scanning?.origin === o;
   const h = trend(o), p = h[h.length - 1] || null, scan = scanOf(o), report = S.data.get("kwreport:" + o);
   const of = s.competitorOf && S.sites.get(s.competitorOf);
   const rivals = competitorsOf(o);
@@ -197,14 +286,15 @@ function renderSite(o) {
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
     <div class="hero"><div><b>${esc(s.name)}</b><small>${ROLES[s.role]}${of ? ` of <button class="linkish" data-open="${esc(of.origin)}">${esc(of.name)}</button>` : ""} · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(hostOf(o))}</a></small></div></div>
     ${scoreBoxes(p)}
+    ${running ? `<div class="emptybox"><b>Rating the whole site…</b><p id="scanprog">${esc(hostOf(o))}: ${esc(S.scanning.text)}</p></div>` : `<div class="btns stack"><button id="scannow"${scan ? "" : ` class="primary"`}>${scan ? "Scan again" : "Scan now"}</button></div>`}
     ${h.length > 1 ? lineChart([{ name: "Overall", cls: "main", points: h.map((x) => ({ t: x.t, v: x.overall })) }], { label: s.name + " score history" }) : ""}
     ${scan ? `<h2 class="sec">Summary <small>scanned ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
-      ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map((r) => `<div class="factor"><span class="dot ${r.ratio > 0.5 ? "s-part" : "s-fail"}"></span><div><b>${esc(r.name)}</b><small>${esc(r.detail || "")}${r.gain ? ` · +${Math.round(r.gain)} pts` : ""}</small></div></div>`).join("")}</div>
+      ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>
         <div class="btns stack"><button id="copyfix" class="primary">Copy fix prompt</button></div>` : ""}`
-      : `<div class="emptybox"><b>Not scanned yet</b><p>Open SEO God Mode on your computer: sites added here are listed at the top of Track, ready to scan. The results show up here after the next sync.</p></div>`}
+      : running ? "" : `<div class="emptybox"><b>Not scanned yet</b><p>Press Scan now to rate the whole site on this phone. Scans from the Chrome extension show up here too.</p></div>`}
     <h2 class="sec">Keywords <small>${kws.length}</small></h2>
     ${kws.length ? `<table class="mini"><tr><th>Search</th><th>Position</th><th></th></tr>${kws.map((q) => { const r = latestPos(o, q); return `<tr><td>${esc(q)}${r ? `<small class="when">${when(r.t)}</small>` : ""}</td><td class="${r ? posStatus(r.pos) : ""}"><b class="posn">${r ? (r.pos ? "#" + r.pos : "not top " + (r.of || 10)) : "not checked"}</b></td><td><button class="tdel inline" data-rmkw="${esc(q)}" aria-label="Remove ${esc(q)}">×</button></td></tr>`; }).join("")}</table>
-      <p class="unknowns">Positions come from the extension: press Check in Track on your computer to update them.</p>` : ""}
+      <p class="unknowns">Positions come from the Chrome extension: press Check in Track on your computer to update them.</p>` : ""}
     <form id="addkw" class="field"><label for="kwin">Add keywords (comma separated)</label><div class="row"><input id="kwin" class="search" placeholder="roof repair york pa"><button>Add</button></div></form>
     ${report?.rows?.length ? `<h2 class="sec">Keyword report <small>${when(report.t)}</small></h2>
       <div class="kwsum"><span class="s-pass"><b>${report.rows.filter((r) => group(r.pos) === "top").length}</b>top 3</span><span class="s-part"><b>${report.rows.filter((r) => group(r.pos) === "close").length}</b>rest of page 1</span><span class="s-fail"><b>${report.rows.filter((r) => group(r.pos) === "behind").length}</b>further down</span></div>
@@ -218,6 +308,7 @@ function renderSite(o) {
     <div class="btns"><button id="saverole">Save</button><button id="untrack" class="danger">Stop tracking</button></div><div id="untrackbox"></div>`;
   $("back").onclick = () => { S.open = null; render(); };
   bindOpen();
+  if ($("scannow")) $("scannow").onclick = () => scanSite(o);
   if ($("copyfix")) $("copyfix").onclick = () => copy(fixAllPrompt(scan), "Fix prompt copied");
   if ($("copykw")) $("copykw").onclick = () => copy(keywordPrompt(o, report), "Keyword fix prompt copied");
   if ($("addcomp")) $("addcomp").onclick = () => quickAdd({ role: "competitor", of: o });
@@ -274,9 +365,11 @@ async function renderAccount() {
     <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database under this code, and cached on this phone so the app opens offline. Anyone with the code can see and change them, so keep it private.</p>
     <div class="btns"><button id="copycode">Copy code</button>${s?.user ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.user ? "Sign out" : "Disconnect this phone"}</button></div></div>
     <h2 class="sec">How it works</h2>
-    <p class="lede">Scanning websites and checking Google positions run in the Chrome extension on your computer. This app shows the results and lets you add and organise sites, keywords and competitors; changes reach the extension within a minute while Chrome is open.</p>
+    <p class="lede">Rate any website here, with the same checks and scores as the Chrome extension. Everything is saved on this phone first and syncs with the extension when it can. Checking Google positions runs in the extension on your computer.</p>
+    <p class="unknowns">App build ${esc(String(BUILD))}. <button class="linkish" id="checkupd">Check for updates</button></p>
     <p class="unknowns">SEO God Mode · Built by <a href="https://theagencyzero.com" target="_blank" rel="noopener">theagencyzero.com</a></p>`;
   $("copycode").onclick = () => copy(s?.code || "", "Sync code copied");
+  $("checkupd").onclick = () => checkUpdate(true);
   if (!s?.user) $("acctsave").onclick = () => renderAccountForm();
   $("signout").onclick = async () => { await cloud.signOut(); await clearCache(); start(); };
 }
@@ -297,7 +390,7 @@ function quickAdd(pre = {}) {
       : `<form id="qform"><div class="field"><label for="qurl">Website address</label><input id="qurl" class="search big" inputmode="url" autocomplete="off" placeholder="example.com" value="${esc(w.url)}"></div>
         ${w.role === "competitor" ? `<div class="field"><label>Whose competitor is it?</label><div class="tiles">${biz.map((b) => tile("data-of", b.origin, esc(b.name), b.role === "client" ? "Client" : "Your business", w.of === b.origin)).join("")}${tile("data-of", "", "Not linked", "Track it on its own.", w.of === "")}</div></div>` : ""}
         <div class="field"><label for="qkw">Searches it should rank for (optional, comma separated)</label><input id="qkw" class="search" placeholder="roof repair york pa, metal roofing"></div>
-        <div class="btns stack"><button class="primary" id="qsave" ${w.role === "competitor" && biz.length && w.of == null ? "disabled" : ""}>Add and sync</button>${w.fixed ? "" : `<button type="button" id="qback">Back</button>`}</div></form>`}`;
+        <div class="btns stack"><button class="primary" id="qsave" ${w.role === "competitor" && biz.length && w.of == null ? "disabled" : ""}>Add</button>${w.fixed ? "" : `<button type="button" id="qback">Back</button>`}</div></form>`}`;
     $("qclose").onclick = close;
     box.querySelectorAll("[data-qa]").forEach((b) => (b.onclick = () => { w.role = b.dataset.qa; draw(); }));
     box.querySelectorAll("[data-of]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); w.url = $("qurl").value; w.of = b.dataset.of; draw(); }));
@@ -312,7 +405,12 @@ function quickAdd(pre = {}) {
       const site = { origin: o, name: old?.name || hostOf(o), addedAt: old?.addedAt || new Date().toISOString(), keywords: [...new Set([...(old?.keywords || []), ...kws])],
         role: w.role, competitorOf: w.role === "competitor" ? w.of || null : null };
       $("qsave").disabled = true;
-      try { await putSite(site); close(); toast(`Added ${hostOf(o)}. Scan it from the extension on your computer`); openSite(o); }
+      try {
+        await putSite(site); close();
+        if (S.lookup?.origin === o) { await keepScan(o, S.lookup.scan); S.lookup = null; toast(`Tracking ${hostOf(o)}`); }
+        else toast(`Added ${hostOf(o)}. Press Scan now to rate it`);
+        openSite(o);
+      }
       catch (err) { $("qsave").disabled = false; fail(err); }
     };
   };
@@ -321,7 +419,7 @@ function quickAdd(pre = {}) {
   box.querySelector("button, input")?.focus();
 }
 
-const fail = (e) => notice(esc(e.message || e) + " Check your connection and try again.");
+const fail = (e) => notice(esc(e.message || e));
 
 // ------------------------------------------------------------------ app
 function render() {
@@ -346,7 +444,30 @@ async function start() {
 }
 
 document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; S.open = null; notice(""); render(); scrollTo(0, 0); }));
+// A light tap on every button press.
+document.addEventListener("pointerdown", (e) => e.target.closest?.("button, .btn, a, select") && haptic("tap"), { passive: true });
+
+// ------------------------------------------------------------------ updates: a pop-up when a newer app is published
+let BUILD = "?", lastCheck = 0;
+fetch("./build.json").then((r) => r.json()).then((j) => (BUILD = j.build || "dev")).catch(() => {});
+async function checkUpdate(asked = false) {
+  if (!asked && Date.now() - lastCheck < 3 * 3600e3) return;
+  lastCheck = Date.now();
+  const u = await newerBuild();
+  if (!u) return asked && toast("You have the newest version");
+  if (!asked && localStorage.getItem("sgm.skipBuild") === String(u.build)) return;
+  const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
+  box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Update available</h2></div>
+    <p class="lede">A newer version of SEO God Mode is ready (build ${esc(String(u.build))}, you have ${esc(String(u.mine || "an older one"))}).${u.notes ? ` ${esc(u.notes)}` : ""}</p>
+    <p class="unknowns">Update now downloads it in your browser. Open the download and tap Install; your sites stay on the phone.</p>
+    <div class="btns stack"><button id="updnow" class="primary">Update now</button><button id="updlater">Later</button></div>`;
+  sheet.onclick = null;
+  sheet.hidden = false;
+  $("updnow").onclick = () => { sheet.hidden = true; location.href = u.apk; };
+  $("updlater").onclick = () => { localStorage.setItem("sgm.skipBuild", String(u.build)); sheet.hidden = true; };
+}
 $("quickadd").onclick = () => quickAdd();
-document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && !$("mode").hidden && pull());
+document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") return; checkUpdate(); if (!$("mode").hidden) pull(); });
 setInterval(paintStatus, 60000);
 start();
+checkUpdate();

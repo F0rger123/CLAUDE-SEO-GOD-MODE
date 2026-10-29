@@ -53,7 +53,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES="SEO God Mode for Android, synced with the Chrome extension. On your phone: download SEO-God-Mode.apk below, open it, and allow your browser to install apps if Android asks. Sign in with the same email as the extension (Settings > Sync with your phone). Build ${GITHUB_RUN_NUMBER} from ${GITHUB_SHA::7}."
+          NOTES="SEO God Mode for Android: rate any website, and sync your tracked sites with the Chrome extension. On your phone: download SEO-God-Mode.apk below, open it, and allow your browser to install apps if Android asks. After that, the app tells you when a new version is out. Build ${GITHUB_RUN_NUMBER} from ${GITHUB_SHA::7}."
           if gh release view android-app >/dev/null 2>&1; then gh release edit android-app --notes "$NOTES" --latest=false
           else gh release create android-app --title "SEO God Mode for Android" --notes "$NOTES" --latest=false; fi
           gh release upload android-app SEO-God-Mode.apk --clobber
+          # The app reads this to offer the update (after the APK is up, so the link always works).
+          SUBJECT=$(git log -1 --format=%s)
+          VERSION=$(node -p "require('./mobile/package.json').version")
+          node -e 'const [b, v, n] = process.argv.slice(1); console.log(JSON.stringify({ build: +b, version: v, notes: n, apk: "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/SEO-God-Mode.apk" }))' "$GITHUB_RUN_NUMBER" "$VERSION" "$SUBJECT" > latest.json
+          gh release upload android-app latest.json --clobber

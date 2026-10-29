@@ -94,10 +94,10 @@ const pLimit = async (items, n, fn) => { const out = new Array(items.length); le
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } })); return out; };
 
 /** common.fetch: follows redirects and records whether there was a hop. */
-async function pyFetch(url, { timeout = 20000 } = {}) {
+async function pyFetch(url, { timeout = 20000, headers: send } = {}) {
   const t0 = performance.now();
   try {
-    const r = await fetch(url, { cache: "no-store", credentials: "omit", redirect: "follow", signal: AbortSignal.timeout(timeout) });
+    const r = await fetch(url, { cache: "no-store", credentials: "omit", redirect: "follow", signal: AbortSignal.timeout(timeout), ...(send ? { headers: send } : {}) });
     const body = await r.text();
     const headers = {}; r.headers.forEach((v, k) => (headers[k.toLowerCase()] = v));
     return { url, final_url: r.url || url, status: r.status, chain: r.redirected ? [[url, 301], [r.url, r.status]] : [[url, r.status]],
@@ -247,9 +247,13 @@ async function psiScore(site, key) {
   } catch (e) { return [null, "unavailable (" + String(e.message || e).slice(0, 60) + ")"]; }
 }
 
-/** Homepage status as seen with a crawler's user-agent. Uses a session rule because fetch() can't set User-Agent. */
+/**
+ * Homepage status as seen with a crawler's user-agent. In the extension it uses a session rule because fetch() can't
+ * set User-Agent; the Android app's native requests can set it directly (sgmCanSetUA).
+ */
 async function probeUA(url, ua, id) {
-  const dnr = chrome.declarativeNetRequest;
+  if (globalThis.sgmCanSetUA) return (await pyFetch(url, { timeout: 15000, headers: { "user-agent": ua } })).status;
+  const dnr = globalThis.chrome?.declarativeNetRequest;
   if (!dnr?.updateSessionRules) return null;
   await dnr.updateSessionRules({ removeRuleIds: [id], addRules: [{ id, priority: 1,
     action: { type: "modifyHeaders", requestHeaders: [{ header: "user-agent", operation: "set", value: ua }] },

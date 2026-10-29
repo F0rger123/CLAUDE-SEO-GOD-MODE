@@ -479,7 +479,23 @@ await new Promise((r) => app.listen(0, "127.0.0.1", r));
 const phone = await ctx.newPage();
 phone.on("pageerror", (e) => { console.log("phone error:", e.message); panelErrors.push("phone: " + e.message); });
 await phone.setViewportSize({ width: 390, height: 844 });
+// A newer published build shows the update pop-up (this test build is build 0).
+await phone.route("https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/latest.json**", (r) =>
+  r.fulfill({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "application/json" },
+    body: JSON.stringify({ build: 999, version: "9.9.9", notes: "Rate sites on the phone.", apk: "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/SEO-God-Mode.apk" }) }));
+// The phone app reads websites directly (natively in the real app); here the test servers allow it.
+const lookSrv = await serve((b) => good(b)), lookBase = lookSrv.base;
+for (const b of [badBase, goodBase, lookBase]) await phone.route(b + "/**", async (r) => {
+  const res = await r.fetch({ maxRedirects: 0 }).catch(() => null);
+  if (!res) return r.abort();
+  await r.fulfill({ response: res, headers: { ...res.headers(), "access-control-allow-origin": "*" } });
+});
 await phone.goto(`http://127.0.0.1:${app.address().port}/`);
+await phone.waitForSelector("#updnow", { timeout: 15000 });
+assert.match(await phone.$eval("#sheet", (e) => e.textContent), /Update available.*build 999/s);
+await phone.screenshot({ path: path.join(repo, "assets", "mobile-update.png") });
+await phone.click("#updlater");
+assert.equal(await phone.evaluate(() => localStorage.getItem("sgm.skipBuild")), "999", "Later remembers the build");
 // A wrong code is refused with a plain message; the extension's code connects (any case, spaces instead of dashes).
 assert.match(await phone.$eval("#view", (e) => e.textContent), /Start without an account/);
 await phone.fill("#scode", "1234"); await phone.click("#sgo");
@@ -548,11 +564,38 @@ await phone.waitForFunction(() => /username is taken/.test(document.getElementBy
 await phone.fill("#auser", "phone.only"); await phone.click("#aup");
 await phone.waitForFunction(() => /Signed in as phone\.only/.test(document.getElementById("view").textContent), null, { timeout: 15000 });
 assert.equal(sb.accounts.get("phone.only").code, fresh.replace(/-/g, ""), "phone-only account keeps its code");
+// Rate any website on the phone, no extension needed, then track it: the scan and score history sync.
+await phone.click('#mode [data-tab="sites"]');
+await phone.fill("#pasteurl", lookBase); await phone.click("#paste button");
+await phone.waitForSelector("#track", { timeout: 90000 }).catch(async (e) => { console.log("phone view:", await phone.$eval("#view", (x) => x.textContent), "notice:", await phone.$eval("#notice", (x) => x.textContent)); throw e; });
+const looked = await phone.$eval("#view", (e) => e.textContent);
+assert.match(looked, /Summary/); assert.match(looked, /Overall/);
+await phone.screenshot({ path: path.join(repo, "assets", "mobile-rate.png") });
+await phone.click("#track"); await phone.click('[data-qa="mine"]'); await phone.click("#qsave");
+await phone.waitForSelector("#scannow");
+await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 20000 });
+await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent) && !/to send/.test(document.getElementById("status").textContent));
+for (let i = 0; i < 50 && !sb.tables.data.some((r) => r.key === "scan:" + lookBase); i++) await phone.waitForTimeout(200);
+assert.ok(sb.tables.data.some((r) => r.key === "scan:" + lookBase && r.value?.scores), "phone scan synced");
+assert.ok(sb.tables.data.some((r) => r.key === "trend:" + lookBase && r.value?.length === 1), "phone score history synced");
+// Before the sync server is set up (SQL not run): adding a site still works and waits on the phone, then sends.
+sb.flags.notReady = true;
+await phone.click('#mode [data-tab="sites"]');
+await phone.click("#quickadd"); await phone.click('[data-qa="client"]');
+await phone.fill("#qurl", "waiting-client.example"); await phone.click("#qsave");
+await phone.waitForFunction(() => /sync server is set up/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
+assert.doesNotMatch(await phone.$eval("#notice", (e) => (e.hidden ? "" : e.textContent)), /schema cache/);
+await phone.click('#mode [data-tab="sites"]');
+assert.match(await phone.$eval("#view", (e) => e.textContent), /waiting-client\.example/);
+sb.flags.notReady = false;
+await phone.click("#syncbtn");
+await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
+assert.ok(sb.tables.sites.some((r) => r.origin === "https://waiting-client.example" && r.role === "client"), "waiting site sent once the server is ready");
 // The tables can't be read directly, like the real database.
 const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sync_sites?select=*", { headers: { apikey: "x" } })).status);
 assert.equal(anon, 401);
 app.close();
 
-await ctx.close(); s1.close(); s2.close();
+await ctx.close(); s1.close(); s2.close(); lookSrv.srv.close();
 assert.deepEqual(panelErrors, [], "no script errors in the panel");
 console.log("E2E OK");

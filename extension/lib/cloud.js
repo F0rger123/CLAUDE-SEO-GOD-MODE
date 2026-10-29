@@ -26,6 +26,13 @@ export function cleanCode(text) {
 }
 const formatCode = (v) => v.replace(/-/g, "").match(/.{4}/g).join("-");
 
+/** A server error as plain words. notReady: the database script hasn't been run yet (the functions don't exist). */
+export function serverError(res, j, what) {
+  if (res.status === 404 || j.code === "PGRST202")
+    return Object.assign(new Error("The sync server isn't set up yet: its database script hasn't been run."), { notReady: true });
+  return new Error(j.message || `${what} (${res.status})`);
+}
+
 /** store: { load(): {code, user?}|null, save({code, user?}|null) }. Read from the store on every call, never cached. */
 export function makeCloud(store) {
   async function rpc(fn, args) {
@@ -33,7 +40,7 @@ export function makeCloud(store) {
     if (!s?.code) throw Object.assign(new Error("Sync is off"), { signedOut: true });
     const res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: "POST", body: JSON.stringify({ p_code: s.code, ...args }),
       headers: { apikey: SB_KEY, "content-type": "application/json" } });
-    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.message || `Sync failed (${res.status})`); }
+    if (!res.ok) { const j = await res.json().catch(() => ({})); throw serverError(res, j, "Sync failed"); }
     return res.status === 204 ? null : res.json().catch(() => null);
   }
   /** Every row changed after `since`, oldest first. table: "sites" or "site_data". */
@@ -62,7 +69,7 @@ export function makeCloud(store) {
       body: JSON.stringify({ p_name: user, p_password: password, p_create: kind === "signup", p_code: kind === "signup" ? before || newCode() : null }),
       headers: { apikey: SB_KEY, "content-type": "application/json" } });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(j.message || `Sign in failed (${res.status})`);
+    if (!res.ok) throw serverError(res, j, "Sign in failed");
     if (j.error) throw new Error(j.error);
     const code = cleanCode(j.code);
     if (!code) throw new Error("Sign in failed (no sync code on the account)");

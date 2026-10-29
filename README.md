@@ -84,13 +84,14 @@ From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_
 
 Install in four clicks: download the zip and unzip it, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder. Details: [extension/README.md](extension/README.md). Chrome Web Store kit: [store/LISTING.md](store/LISTING.md).
 
-## 📱 Android app: your tracked sites in your pocket
+## 📱 Android app: rate any site and see your tracked sites, in your pocket
 
 <p><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/SEO-God-Mode.apk"><img src="https://img.shields.io/badge/Download-Android%20app%20(.apk)-000000?style=for-the-badge&logo=android&logoColor=white" alt="Download the Android app"></a></p>
 
-Your businesses, clients and competitors on your phone, synced with the Chrome extension: scores and history, the summary and fix prompt from the newest scan, keyword positions and the keyword report, and each business next to its competitors. Paste a link to look a site up, or **+ Quick add** a client, a website of yours, or a competitor. Sites added on the phone show up in the extension, ready to scan.
+**Paste any link to rate the whole site right on your phone**, with the same crawl, checks and scores as the Chrome extension: summary, top fixes and the fix prompt. No account, no computer and no setup needed. Track your businesses, clients and competitors, synced with the extension: scores and history, keyword positions and the keyword report, and each business next to its competitors. **+ Quick add** a client, a website of yours, or a competitor. Everything is saved on the phone first, so it works offline. When a new version is out, the app tells you and downloads it in one tap. Light haptic feedback on every tap.
 
 <p align="center">
+  <img src="assets/mobile-rate.png" alt="Android app: rating a website on the phone" width="200">
   <img src="assets/mobile-sites.png" alt="Android app: tracked sites" width="200">
   <img src="assets/mobile-site.png" alt="Android app: one site's scores and summary" width="200">
   <img src="assets/mobile-compare.png" alt="Android app: a business next to its competitors" width="200">
@@ -99,11 +100,11 @@ Your businesses, clients and competitors on your phone, synced with the Chrome e
 
 ```mermaid
 flowchart LR
-  A["Chrome extension<br/>scans sites, checks Google"] -->|"sends sites, scores, positions"| C[("Your private online copy")]
-  B["Phone app<br/>look up, compare, quick add"] <-->|"reads and adds"| C
+  A["Chrome extension<br/>rates sites, checks Google"] <-->|"sites, scores, positions"| C[("Your private online copy")]
+  B["Phone app<br/>rates sites, compare, quick add"] <-->|"sites, scores"| C
 ```
 
-**Install it:** on your phone, tap the button above (or open the [android-app release](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app)), open **SEO-God-Mode.apk**, and allow your browser to install apps if Android asks. Then, in the Chrome extension, open **Settings › Sync with your phone**, press **Turn on sync**, and type the code it shows into the app. Phone only? Tap **Start without an account**. No account needed. An account is optional: **Sign in or create account** (a username and password, no email, in the app or the extension) remembers your code, so you sign in on a new device instead of typing it, and you can use the app on its own without a computer. Scanning sites and checking Google stay in the extension.
+**Install it:** on your phone, tap the button above (or open the [android-app release](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app)), open **SEO-God-Mode.apk**, and allow your browser to install apps if Android asks. Then, in the Chrome extension, open **Settings › Sync with your phone**, press **Turn on sync**, and type the code it shows into the app. Phone only? Tap **Start without an account**. No account needed. An account is optional: **Sign in or create account** (a username and password, no email, in the app or the extension) remembers your code, so you sign in on a new device instead of typing it, and you can use the app on its own without a computer. Checking Google positions stays in the extension. Installed once, the app offers each new version itself.
 
 ## 🥊 Stays ahead of your competitors
 

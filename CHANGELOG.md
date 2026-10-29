@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.22.0 (2026-10-29): extension 1.17 and app: rate sites on the phone, update pop-up, haptics
+
+- **Rate any website on the phone:** paste a link and the app rates the whole site itself, with the same crawl, checks and scores as the extension (summary, top fixes, fix prompt). Tracked sites get **Scan now**; their scans and score history sync to the extension. No account, sync server or computer needed. The app reads sites through Android's own network client, so it isn't blocked the way a web page would be, and it can check how crawlers see the homepage.
+- **Works before the sync server is set up, and offline:** everything is saved on the phone first and sent when it can be. Instead of a database error, the status line says it's saved on the phone and syncs once the server is set up.
+- **Update pop-up:** each new app build publishes `latest.json` next to the APK. When a newer build is out, the app shows **Update available**, and **Update now** downloads it in one tap (Android then asks you to tap Install). **Account › Check for updates** checks on demand.
+- **Haptic feedback** on taps, a success buzz on saves and a warning buzz on problems.
+- The extension's site rating can set a crawler User-Agent where the platform allows it (the phone), and its sync errors say plainly when the server's database script hasn't been run.
+
 ## 2.21.1 (2026-10-29): extension 1.16.1 and app: optional account, no email
 
 - **Sign in or create account (optional):** sync still works with just the code, but you can now make an account with a **username and password** (no email, nothing is sent), in the extension (**Settings › Sync with your phone**) or the app's connect screen. The account remembers your sync code: sign in on a new phone or computer and your sites appear, without typing the code. You can also use the app on its own, with no computer, and keep your sites in the account. **Save to an account** adds an account to a code you already use.

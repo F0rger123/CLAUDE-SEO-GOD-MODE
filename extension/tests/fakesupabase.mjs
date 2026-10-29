@@ -8,6 +8,8 @@ export function fakeSupabase() {
   const tables = { sites: [], data: [] };
   // Accounts: username -> {password, code, failed, lockedUntil}. Like the real one: errors come back as {error}.
   const accounts = new Map();
+  // notReady: answer like a project where the SQL hasn't been run (no functions yet).
+  const flags = { notReady: false };
   const keyOf = { sites: (r) => r.space + "|" + r.origin, data: (r) => r.space + "|" + r.key };
   let tick = 0;
   // Server time, always increasing (microseconds), like clock_timestamp().
@@ -28,6 +30,7 @@ export function fakeSupabase() {
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
     const fn = url.pathname.match(/^\/rest\/v1\/rpc\/(\w+)$/)?.[1];
     if (!fn) return json(route, 401, { code: "42501", message: "permission denied" });
+    if (flags.notReady) return json(route, 404, { code: "PGRST202", message: `Could not find the function public.${fn} in the schema cache` });
     const body = JSON.parse(req.postData() || "{}");
     if (fn === "sgm_account") {
       const n = String(body.p_name || "").trim().toLowerCase(), pw = String(body.p_password || "");
@@ -57,5 +60,5 @@ export function fakeSupabase() {
     if (fn === "sgm_push_data") { upsert("data", s, body.p_rows); return json(route, 204); }
     return json(route, 404, { message: "no such function" });
   }
-  return { tables, space, accounts, route: (ctx) => ctx.route(SB_URL + "/**", handle) };
+  return { tables, space, accounts, flags, route: (ctx) => ctx.route(SB_URL + "/**", handle) };
 }
