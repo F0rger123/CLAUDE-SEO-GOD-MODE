@@ -30,7 +30,6 @@ jobs:
           npm install --no-audit --no-fund
           node build.mjs
           npx cap add android
-          node android-setup.mjs
           npx capacitor-assets generate --android
           npx cap sync android
           # Each build gets a higher version code, so it installs over the previous one.

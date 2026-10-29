@@ -452,20 +452,20 @@ await bs.panel.waitForFunction((o) => !document.querySelector(`[data-open="${o}"
 const left = await bs.panel.evaluate(async (o) => { const all = await chrome.storage.local.get(null); return { sites: all.tracked.map((t) => t.origin), trend: !!all["trend:" + o], linked: all.tracked.filter((t) => t.competitorOf === o).length }; }, rival);
 assert.deepEqual(left.sites, [badBase]); assert.equal(left.trend, false, "competitor's history deleted");
 
-// ---- Phone sync (stand-in database): sign in from Settings, the phone app sees the same sites, and a competitor added
+// ---- Phone sync (stand-in database): turn on sync in Settings, the phone app connects with the code and sees the same sites, and a competitor added
 // on the phone shows up in the extension, ready to scan.
 const sb = fakeSupabase(); await sb.route(ctx);
 const xp = bs.panel;
 await xp.click('#mode [data-mode="google"]');
-await xp.waitForSelector("#syncemail");
-await xp.fill("#syncemail", "owner@example.com"); await xp.click("#syncgo");
-await xp.waitForSelector("#synccode");
-assert.match(sb.otpUrls.at(-1), /redirect_to=https%3A%2F%2Ff0rger123\.github\.io%2FCLAUDE-SEO-GOD-MODE%2Fsignin%2F/, "email link lands on the sign-in page");
-await xp.fill("#synccode", "https://ouinmglpmeqriowdbwes.supabase.co/auth/v1/verify?token=hash-owner@example.com&type=magiclink&redirect_to=http://localhost:3000"); await xp.click("#syncgo");
-await xp.waitForFunction(() => /Signed in as owner@example\.com/.test(document.getElementById("syncbox").textContent), null, { timeout: 20000 });
+await xp.waitForSelector("#syncnew");
+await xp.click("#syncnew");
+await xp.waitForFunction(() => /Last synced/.test(document.getElementById("syncbox").textContent), null, { timeout: 20000 });
+const code = await xp.$eval("#code", (e) => e.textContent.trim());
+assert.match(code, /^[0-9A-HJKMNP-TV-Z]{4}(-[0-9A-HJKMNP-TV-Z]{4}){4}$/, "sync code shown");
 assert.ok(sb.tables.sites.some((r) => r.origin === badBase && !r.deleted_at), "tracked site sent");
-assert.ok(sb.tables.site_data.some((r) => r.key === "trend:" + badBase), "score history sent");
-assert.ok(sb.tables.site_data.some((r) => r.key === "scan:" + badBase && r.value?.scores), "newest whole-site scan sent");
+assert.ok(sb.tables.data.some((r) => r.key === "trend:" + badBase), "score history sent");
+assert.ok(sb.tables.data.some((r) => r.key === "scan:" + badBase && r.value?.scores), "newest whole-site scan sent");
+assert.ok(sb.tables.sites.every((r) => r.space === sb.space(code)), "filed under the code's hash");
 await noToast(); await xp.evaluate(() => document.getElementById("syncbox").scrollIntoView({ block: "center" })); await xp.waitForTimeout(200);
 await xp.screenshot({ path: path.join(repo, "assets", "extension-sync.png") });
 
@@ -480,13 +480,10 @@ const phone = await ctx.newPage();
 phone.on("pageerror", (e) => { console.log("phone error:", e.message); panelErrors.push("phone: " + e.message); });
 await phone.setViewportSize({ width: 390, height: 844 });
 await phone.goto(`http://127.0.0.1:${app.address().port}/`);
-await phone.fill("#semail", "owner@example.com"); await phone.click("#sgo");
-// A used link is refused with a plain message; the address the link opened (it carries the session) signs in.
-await phone.fill("#scode", "https://ouinmglpmeqriowdbwes.supabase.co/auth/v1/verify?token=hash-owner@example.com&type=magiclink"); await phone.click("#sgo");
-await phone.waitForFunction(() => /already used or has expired/.test(document.getElementById("notice").textContent));
-const owner = sb.users.get("owner@example.com"), b64u = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
-await phone.fill("#scode", `http://localhost:3000/#access_token=${b64u({ alg: "HS256" })}.${b64u({ sub: owner.id, email: owner.email })}.sig&expires_in=3600&refresh_token=rt.${owner.id}&token_type=bearer&type=magiclink`);
-await phone.click("#sgo");
+// A wrong code is refused with a plain message; the extension's code connects (any case, spaces instead of dashes).
+await phone.fill("#scode", "1234"); await phone.click("#sgo");
+await phone.waitForFunction(() => /isn't a sync code/.test(document.getElementById("notice").textContent));
+await phone.fill("#scode", code.toLowerCase().replace(/-/g, " ")); await phone.click("#sgo");
 await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
 assert.match(await phone.$eval("#status", (e) => e.textContent), /Synced/);
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-sites.png") });
@@ -517,18 +514,10 @@ await phone.waitForSelector("table.mini"); await phone.waitForTimeout(400);
 assert.match(await phone.$eval("#view", (e) => e.textContent), /rival-roofing\.example/);
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-compare.png") });
 await noClaude(phone, "phone app");
-// Signed-out requests are refused, like the real database.
-const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sites?select=*", { headers: { apikey: "x" } })).status);
+// The tables can't be read directly, like the real database.
+const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sync_sites?select=*", { headers: { apikey: "x" } })).status);
 assert.equal(anon, 401);
 app.close();
-// The page the email's Log In link lands on: a computer gets Copy sign-in; a bad link says why.
-let landing = await ctx.newPage();
-await landing.goto(pathToFileURL(path.join(repo, "site", "signin", "index.html")).href + "#access_token=a.b.c&refresh_token=r1&expires_in=3600&type=magiclink");
-assert.equal(await landing.isVisible("#copy"), true); assert.equal(await landing.isVisible("#open"), false);
-await landing.close(); landing = await ctx.newPage();
-await landing.goto(pathToFileURL(path.join(repo, "site", "signin", "index.html")).href + "#error=access_denied&error_description=Email+link+is+invalid+or+has+expired");
-assert.match(await landing.textContent("#why"), /invalid or has expired/);
-await landing.close();
 
 await ctx.close(); s1.close(); s2.close();
 assert.deepEqual(panelErrors, [], "no script errors in the panel");

@@ -1,6 +1,6 @@
 /**
  * SEO God Mode for Android: your tracked sites, scores, positions and competitors, synced with the Chrome extension.
- *  - Sign in with an emailed link (same email as the extension).
+ *  - Connect with the sync code from the extension (no account or email).
  *  - Sites: everything you track, grouped like the extension's Track view. Paste a link to look it up or add it.
  *  - A site: scores, history, summary and fix prompt from its newest whole-site scan, keyword positions and report,
  *    and its competitors side by side. Add or remove keywords and competitors; change what it is to you.
@@ -9,7 +9,7 @@
  *    you can scan them on the computer.
  * Scanning websites and checking Google stay in the extension. Data is cached on the phone, so it opens offline.
  */
-import { EPOCH, makeCloud, siteFromRow, siteRow } from "./lib/cloud.js";
+import { EPOCH, makeCloud, newCode, siteFromRow, siteRow } from "./lib/cloud.js";
 import { lineChart } from "./lib/track.js";
 import { summaryText } from "./lib/summary.js";
 import { fixAllPrompt } from "./lib/prompts.js";
@@ -30,8 +30,8 @@ const originOf = (raw) => { const u = new URL(/^https?:/i.test(raw.trim()) ? raw
 
 // ------------------------------------------------------------------ storage: session in localStorage, data in IndexedDB
 const cloud = makeCloud({
-  load: async () => { try { return JSON.parse(localStorage.getItem("sgm.session") || "null"); } catch { return null; } },
-  save: async (s) => (s ? localStorage.setItem("sgm.session", JSON.stringify(s)) : localStorage.removeItem("sgm.session")),
+  load: async () => { try { return JSON.parse(localStorage.getItem("sgm.sync") || "null"); } catch { return null; } },
+  save: async (s) => (s ? localStorage.setItem("sgm.sync", JSON.stringify(s)) : localStorage.removeItem("sgm.sync")),
 });
 const dbp = new Promise((res, rej) => { const r = indexedDB.open("sgm", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 const idb = async (mode, fn) => { const d = await dbp; return new Promise((res, rej) => { const tx = d.transaction("kv", mode); const q = fn(tx.objectStore("kv")); tx.oncomplete = () => res(q?.result); tx.onerror = () => rej(tx.error); }); };
@@ -75,8 +75,7 @@ async function pull({ quiet = true } = {}) {
 
 /** Save one site (new or changed) online, then refresh. */
 async function putSite(site, deleted = false) {
-  const s = await cloud.current();
-  await cloud.putSites([siteRow(site, s.userId, deleted)]);
+  await cloud.putSites([siteRow(site, deleted)]);
   deleted ? S.sites.delete(site.origin) : S.sites.set(site.origin, site);
   await saveCache();
   render();
@@ -95,32 +94,28 @@ function paintStatus() {
   $("syncbtn").onclick = () => pull({ quiet: false });
 }
 
-// ------------------------------------------------------------------ sign in
-function renderSignIn(step = null) {
+// ------------------------------------------------------------------ connect with a sync code
+function renderSignIn(fresh = null) {
   $("mode").hidden = true; $("quickadd").hidden = true;
   $("status").textContent = "Your tracked sites, on your phone";
-  $("view").innerHTML = `<h1 class="q">Sign in</h1>
-    <p class="lede">Use the same email you signed in with in the extension (Settings › Sync with your phone). We email you a sign-in link; there's no password.</p>
-    <form id="sform" class="field">${step
-      ? `<p class="lede"><b>Check your email on this phone and tap Log In.</b> The page that opens brings you back here, signed in.</p>
-        <label for="scode">Or paste the sign-in here</label><input id="scode" class="search big" autocomplete="off" placeholder="Paste here">
-        <p class="unknowns">If the app doesn't open by itself, press <b>Open SEO God Mode</b> on that page, or press <b>Copy sign-in</b> there and paste it here.</p>`
-      : `<label for="semail">Your email</label><input id="semail" class="search big" type="email" autocomplete="email" placeholder="you@example.com">`}</form>
-    <div class="btns stack"><button id="sgo" class="primary">${step ? "Sign in" : "Email me a sign-in link"}</button>${step ? `<button id="sback">Use another email</button>` : ""}</div>`;
+  $("view").innerHTML = fresh ? `<h1 class="q">Your sync code</h1>
+      <p class="synccode">${esc(fresh)}</p>
+      <p class="lede">Write it down or copy it somewhere safe. Type it into the Chrome extension (Settings › Sync with your phone › I have a code) to see the same sites on your computer. Anyone with the code can see and change your tracked sites.</p>
+      <div class="btns stack"><button id="scopy">Copy code</button><button id="sgo" class="primary">Continue</button></div>`
+    : `<h1 class="q">Connect</h1>
+      <p class="lede">In the Chrome extension, open <b>Settings › Sync with your phone</b> and press <b>Turn on sync</b>. Type the code it shows here. No account or email needed.</p>
+      <form id="sform" class="field"><label for="scode">Sync code</label><input id="scode" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
+      <div class="btns stack"><button id="sgo" class="primary">Connect</button><button id="snew">I don't use the extension yet: start fresh</button></div>`;
+  if (fresh) {
+    $("scopy").onclick = () => copy(fresh, "Sync code copied");
+    $("sgo").onclick = () => cloud.use(fresh).then(start);
+    return;
+  }
   $("sform").onsubmit = (e) => { e.preventDefault(); $("sgo").click(); };
-  if (step) $("sback").onclick = () => renderSignIn();
+  $("snew").onclick = () => renderSignIn(newCode());
   $("sgo").onclick = async () => {
-    const b = $("sgo"); b.disabled = true; notice("");
-    try {
-      if (!step) {
-        const email = $("semail").value.trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("That doesn't look like an email address.");
-        await cloud.sendCode(email);
-        return renderSignIn({ email });
-      }
-      await cloud.signIn(step.email, $("scode").value);
-      start();
-    } catch (e) { b.disabled = false; notice(esc(e.message || e)); }
+    notice("");
+    try { await cloud.use($("scode").value); start(); } catch (e) { notice(esc(e.message || e)); }
   };
 }
 
@@ -140,7 +135,7 @@ function renderSites() {
   const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"]];
   $("view").innerHTML = `<form id="paste" class="field"><label for="pasteurl">Look up a website</label><div class="row"><input id="pasteurl" class="search big" inputmode="url" autocomplete="off" placeholder="Paste a link"><button class="primary">Go</button></div></form>
     ${list.length ? groups.map(([role, title]) => { const xs = list.filter((s) => s.role === role); return xs.length ? `<h2 class="sec">${title} <small>${xs.length}</small></h2><div class="tlist">${xs.map(card).join("")}</div>` : ""; }).join("")
-      : `<div class="emptybox"><b>Nothing tracked yet</b><p>Sites you track in the Chrome extension show up here once it's signed in. Or press + Quick add.</p></div>`}`;
+      : `<div class="emptybox"><b>Nothing tracked yet</b><p>Sites you track in the Chrome extension show up here once sync is on there. Or press + Quick add.</p></div>`}`;
   $("paste").onsubmit = (e) => {
     e.preventDefault();
     let o; try { o = originOf($("pasteurl").value); } catch { return notice("That doesn't look like a website address. Try something like example.com."); }
@@ -242,12 +237,13 @@ function renderCompare() {
 async function renderAccount() {
   const s = await cloud.current();
   $("view").innerHTML = `<h2 class="sec first">Account</h2>
-    <div class="upd"><p>Signed in as <b>${esc(s?.email || "")}</b>. ${S.lastSync ? `Last synced ${ago(S.lastSync)}.` : ""}</p>
-    <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database, where only your sign-in can read them, and cached on this phone so the app opens offline.</p>
-    <div class="btns"><button id="signout">Sign out</button></div></div>
+    <div class="upd"><p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
+    <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database under this code, and cached on this phone so the app opens offline. Anyone with the code can see and change them, so keep it private.</p>
+    <div class="btns"><button id="copycode">Copy code</button><button id="signout">Disconnect this phone</button></div></div>
     <h2 class="sec">How it works</h2>
     <p class="lede">Scanning websites and checking Google positions run in the Chrome extension on your computer. This app shows the results and lets you add and organise sites, keywords and competitors; changes reach the extension within a minute while Chrome is open.</p>
     <p class="unknowns">SEO God Mode · Built by <a href="https://theagencyzero.com" target="_blank" rel="noopener">theagencyzero.com</a></p>`;
+  $("copycode").onclick = () => copy(s?.code || "", "Sync code copied");
   $("signout").onclick = async () => { await cloud.signOut(); await Promise.all(["sites", "data", "cursor", "lastSync"].map((k) => setK(k, undefined))); S.sites.clear(); S.data.clear(); S.cursor = { sites: EPOCH, data: EPOCH }; S.lastSync = 0; start(); };
 }
 
@@ -314,16 +310,6 @@ async function start() {
   // While the app is open: every 20 seconds, and whenever it comes back to the front.
   poll = setInterval(() => document.visibilityState === "visible" && pull(), 20000);
 }
-
-// The sign-in page opens the app with seogodmode://login?access_token=…, at launch or while it's open.
-async function fromLink(url) {
-  if (!/access_token=/.test(url || "")) return;
-  try { await cloud.signIn("", url); toast("Signed in"); notice(""); } catch (e) { notice(esc(e.message || e)); }
-  start();
-}
-const AppPlugin = window.Capacitor?.Plugins?.App || window.Capacitor?.registerPlugin?.("App");
-AppPlugin?.addListener?.("appUrlOpen", ({ url }) => fromLink(url));
-AppPlugin?.getLaunchUrl?.().then((r) => fromLink(r?.url)).catch(() => {});
 
 document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; S.open = null; notice(""); render(); scrollTo(0, 0); }));
 $("quickadd").onclick = () => quickAdd();

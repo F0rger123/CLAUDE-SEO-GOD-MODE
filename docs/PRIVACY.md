@@ -20,7 +20,7 @@ One request goes to a third party: a whole-site scan asks **Google PageSpeed Ins
 
 **Updates:** once a day it asks GitHub for the latest release number. If you turn on one-click updates, a small helper on your computer downloads the release zip from GitHub into the extension folder you chose. Nothing about you is sent.
 
-**Sync with your phone (off unless you sign in):** if you sign in under Settings › Sync with your phone, your email address is sent to SEO God Mode's database host (Supabase, at `ouinmglpmeqriowdbwes.supabase.co`) to email you a sign-in code. While you're signed in, your tracked sites (address, name, whether it's yours, a client or a competitor, and its keywords), their score history, recorded positions, keyword reports and the newest whole-site scan of each are stored there, so the Android app can show them, and changes made in the app come back. Each account can only read its own rows. **Turn off sync** signs out and stops sending; ask us (below) to delete the stored copy.
+**Sync with your phone (off unless you turn it on):** turning it on under Settings › Sync with your phone makes a random sync code on your computer. While it's on, your tracked sites (address, name, whether it's yours, a client or a competitor, and its keywords), their score history, recorded positions, keyword reports and the newest whole-site scan of each are stored in SEO God Mode's database (Supabase, at `ouinmglpmeqriowdbwes.supabase.co`), filed under a one-way hash of the code, so the Android app can show them and changes made in the app come back. There's no account and no email. Anyone who has the code can read and change that copy, so keep it private. **Turn off sync** stops sending; ask us (below) to delete the stored copy.
 
 ## What it stores
 
@@ -28,7 +28,7 @@ Scan results (scores, check results and the page facts behind them) are saved in
 
 ## What it shares
 
-Nothing about you. The extension has no analytics and no advertising, and no account unless you choose to sign in for phone sync (above). Apart from the requests listed above, it doesn't send, sell, transfer or share any data with anyone. Prompts and reports leave your device only when you copy or download them yourself.
+Nothing about you. The extension has no analytics, no advertising and no accounts.
 
 ## Contact
 

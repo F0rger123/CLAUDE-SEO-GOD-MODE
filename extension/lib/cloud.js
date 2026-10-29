@@ -1,97 +1,67 @@
 /**
  * Phone sync: a tiny client for SEO God Mode's Supabase project, shared by the extension and the Android app.
- * Off until you sign in with your email. Only the publishable key is here; the database rules let each signed-in
- * user read and change only their own rows, and signed-out requests get nothing.
+ * No accounts and no emails: turning sync on makes a random sync code, and every device that has the code shares
+ * one copy of your tracked sites. The database files rows under a hash of the code and only answers requests that
+ * carry it; the tables can't be read directly. Only the publishable key is here.
  *
- * Rows: sites (one per tracked website) and site_data (score history, positions, keyword reports, latest scans,
- * one JSON value per key, same keys as the extension's storage). The server stamps updated_at; the newest wins.
+ * Rows: sites (one per tracked website) and data (score history, positions, keyword reports, latest scans, one JSON
+ * value per key, same keys as the extension's storage). The server stamps updated_at; the newest change wins.
  */
 export const SB_URL = "https://ouinmglpmeqriowdbwes.supabase.co";
 export const SB_KEY = "sb_publishable_5Ec2QcbhogpOxxs8LhUAMA_eoWOAWvQ";
 export const EPOCH = "1970-01-01T00:00:00Z";
-/** Where the email's Log In link lands: opens the app on Android, or offers Copy on a computer (site/signin/). */
-export const SIGNIN_URL = "https://f0rger123.github.io/CLAUDE-SEO-GOD-MODE/signin/";
 const PAGE = 500;
+// Crockford base32: no I, L, O or U, so the code is easy to read out and type.
+const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-const toSession = (j, old = {}) => ({ access: j.access_token, refresh: j.refresh_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000,
-  userId: j.user?.id || old.userId, email: j.user?.email || old.email });
+/** A new random code: 20 characters (100 bits), shown as XXXX-XXXX-XXXX-XXXX-XXXX. */
+export function newCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  return formatCode([...bytes].map((b) => ALPHABET[b & 31]).join(""));
+}
+/** Tidy a typed code (any case, spaces or dashes; O read as 0, I and L as 1). Returns null if it isn't one. */
+export function cleanCode(text) {
+  const v = String(text || "").toUpperCase().replace(/[^0-9A-Z]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+  return /^[0-9A-HJKMNP-TV-Z]{20}$/.test(v) ? formatCode(v) : null;
+}
+const formatCode = (v) => v.replace(/-/g, "").match(/.{4}/g).join("-");
 
-/** store: { load(): session|null, save(session|null) }. The session is read from the store on every call, never cached. */
+/** store: { load(): {code}|null, save({code}|null) }. Read from the store on every call, never cached. */
 export function makeCloud(store) {
-  async function auth(path, body) {
-    const res = await fetch(`${SB_URL}/auth/v1/${path}`, { method: "POST", headers: { apikey: SB_KEY, "content-type": "application/json" }, body: JSON.stringify(body) });
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(j.msg || j.error_description || j.message || `Sign-in failed (${res.status})`);
-    return j;
-  }
-  async function session(force = false) {
+  async function rpc(fn, args) {
     const s = await store.load();
-    if (!s) throw Object.assign(new Error("Not signed in"), { signedOut: true });
-    if (!force && Date.now() < s.expiresAt - 60000) return s;
-    try {
-      const next = toSession(await auth("token?grant_type=refresh_token", { refresh_token: s.refresh }), s);
-      await store.save(next);
-      return next;
-    } catch (e) {
-      // A refresh token that's been revoked or expired can't come back: sign out so the screen asks again.
-      if (/invalid|not found|expired|revoked/i.test(e.message)) { await store.save(null); e.signedOut = true; }
-      throw e;
-    }
-  }
-  async function rest(path, { method = "GET", body, prefer } = {}, retry = true) {
-    const s = await session();
-    const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method, body: body === undefined ? undefined : JSON.stringify(body),
-      headers: { apikey: SB_KEY, authorization: "Bearer " + s.access, "content-type": "application/json", ...(prefer ? { prefer } : {}) } });
-    if (res.status === 401 && retry) { await session(true); return rest(path, { method, body, prefer }, false); }
+    if (!s?.code) throw Object.assign(new Error("Sync is off"), { signedOut: true });
+    const res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: "POST", body: JSON.stringify({ p_code: s.code, ...args }),
+      headers: { apikey: SB_KEY, "content-type": "application/json" } });
     if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.message || `Sync failed (${res.status})`); }
-    return res.status === 204 || method !== "GET" ? null : res.json();
+    return res.status === 204 ? null : res.json().catch(() => null);
   }
-  /** Every row of a table changed after `since`, oldest first, in pages. */
+  /** Every row changed after `since`, oldest first. table: "sites" or "site_data". */
   async function changes(table, since) {
     const out = [];
     for (let cur = since; ;) {
-      const rows = await rest(`${table}?select=*&updated_at=gt.${encodeURIComponent(cur)}&order=updated_at.asc&limit=${PAGE}`);
+      const rows = (await rpc("sgm_pull", { p_table: table === "sites" ? "sites" : "data", p_since: cur })) || [];
       out.push(...rows);
       if (rows.length < PAGE) return out;
       cur = rows[rows.length - 1].updated_at;
     }
   }
-  const upsert = (table, conflict, rows) => rows.length ? rest(`${table}?on_conflict=${conflict}`, { method: "POST", body: rows, prefer: "resolution=merge-duplicates,return=minimal" }) : null;
+  const push = async (fn, rows, size) => { for (let i = 0; i < rows.length; i += size) await rpc(fn, { p_rows: rows.slice(i, i + size) }); };
 
   return {
     current: () => store.load(),
-    /** Emails a sign-in code. New emails get an account automatically. */
-    sendCode: (email) => auth("otp?redirect_to=" + encodeURIComponent(SIGNIN_URL), { email, create_user: true }),
-    /**
-     * Sign in with what came in the email. Supabase's own email sender sends a "Log In" link (its text can't be changed
-     * without a custom mail server), so this takes the link copied from the email, the address of the page the link
-     * opened (it carries the session), or a 6 to 10 digit code if the email has one.
-     */
-    async signIn(email, input) {
-      const text = String(input || "").trim();
-      let j;
-      if (/^\d{6,10}$/.test(text.replace(/\s/g, ""))) j = await auth("verify", { type: "email", email, token: text.replace(/\s/g, "") });
-      else if (/[#&?]access_token=/.test(text)) {
-        const p = new URLSearchParams(text.slice(text.search(/[#?]/) + 1));
-        const claims = JSON.parse(atob(p.get("access_token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-        j = { access_token: p.get("access_token"), refresh_token: p.get("refresh_token"), expires_in: Number(p.get("expires_in")) || 3600, user: { id: claims.sub, email: claims.email } };
-        if (!j.refresh_token || !j.user.id) throw new Error("That address is missing part of the sign-in. Email yourself a new link.");
-      } else if (/[?&]token=/.test(text)) {
-        const u = new URL(text);
-        try { j = await auth("verify", { type: u.searchParams.get("type") || "magiclink", token_hash: u.searchParams.get("token") }); }
-        catch (e) { throw /expired|invalid|used/i.test(e.message) ? new Error("That link was already used or has expired. Email yourself a new one and paste it without opening it.") : e; }
-      } else throw new Error("Paste what you copied from the sign-in page (or the Log In link from the email).");
-      const s = toSession(j); await store.save(s); return s;
-    },
+    /** Turn sync on with a code (a new one, or one from another device). */
+    async use(code) { const c = cleanCode(code); if (!c) throw new Error("That isn't a sync code. It looks like XXXX-XXXX-XXXX-XXXX-XXXX."); await store.save({ code: c }); return c; },
     signOut: () => store.save(null),
     changes,
-    putSites: (rows) => upsert("sites", "user_id,origin", rows),
-    putData: (rows) => upsert("site_data", "user_id,key", rows),
+    putSites: (rows) => push("sgm_push_sites", rows, 200),
+    // Whole-site scans can be large, so a few at a time.
+    putData: (rows) => push("sgm_push_data", rows, 5),
   };
 }
 
 // Local site entry <-> sites row.
-export const siteRow = (s, userId, deleted = false) => ({ user_id: userId, origin: s.origin, name: s.name || "", role: s.role || "mine",
+export const siteRow = (s, deleted = false) => ({ origin: s.origin, name: s.name || "", role: s.role || "mine",
   competitor_of: s.role === "competitor" ? s.competitorOf || null : null, keywords: (s.keywords || []).slice(0, 200),
   added_at: s.addedAt || new Date().toISOString(), deleted_at: deleted ? new Date().toISOString() : null });
 export const siteFromRow = (r) => ({ origin: r.origin, name: r.name, addedAt: r.added_at, keywords: r.keywords || [], role: r.role, competitorOf: r.competitor_of || null });

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.20.0 (2026-10-29): extension 1.15 and app: sync with a code, no email
+
+- **No more email sign-in:** Supabase's built-in email sender is limited to a couple of emails an hour and its links went to a localhost page, so sync now uses a **sync code** instead. In the extension, **Settings › Sync with your phone › Turn on sync** shows a code like `2NSW-NZCE-T02C-01V8-8B5B`; type it into the Android app (or another computer's extension, under **I have a code**) and they share the same tracked sites. **Copy code** and **Email it to myself** make it easy to move. The app can also start fresh with its own code.
+- The database stores everything under a one-way hash of the code and only answers requests that carry it; its tables can't be read directly. Run `supabase/migrations/20261029000000_sync_codes.sql` once (it replaces the email-based tables, which never held data).
+- Removed the email sign-in page and the app's link handling.
+
 ## 2.19.2 (2026-10-29): extension 1.14.2 and app: tap the email's Log In link
 
 - **Tapping Log In works now:** the link used to land on a broken localhost:3000 page. It now lands on SEO God Mode's sign-in page (on GitHub Pages). On Android that page opens the app and signs you in; on a computer it has **Copy sign-in** to paste into the extension. The sign-in stays in your browser; the page never sends it anywhere.

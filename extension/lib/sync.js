@@ -1,10 +1,10 @@
 /**
- * Sync with the phone app, run by the background worker once you've signed in (Settings > Sync with your phone).
+ * Sync with the phone app, run by the background worker once sync is on (Settings > Sync with your phone, which shows the sync code).
  *  - Push: whenever the extension saves a tracked site, score history, positions, keyword report or a whole-site scan,
  *    the change is sent a moment later. Only the newest whole-site scan of each site is sent ("scan:<origin>").
  *  - Pull: every minute (and when the panel opens) it fetches what changed since last time, such as a site or
  *    competitor added on the phone, and saves it here. Sites added on the phone are listed in Track to be scanned.
- * Nothing is sent while signed out.
+ * Nothing is sent while sync is off.
  */
 import { EPOCH, makeCloud, siteFromRow, siteRow } from "./cloud.js";
 
@@ -50,15 +50,14 @@ export async function push() {
   if (!s) { queue.sites.clear(); queue.keys.clear(); return; }
   const sites = [...queue.sites.values()]; queue.sites.clear();
   const keys = [...queue.keys]; queue.keys.clear();
-  await cloud.putSites(sites.map((x) => siteRow(x.site, s.userId, x.deleted)));
+  await cloud.putSites(sites.map((x) => siteRow(x.site, x.deleted)));
   const got = keys.length ? await chrome.storage.local.get(keys) : {};
   const rows = keys.map((k) => {
     const m = k.match(SCANS);
     const key = m ? "scan:" + m[1] : k, value = m ? got[k]?.[0] ?? null : got[k] ?? null;
-    return { user_id: s.userId, key, value, deleted_at: value == null ? new Date().toISOString() : null };
+    return { key, value, deleted_at: value == null ? new Date().toISOString() : null };
   });
-  // One request per few rows: whole-site scans can be large.
-  for (let i = 0; i < rows.length; i += 5) await cloud.putData(rows.slice(i, i + 5));
+  if (rows.length) await cloud.putData(rows);
   await status(null);
 }
 
@@ -119,7 +118,7 @@ export async function syncNow() {
   catch (e) { await status(e); return { ok: false, error: String(e.message || e) }; }
 }
 
-/** Right after signing in: send everything, fetch everything, and sync every minute from then on. */
+/** Right after turning sync on (new code or one from another device): send everything, fetch everything, and sync every minute from then on. */
 export async function startSync() {
   await chrome.storage.local.remove("syncState");
   try { await pushAll(); } catch (e) { await status(e); return { ok: false, error: String(e.message || e) }; }

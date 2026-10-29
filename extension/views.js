@@ -18,6 +18,7 @@ import * as T from "./lib/track.js";
 import * as K from "./lib/kwcheck.js";
 import * as U from "./lib/update.js";
 import { cloud } from "./lib/sync.js";
+import { newCode } from "./lib/cloud.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -787,46 +788,47 @@ function confirmRemove(box, origin, name, done) {
 
 // ====================================================================== updates
 /** Update status. "Check again" asks GitHub (skipping the cache) and recounts sites due a rescan, right here in the panel. */
-export const APP_URL = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app";
+export const APP_DL = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/SEO-God-Mode.apk";
 
-/** Settings: sign in with an emailed link to sync tracked sites with the Android app. */
-async function renderSync(el, step = null) {
+/** Settings: sync with the Android app using a sync code (no account, no email). */
+async function renderSync(el, joining = false) {
   if (!el) return;
   const s = await cloud.current();
   const { syncStatus: st } = await chrome.storage.local.get("syncStatus");
-  if (s) {
-    el.innerHTML = `<div class="upd"><p><b>On.</b> Signed in as ${esc(s.email || "you")}. ${st?.error ? `Last try failed: ${esc(st.error)}.` : st ? `Last synced ${ago(st.at)}.` : ""}</p>
-      <p class="unknowns">Your tracked sites, competitors, keywords, scores, positions, keyword reports and newest whole-site scans are kept in SEO God Mode's online database, where only your sign-in can read them. Changes go both ways about once a minute.</p>
-      <div class="btns"><button id="syncnow">Sync now</button><a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Get the Android app</a><button id="syncoff">Turn off sync</button></div></div>`;
+  if (s?.code) {
+    el.innerHTML = `<div class="upd on"><p><b>On.</b> ${st?.error ? `Last try failed: ${esc(st.error)}.` : st ? `Last synced ${ago(st.at)}.` : "Syncing…"}</p>
+      <p>Your sync code:</p><p class="synccode" id="code">${esc(s.code)}</p>
+      <p class="unknowns">Type it into the Android app (or another computer's extension) to see the same sites there. Anyone with the code can see and change your tracked sites, so keep it private, and write it down: it's how you get your data back on a new computer.</p>
+      <div class="btns"><button id="copycode" class="primary">Copy code</button><a class="btn" id="mailcode" href="mailto:?subject=${encodeURIComponent("SEO God Mode sync code")}&body=${encodeURIComponent(`My SEO God Mode sync code: ${s.code}\n\nAndroid app: ${APP_DL}`)}">Email it to myself</a><a class="btn" href="${APP_DL}" target="_blank" rel="noopener">Get the Android app</a></div>
+      <div class="btns"><button id="syncnow">Sync now</button><button id="syncoff">Turn off sync on this computer</button></div>
+      <p class="unknowns">Your tracked sites, competitors, keywords, scores, positions, keyword reports and newest whole-site scans are kept in SEO God Mode's online database under this code. Changes go both ways about once a minute.</p></div>`;
+    $("copycode").onclick = () => ui.copy(s.code, "Sync code copied");
     $("syncnow").onclick = async () => { const r = await chrome.runtime.sendMessage({ type: "syncNow" }); ui.toast(r?.ok ? "Synced" : "Sync failed"); renderSync(el); };
-    $("syncoff").onclick = async () => { await chrome.runtime.sendMessage({ type: "syncStop" }); ui.toast("Sync is off. Your data stays on this computer"); renderSync(el); };
+    $("syncoff").onclick = async () => { await chrome.runtime.sendMessage({ type: "syncStop" }); ui.toast("Sync is off here. Your data stays on this computer"); renderSync(el); };
     return;
   }
-  el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. Sign in with your email on both; there's no password. Supabase sends the email, at most a couple an hour.</p>
-    ${step ? `<form id="syncform" class="field"><label for="synccode">Sign-in from the email sent to ${esc(step.email)}</label><input id="synccode" class="search" autocomplete="off" placeholder="Paste here"></form>
-      <p class="unknowns">Open the email on this computer and click <b>Log In</b>. On the page that opens, press <b>Copy sign-in</b> and paste it here.</p>
-      <div class="btns"><button id="syncgo" class="primary">Sign in and sync</button><button id="syncback">Use another email</button></div>`
-    : `<form id="syncform" class="field"><label for="syncemail">Your email</label><input id="syncemail" class="search" type="email" autocomplete="email" placeholder="you@example.com"></form>
-      <div class="btns"><button id="syncgo" class="primary">Email me a sign-in link</button><a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
-    <p class="unknowns">Off until you sign in. Nothing leaves this computer while it's off.</p>`;
-  $("syncform").onsubmit = (e) => { e.preventDefault(); $("syncgo").click(); };
-  if (step) $("syncback").onclick = () => renderSync(el);
-  $("syncgo").onclick = async () => {
-    const b = $("syncgo"); b.disabled = true;
+  el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. No account or email: turning sync on gives you a code to type into the app.</p>
+    ${joining ? `<form id="syncform" class="field"><label for="synccode">Sync code from your phone or other computer</label><input id="synccode" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
+      <div class="btns"><button id="syncjoin" class="primary">Use this code</button><button id="syncback">Back</button></div>`
+    : `<div class="btns"><button id="syncnew" class="primary">Turn on sync</button><button id="syncjoin">I have a code</button><a class="btn" href="${APP_DL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
+    <p class="unknowns">Off until you turn it on. Nothing leaves this computer while it's off.</p>`;
+  const go = async (code) => {
     try {
-      if (!step) {
-        const email = $("syncemail").value.trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("That doesn't look like an email address.");
-        await cloud.sendCode(email);
-        return renderSync(el, { email });
-      }
-      await cloud.signIn(step.email, $("synccode").value);
-      ui.toast("Signed in. Syncing…");
+      await cloud.use(code);
+      ui.toast("Sync is on. Sending your sites…");
       const r = await chrome.runtime.sendMessage({ type: "syncStart" });
       if (!r?.ok) ui.notice(esc(r?.error || "Sync failed"));
       renderSync(el);
-    } catch (e) { b.disabled = false; ui.notice(esc(e.message || e)); }
+    } catch (e) { ui.notice(esc(e.message || e)); }
   };
+  if (!joining) {
+    $("syncnew").onclick = () => go(newCode());
+    $("syncjoin").onclick = () => renderSync(el, true);
+    return;
+  }
+  $("syncback").onclick = () => renderSync(el);
+  $("syncform").onsubmit = (e) => { e.preventDefault(); $("syncjoin").click(); };
+  $("syncjoin").onclick = () => go($("synccode").value);
 }
 
 export async function renderUpdateCard(el, force = false) {

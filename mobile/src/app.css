@@ -31,4 +31,5 @@ td small.when { display: block; color: var(--muted); font-size: 11px; }
 .sheethead .q { margin: 0; font: 800 19px/1.2 var(--display); }
 @keyframes up { from { transform: translateY(40px); opacity: .4; } }
 @media (prefers-reduced-motion: reduce) { .sheetbox { animation: none; } }
+.synccode { font: 800 22px/1.25 ui-monospace, "Roboto Mono", monospace; letter-spacing: .04em; margin: 4px 0 12px !important; user-select: all; overflow-wrap: anywhere; }
 #status .linkish { color: var(--head-ink); margin-left: 6px; min-height: 0; }
