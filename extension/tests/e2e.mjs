@@ -459,7 +459,7 @@ const xp = bs.panel;
 await xp.click('#mode [data-mode="google"]');
 await xp.waitForSelector("#syncemail");
 await xp.fill("#syncemail", "owner@example.com"); await xp.click("#syncgo");
-await xp.waitForSelector("#synccode"); await xp.fill("#synccode", "123456"); await xp.click("#syncgo");
+await xp.waitForSelector("#synccode"); await xp.fill("#synccode", "https://ouinmglpmeqriowdbwes.supabase.co/auth/v1/verify?token=hash-owner@example.com&type=magiclink&redirect_to=http://localhost:3000"); await xp.click("#syncgo");
 await xp.waitForFunction(() => /Signed in as owner@example\.com/.test(document.getElementById("syncbox").textContent), null, { timeout: 20000 });
 assert.ok(sb.tables.sites.some((r) => r.origin === badBase && !r.deleted_at), "tracked site sent");
 assert.ok(sb.tables.site_data.some((r) => r.key === "trend:" + badBase), "score history sent");
@@ -479,7 +479,12 @@ phone.on("pageerror", (e) => { console.log("phone error:", e.message); panelErro
 await phone.setViewportSize({ width: 390, height: 844 });
 await phone.goto(`http://127.0.0.1:${app.address().port}/`);
 await phone.fill("#semail", "owner@example.com"); await phone.click("#sgo");
-await phone.fill("#scode", "123456"); await phone.click("#sgo");
+// A used link is refused with a plain message; the address the link opened (it carries the session) signs in.
+await phone.fill("#scode", "https://ouinmglpmeqriowdbwes.supabase.co/auth/v1/verify?token=hash-owner@example.com&type=magiclink"); await phone.click("#sgo");
+await phone.waitForFunction(() => /already used or has expired/.test(document.getElementById("notice").textContent));
+const owner = sb.users.get("owner@example.com"), b64u = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+await phone.fill("#scode", `http://localhost:3000/#access_token=${b64u({ alg: "HS256" })}.${b64u({ sub: owner.id, email: owner.email })}.sig&expires_in=3600&refresh_token=rt.${owner.id}&token_type=bearer&type=magiclink`);
+await phone.click("#sgo");
 await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
 assert.match(await phone.$eval("#status", (e) => e.textContent), /Synced/);
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-sites.png") });

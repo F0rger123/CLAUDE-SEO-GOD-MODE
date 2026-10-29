@@ -60,7 +60,27 @@ export function makeCloud(store) {
     current: () => store.load(),
     /** Emails a sign-in code. New emails get an account automatically. */
     sendCode: (email) => auth("otp", { email, create_user: true }),
-    async verify(email, token) { const s = toSession(await auth("verify", { type: "email", email, token })); await store.save(s); return s; },
+    /**
+     * Sign in with what came in the email. Supabase's own email sender sends a "Log In" link (its text can't be changed
+     * without a custom mail server), so this takes the link copied from the email, the address of the page the link
+     * opened (it carries the session), or a 6 to 10 digit code if the email has one.
+     */
+    async signIn(email, input) {
+      const text = String(input || "").trim();
+      let j;
+      if (/^\d{6,10}$/.test(text.replace(/\s/g, ""))) j = await auth("verify", { type: "email", email, token: text.replace(/\s/g, "") });
+      else if (/[#&?]access_token=/.test(text)) {
+        const p = new URLSearchParams(text.slice(text.search(/[#?]/) + 1));
+        const claims = JSON.parse(atob(p.get("access_token").split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        j = { access_token: p.get("access_token"), refresh_token: p.get("refresh_token"), expires_in: Number(p.get("expires_in")) || 3600, user: { id: claims.sub, email: claims.email } };
+        if (!j.refresh_token || !j.user.id) throw new Error("That address is missing part of the sign-in. Email yourself a new link.");
+      } else if (/[?&]token=/.test(text)) {
+        const u = new URL(text);
+        try { j = await auth("verify", { type: u.searchParams.get("type") || "magiclink", token_hash: u.searchParams.get("token") }); }
+        catch (e) { throw /expired|invalid|used/i.test(e.message) ? new Error("That link was already used or has expired. Email yourself a new one and paste it without opening it.") : e; }
+      } else throw new Error("Paste the Log In link from the email (press and hold it, then Copy link).");
+      const s = toSession(j); await store.save(s); return s;
+    },
     signOut: () => store.save(null),
     changes,
     putSites: (rows) => upsert("sites", "user_id,origin", rows),

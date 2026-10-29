@@ -1,9 +1,13 @@
 # Changelog
 
+## 2.19.1 (2026-10-29): extension 1.14.1 and app: sign in with the emailed link
+
+- **Sign-in works with Supabase's standard email:** its built-in sender only allows a "Log In" link, not a code, unless you set up your own mail server. Sign-in now takes that link: copy it from the email (press and hold or right-click Log In) and paste it in. If you already opened the link, pasting the address of the page it opened also works. A code still works if the email has one.
+
 ## 2.19.0 (2026-10-28): extension 1.14 and the Android app: phone sync
 
 - **Android app** (`mobile/`): your businesses, clients and competitors with their scores, score history, summary and fix prompt from the newest scan, keyword positions and keyword report, and each business next to its competitors. Paste a link to look a site up or add it, and **+ Quick add** a client, a website of yours or a competitor (then whose). Same look, scores and wording as the extension, because it uses the extension's own code. Download the APK from the `android-app` release; GitHub builds a new one whenever the app changes.
-- **Sync with your phone** (Settings, off until you sign in with an emailed code): tracked sites, keywords, score history, positions, keyword reports and the newest whole-site scan of each site are kept in SEO God Mode's online database, where only your sign-in can read them. Changes go both ways about once a minute. Sites added on the phone are listed at the top of Track with **Scan now**.
+- **Sync with your phone** (Settings, off until you sign in with an emailed link): tracked sites, keywords, score history, positions, keyword reports and the newest whole-site scan of each site are kept in SEO God Mode's online database, where only your sign-in can read them. Changes go both ways about once a minute. Sites added on the phone are listed at the top of Track with **Scan now**.
 - Scanning websites and checking Google positions still run only in the extension.
 
 ## 2.18.0 (2026-10-28): extension 1.13: Quick add, and what to do once the page side is done

@@ -1,6 +1,6 @@
 /**
  * SEO God Mode for Android: your tracked sites, scores, positions and competitors, synced with the Chrome extension.
- *  - Sign in with an emailed code (same email as the extension).
+ *  - Sign in with an emailed link (same email as the extension).
  *  - Sites: everything you track, grouped like the extension's Track view. Paste a link to look it up or add it.
  *  - A site: scores, history, summary and fix prompt from its newest whole-site scan, keyword positions and report,
  *    and its competitors side by side. Add or remove keywords and competitors; change what it is to you.
@@ -100,11 +100,12 @@ function renderSignIn(step = null) {
   $("mode").hidden = true; $("quickadd").hidden = true;
   $("status").textContent = "Your tracked sites, on your phone";
   $("view").innerHTML = `<h1 class="q">Sign in</h1>
-    <p class="lede">Use the same email you signed in with in the extension (Settings › Sync with your phone). We email you a code; there's no password.</p>
+    <p class="lede">Use the same email you signed in with in the extension (Settings › Sync with your phone). We email you a sign-in link; there's no password.</p>
     <form id="sform" class="field">${step
-      ? `<label for="scode">Code sent to ${esc(step.email)}</label><input id="scode" class="search big" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">`
+      ? `<label for="scode">Sign-in link from the email sent to ${esc(step.email)}</label><input id="scode" class="search big" autocomplete="off" placeholder="Paste the link">
+        <p class="unknowns">In the email, press and hold <b>Log In</b>, choose <b>Copy link</b>, and paste it here. Don't tap the link. If you already did, copy the address of the page it opened and paste that.</p>`
       : `<label for="semail">Your email</label><input id="semail" class="search big" type="email" autocomplete="email" placeholder="you@example.com">`}</form>
-    <div class="btns stack"><button id="sgo" class="primary">${step ? "Sign in" : "Email me a code"}</button>${step ? `<button id="sback">Use another email</button>` : ""}</div>`;
+    <div class="btns stack"><button id="sgo" class="primary">${step ? "Sign in" : "Email me a sign-in link"}</button>${step ? `<button id="sback">Use another email</button>` : ""}</div>`;
   $("sform").onsubmit = (e) => { e.preventDefault(); $("sgo").click(); };
   if (step) $("sback").onclick = () => renderSignIn();
   $("sgo").onclick = async () => {
@@ -116,9 +117,7 @@ function renderSignIn(step = null) {
         await cloud.sendCode(email);
         return renderSignIn({ email });
       }
-      const code = $("scode").value.replace(/\s/g, "");
-      if (!/^\d{6,10}$/.test(code)) throw new Error("Type the number from the email.");
-      await cloud.verify(step.email, code);
+      await cloud.signIn(step.email, $("scode").value);
       start();
     } catch (e) { b.disabled = false; notice(esc(e.message || e)); }
   };

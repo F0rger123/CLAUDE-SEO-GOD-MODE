@@ -789,7 +789,7 @@ function confirmRemove(box, origin, name, done) {
 /** Update status. "Check again" asks GitHub (skipping the cache) and recounts sites due a rescan, right here in the panel. */
 export const APP_URL = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app";
 
-/** Settings: sign in with an emailed code to sync tracked sites with the Android app. */
+/** Settings: sign in with an emailed link to sync tracked sites with the Android app. */
 async function renderSync(el, step = null) {
   if (!el) return;
   const s = await cloud.current();
@@ -802,11 +802,12 @@ async function renderSync(el, step = null) {
     $("syncoff").onclick = async () => { await chrome.runtime.sendMessage({ type: "syncStop" }); ui.toast("Sync is off. Your data stays on this computer"); renderSync(el); };
     return;
   }
-  el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. Sign in with your email on both; there's no password.</p>
-    ${step ? `<form id="syncform" class="field"><label for="synccode">Code from the email sent to ${esc(step.email)}</label><input id="synccode" class="search" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"></form>
+  el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. Sign in with your email on both; there's no password. Supabase sends the email, at most a couple an hour.</p>
+    ${step ? `<form id="syncform" class="field"><label for="synccode">Sign-in link from the email sent to ${esc(step.email)}</label><input id="synccode" class="search" autocomplete="off" placeholder="https://…supabase.co/auth/v1/verify?token=…"></form>
+      <p class="unknowns">In the email, right-click <b>Log In</b> and choose <b>Copy link address</b>, then paste it here. Don't open the link. If you already did, paste the address of the page it opened instead.</p>
       <div class="btns"><button id="syncgo" class="primary">Sign in and sync</button><button id="syncback">Use another email</button></div>`
     : `<form id="syncform" class="field"><label for="syncemail">Your email</label><input id="syncemail" class="search" type="email" autocomplete="email" placeholder="you@example.com"></form>
-      <div class="btns"><button id="syncgo" class="primary">Email me a code</button><a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
+      <div class="btns"><button id="syncgo" class="primary">Email me a sign-in link</button><a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
     <p class="unknowns">Off until you sign in. Nothing leaves this computer while it's off.</p>`;
   $("syncform").onsubmit = (e) => { e.preventDefault(); $("syncgo").click(); };
   if (step) $("syncback").onclick = () => renderSync(el);
@@ -819,9 +820,7 @@ async function renderSync(el, step = null) {
         await cloud.sendCode(email);
         return renderSync(el, { email });
       }
-      const code = $("synccode").value.replace(/\s/g, "");
-      if (!/^\d{6,10}$/.test(code)) throw new Error("Type the number from the email.");
-      await cloud.verify(step.email, code);
+      await cloud.signIn(step.email, $("synccode").value);
       ui.toast("Signed in. Syncing…");
       const r = await chrome.runtime.sendMessage({ type: "syncStart" });
       if (!r?.ok) ui.notice(esc(r?.error || "Sync failed"));
