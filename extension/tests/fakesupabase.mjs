@@ -1,11 +1,13 @@
 // A stand-in for SEO God Mode's Supabase project, for tests: the sync functions (sgm_pull, sgm_push_sites,
-// sgm_push_data) over in-memory tables, filed under a hash of the sync code like the real database. The tables
+// sgm_push_data, plus the optional account sign-in and sgm_account_code/sgm_account_link) over in-memory tables, filed under a hash of the sync code like the real database. The tables
 // themselves refuse direct access. The real project is never contacted.
 import { createHash } from "node:crypto";
 import { SB_URL } from "../lib/cloud.js";
 
 export function fakeSupabase() {
   const tables = { sites: [], data: [] };
+  // Accounts: email -> {password, id}; sign-in tokens -> id; id -> sync code. Signing up sends no email, like "Confirm email" off.
+  const users = new Map(), tokens = new Map(), accounts = new Map();
   const keyOf = { sites: (r) => r.space + "|" + r.origin, data: (r) => r.space + "|" + r.key };
   let tick = 0;
   // Server time, always increasing (microseconds), like clock_timestamp().
@@ -24,9 +26,28 @@ export function fakeSupabase() {
   async function handle(route) {
     const req = route.request(), url = new URL(req.url());
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    if (url.pathname.startsWith("/auth/v1/")) {
+      const { email, password } = JSON.parse(req.postData() || "{}"), signup = url.pathname === "/auth/v1/signup";
+      if (signup) {
+        if (users.has(email)) return json(route, 422, { code: "user_already_exists", msg: "User already registered" });
+        users.set(email, { password, id: "user-" + users.size });
+      } else if (users.get(email)?.password !== password) return json(route, 400, { error: "invalid_grant", error_description: "Invalid login credentials" });
+      const token = "tok-" + Math.random().toString(36).slice(2);
+      tokens.set(token, users.get(email).id);
+      return json(route, 200, { access_token: token, token_type: "bearer", user: { id: users.get(email).id, email } });
+    }
     const fn = url.pathname.match(/^\/rest\/v1\/rpc\/(\w+)$/)?.[1];
     if (!fn) return json(route, 401, { code: "42501", message: "permission denied" });
-    const body = JSON.parse(req.postData() || "{}"), s = space(body.p_code);
+    const body = JSON.parse(req.postData() || "{}");
+    if (fn === "sgm_account_code" || fn === "sgm_account_link") {
+      const uid = tokens.get((req.headers().authorization || "").replace(/^Bearer /, ""));
+      if (!uid) return json(route, 401, { code: "42501", message: "Sign in first" });
+      if (fn === "sgm_account_code") return json(route, 200, accounts.get(uid) ?? null);
+      if (!space(body.p_code)) return json(route, 400, { code: "22023", message: "That sync code is not valid" });
+      if (!accounts.has(uid)) accounts.set(uid, body.p_code.toUpperCase().replace(/[^0-9A-Z]/g, ""));
+      return json(route, 200, accounts.get(uid));
+    }
+    const s = space(body.p_code);
     if (!s) return json(route, 400, { code: "22023", message: "That sync code is not valid" });
     if (fn === "sgm_pull") {
       const t = body.p_table === "sites" ? "sites" : "data";
@@ -37,5 +58,5 @@ export function fakeSupabase() {
     if (fn === "sgm_push_data") { upsert("data", s, body.p_rows); return json(route, 204); }
     return json(route, 404, { message: "no such function" });
   }
-  return { tables, space, route: (ctx) => ctx.route(SB_URL + "/**", handle) };
+  return { tables, space, accounts, route: (ctx) => ctx.route(SB_URL + "/**", handle) };
 }

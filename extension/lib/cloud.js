@@ -1,7 +1,7 @@
 /**
  * Phone sync: a tiny client for SEO God Mode's Supabase project, shared by the extension and the Android app.
- * No accounts and no emails: turning sync on makes a random sync code, and every device that has the code shares
- * one copy of your tracked sites. The database files rows under a hash of the code and only answers requests that
+ * No account needed: turning sync on makes a random sync code, and every device that has the code shares one copy of
+ * your tracked sites. An account (email + password, optional) just remembers the code for you. The database files rows under a hash of the code and only answers requests that
  * carry it; the tables can't be read directly. Only the publishable key is here.
  *
  * Rows: sites (one per tracked website) and data (score history, positions, keyword reports, latest scans, one JSON
@@ -26,7 +26,7 @@ export function cleanCode(text) {
 }
 const formatCode = (v) => v.replace(/-/g, "").match(/.{4}/g).join("-");
 
-/** store: { load(): {code}|null, save({code}|null) }. Read from the store on every call, never cached. */
+/** store: { load(): {code, email?}|null, save({code, email?}|null) }. Read from the store on every call, never cached. */
 export function makeCloud(store) {
   async function rpc(fn, args) {
     const s = await store.load();
@@ -48,8 +48,39 @@ export function makeCloud(store) {
   }
   const push = async (fn, rows, size) => { for (let i = 0; i < rows.length; i += size) await rpc(fn, { p_rows: rows.slice(i, i + size) }); };
 
+  /**
+   * Optional account (email + password). The account only remembers a sync code: signing in uses the account's code,
+   * or saves this device's code (or a new one) to the account if it has none. kind: "signin" or "signup".
+   * Returns { code, switched } where switched means this device was on a different code before.
+   */
+  async function account(kind, email, password) {
+    email = String(email || "").trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("Type your email address.");
+    if (String(password || "").length < 8) throw new Error("Use a password of at least 8 characters.");
+    const res = await fetch(`${SB_URL}/auth/v1/${kind === "signup" ? "signup" : "token?grant_type=password"}`, {
+      method: "POST", body: JSON.stringify({ email, password }), headers: { apikey: SB_KEY, "content-type": "application/json" } });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(/invalid login/i.test(j.msg || j.error_description || "") ? "Wrong email or password." : j.msg || j.error_description || j.message || `Sign in failed (${res.status})`);
+    const token = j.access_token || j.session?.access_token;
+    if (!token) throw new Error("Account made, but it needs confirming by email first. Then sign in.");
+    const call = async (fn, args) => {
+      const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: "POST", body: JSON.stringify(args),
+        headers: { apikey: SB_KEY, authorization: `Bearer ${token}`, "content-type": "application/json" } });
+      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `Sign in failed (${r.status})`); }
+      return r.json();
+    };
+    const before = (await store.load())?.code || null;
+    const code = cleanCode((await call("sgm_account_code", {})) || (await call("sgm_account_link", { p_code: before || newCode() })));
+    if (!code) throw new Error("Sign in failed (no sync code on the account)");
+    const switched = !!before && before !== code;
+    if (switched) await store.save(null);
+    await store.save({ code, email });
+    return { code, switched };
+  }
+
   return {
     current: () => store.load(),
+    account,
     /** Turn sync on with a code (a new one, or one from another device). */
     async use(code) { const c = cleanCode(code); if (!c) throw new Error("That isn't a sync code. It looks like XXXX-XXXX-XXXX-XXXX-XXXX."); await store.save({ code: c }); return c; },
     signOut: () => store.save(null),

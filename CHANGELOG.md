@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.21.0 (2026-10-29): extension 1.16 and app: optional account
+
+- **Sign in or create account (optional):** sync still works with just the code, but you can now make an account with an email and password, in the extension (**Settings › Sync with your phone**) or the app's connect screen. The account remembers your sync code: sign in on a new phone or computer and your sites appear, without typing the code. You can also use the app on its own, with no computer, and keep your sites in the account. **Save to an account** adds an account to a code you already use. No emails are sent.
+- In Supabase, turn off **Authentication › Sign In / Providers › Email › Confirm email** and run `supabase/migrations/20261029000000_sync_codes.sql` (it now also adds the account part, and is safe to run again).
+- The app goes back to the Sites tab after signing out and in.
+
 ## 2.20.0 (2026-10-29): extension 1.15 and app: sync with a code, no email
 
 - **No more email sign-in:** Supabase's built-in email sender is limited to a couple of emails an hour and its links went to a localhost page, so sync now uses a **sync code** instead. In the extension, **Settings › Sync with your phone › Turn on sync** shows a code like `2NSW-NZCE-T02C-01V8-8B5B`; type it into the Android app (or another computer's extension, under **I have a code**) and they share the same tracked sites. **Copy code** and **Email it to myself** make it easy to move. The app can also start fresh with its own code.

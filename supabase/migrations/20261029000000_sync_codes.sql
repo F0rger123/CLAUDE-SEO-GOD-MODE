@@ -1,10 +1,10 @@
--- SEO God Mode sync by code (replaces email sign-in): no accounts and no emails.
+-- SEO God Mode sync by code (replaces email sign-in): no account or email needed.
 -- Turning on sync in the extension makes a random 20-character sync code (about 100 bits). Every device that knows the
--- code shares one copy of the tracked sites and their history. The code is never stored: rows are filed under its
--- SHA-256 hash. The tables can't be read or written directly by anyone using the public key; only the four functions
--- below reach them, and each one needs the code.
+-- code shares one copy of the tracked sites and their history. Synced rows are filed under its
+-- SHA-256 hash. The tables can't be read or written directly by anyone using the public key; only the functions
+-- below reach them, and each one needs the code. Accounts are optional (end of this file).
 -- Run once in Supabase: SQL Editor -> New query -> paste this file -> Run. It removes the email-based tables from
--- 20261028000000_sync.sql (nothing had synced into them).
+-- 20261028000000_sync.sql (nothing had synced into them). Safe to run again.
 
 create extension if not exists pgcrypto with schema extensions;
 create schema if not exists private;
@@ -97,3 +97,36 @@ end $$;
 revoke all on function public.sgm_pull(text, text, timestamptz), public.sgm_push_sites(text, jsonb), public.sgm_push_data(text, jsonb) from public;
 grant execute on function public.sgm_pull(text, text, timestamptz), public.sgm_push_sites(text, jsonb), public.sgm_push_data(text, jsonb) to anon, authenticated;
 revoke all on function private.sgm_space(text) from public, anon, authenticated;
+
+-- Optional accounts (email + password, made in the app or extension). An account only remembers its sync code, so
+-- signing in on a new phone or computer finds your sites without typing the code. Sync itself still runs on the code.
+-- Needs Authentication -> Sign In / Providers -> Email -> "Confirm email" turned off, so signing up sends no email.
+create table if not exists private.sync_accounts (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  code text not null,
+  updated_at timestamptz not null default now()
+);
+revoke all on private.sync_accounts from public, anon, authenticated;
+
+-- The signed-in account's sync code, or null if it has none yet.
+create or replace function public.sgm_account_code() returns text
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first' using errcode = '42501'; end if;
+  return (select code from private.sync_accounts where user_id = auth.uid());
+end $$;
+
+-- Remember a sync code on the signed-in account. Keeps the account's existing code if it already has one, and returns
+-- the code the account uses.
+create or replace function public.sgm_account_link(p_code text) returns text
+language plpgsql security definer set search_path = '' as $$
+declare v text := upper(regexp_replace(coalesce(p_code, ''), '[^0-9A-Za-z]', '', 'g'));
+begin
+  if auth.uid() is null then raise exception 'Sign in first' using errcode = '42501'; end if;
+  perform private.sgm_space(v);
+  insert into private.sync_accounts (user_id, code) values (auth.uid(), v) on conflict (user_id) do nothing;
+  return (select code from private.sync_accounts where user_id = auth.uid());
+end $$;
+
+revoke all on function public.sgm_account_code(), public.sgm_account_link(text) from public, anon;
+grant execute on function public.sgm_account_code(), public.sgm_account_link(text) to authenticated;

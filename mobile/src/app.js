@@ -105,7 +105,8 @@ function renderSignIn(fresh = null) {
     : `<h1 class="q">Connect</h1>
       <p class="lede">In the Chrome extension, open <b>Settings › Sync with your phone</b> and press <b>Turn on sync</b>. Type the code it shows here. No account or email needed.</p>
       <form id="sform" class="field"><label for="scode">Sync code</label><input id="scode" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
-      <div class="btns stack"><button id="sgo" class="primary">Connect</button><button id="snew">I don't use the extension yet: start fresh</button></div>`;
+      <div class="btns stack"><button id="sgo" class="primary">Connect</button><button id="sacct">Sign in or create account</button><button id="snew">I don't use the extension yet: start fresh</button></div>
+      <p class="unknowns">No account needed. An account is optional: it remembers your sync code, so you can sign in instead of typing it.</p>`;
   if (fresh) {
     $("scopy").onclick = () => copy(fresh, "Sync code copied");
     $("sgo").onclick = () => cloud.use(fresh).then(start);
@@ -113,10 +114,39 @@ function renderSignIn(fresh = null) {
   }
   $("sform").onsubmit = (e) => { e.preventDefault(); $("sgo").click(); };
   $("snew").onclick = () => renderSignIn(newCode());
+  $("sacct").onclick = () => renderAccountForm();
   $("sgo").onclick = async () => {
     notice("");
     try { await cloud.use($("scode").value); start(); } catch (e) { notice(esc(e.message || e)); }
   };
+}
+
+// Optional account (email + password): it only remembers the sync code. Sign in on a new phone to get the same sites.
+function renderAccountForm() {
+  const connected = !$("mode").hidden;
+  $("view").innerHTML = `<h1 class="q">${connected ? "Save to an account" : "Sign in"}</h1>
+      <p class="lede">${connected ? "Keep your sync code in an account, so signing in on another phone or computer finds these sites." : "Sign in to get your sites, or create an account to keep them. Works without a computer. No email is sent."}</p>
+      <form id="aform" class="field"><label for="aemail">Email</label><input id="aemail" class="search big" type="email" autocomplete="username">
+        <label for="apw">Password (8 characters or more)</label><input id="apw" class="search big" type="password" autocomplete="current-password"></form>
+      <div class="btns stack"><button id="ain" class="primary">Sign in</button><button id="aup">Create account</button><button id="aback">Back</button></div>`;
+  const go = async (kind) => {
+    notice("");
+    try {
+      const r = await cloud.account(kind, $("aemail").value, $("apw").value);
+      if (r.switched) await clearCache();
+      toast(kind === "signup" ? "Account made" : "Signed in");
+      start();
+    } catch (e) { notice(esc(e.message || e)); }
+  };
+  $("aform").onsubmit = (e) => { e.preventDefault(); go("signin"); };
+  $("ain").onclick = () => go("signin");
+  $("aup").onclick = () => go("signup");
+  $("aback").onclick = () => (connected ? renderAccount() : renderSignIn());
+}
+
+async function clearCache() {
+  await Promise.all(["sites", "data", "cursor", "lastSync"].map((k) => setK(k, undefined)));
+  S.sites.clear(); S.data.clear(); S.cursor = { sites: EPOCH, data: EPOCH }; S.lastSync = 0; S.tab = "sites"; S.open = null; S.compare = null;
 }
 
 // ------------------------------------------------------------------ sites
@@ -237,14 +267,15 @@ function renderCompare() {
 async function renderAccount() {
   const s = await cloud.current();
   $("view").innerHTML = `<h2 class="sec first">Account</h2>
-    <div class="upd"><p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
+    <div class="upd">${s?.email ? `<p>Signed in as <b>${esc(s.email)}</b>. Sign in with it on another phone or computer to see the same sites.</p>` : ""}<p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
     <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database under this code, and cached on this phone so the app opens offline. Anyone with the code can see and change them, so keep it private.</p>
-    <div class="btns"><button id="copycode">Copy code</button><button id="signout">Disconnect this phone</button></div></div>
+    <div class="btns"><button id="copycode">Copy code</button>${s?.email ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.email ? "Sign out" : "Disconnect this phone"}</button></div></div>
     <h2 class="sec">How it works</h2>
     <p class="lede">Scanning websites and checking Google positions run in the Chrome extension on your computer. This app shows the results and lets you add and organise sites, keywords and competitors; changes reach the extension within a minute while Chrome is open.</p>
     <p class="unknowns">SEO God Mode · Built by <a href="https://theagencyzero.com" target="_blank" rel="noopener">theagencyzero.com</a></p>`;
   $("copycode").onclick = () => copy(s?.code || "", "Sync code copied");
-  $("signout").onclick = async () => { await cloud.signOut(); await Promise.all(["sites", "data", "cursor", "lastSync"].map((k) => setK(k, undefined))); S.sites.clear(); S.data.clear(); S.cursor = { sites: EPOCH, data: EPOCH }; S.lastSync = 0; start(); };
+  if (!s?.email) $("acctsave").onclick = () => renderAccountForm();
+  $("signout").onclick = async () => { await cloud.signOut(); await clearCache(); start(); };
 }
 
 // ------------------------------------------------------------------ quick add (bottom sheet)

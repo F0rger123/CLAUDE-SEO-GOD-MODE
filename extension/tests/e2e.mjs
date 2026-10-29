@@ -514,6 +514,25 @@ await phone.waitForSelector("table.mini"); await phone.waitForTimeout(400);
 assert.match(await phone.$eval("#view", (e) => e.textContent), /rival-roofing\.example/);
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-compare.png") });
 await noClaude(phone, "phone app");
+// Optional account: the extension saves its code to a new account; the phone signs out, then signs in with the account
+// (no code typed) and gets the same sites. A wrong password is refused.
+await xp.click('#mode [data-mode="google"]');
+await xp.waitForSelector("#acctsave"); await xp.click("#acctsave");
+await xp.fill("#acctemail", "owner@example.com"); await xp.fill("#acctpw", "correct horse");
+await xp.click("#acctup");
+await xp.waitForSelector("#acctname", { timeout: 15000 });
+assert.equal(await xp.$eval("#code", (e) => e.textContent.trim()), code, "extension kept its code");
+assert.deepEqual([...sb.accounts.values()], [code.replace(/-/g, "")], "account remembers the code");
+await phone.click('#mode [data-tab="account"]');
+await phone.click("#signout");
+await phone.waitForSelector("#sacct"); await phone.click("#sacct");
+await phone.fill("#aemail", "owner@example.com"); await phone.fill("#apw", "wrong password");
+await phone.click("#ain");
+await phone.waitForFunction(() => /Wrong email or password/.test(document.getElementById("notice").textContent));
+await phone.fill("#apw", "correct horse"); await phone.click("#ain");
+await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
+await phone.click('#mode [data-tab="account"]');
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Signed in as owner@example\.com/);
 // The tables can't be read directly, like the real database.
 const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sync_sites?select=*", { headers: { apikey: "x" } })).status);
 assert.equal(anon, 401);
