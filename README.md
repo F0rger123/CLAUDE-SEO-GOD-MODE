@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/data-never%20fabricated-2ea44f" alt="Data never fabricated">
 </p>
 
-<p align="center"><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"><img src="https://img.shields.io/badge/Download-Chrome%20extension-2f3fbf?logo=googlechrome&logoColor=white" alt="Download the Chrome extension"></a></p>
+<p align="center"><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"><img src="https://img.shields.io/badge/Download-Chrome%20extension-2f3fbf?logo=googlechrome&logoColor=white" alt="Download the Chrome extension"></a> <a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/SEO-God-Mode.apk"><img src="https://img.shields.io/badge/Download-Android%20app-000000?logo=android&logoColor=white" alt="Download the Android app"></a></p>
 
 <p align="center"><b>The all-in-one SEO operating system for Claude.</b><br>
 One prompt starts a client. Claude onboards, audits, pulls real Search Console and Bing data, fixes what it safely can, tells you exactly what to approve, and remembers everything for next time.</p>
@@ -83,6 +83,27 @@ From a terminal: `python scripts/rate_site.py example.com`. From MCP: `seo_rate_
 <p><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/latest/download/seo-god-mode-extension.zip"><img src="https://img.shields.io/badge/Download-Chrome%20extension%20(.zip)-2f3fbf?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Download the Chrome extension"></a></p>
 
 Install in four clicks: download the zip and unzip it, open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder. Details: [extension/README.md](extension/README.md). Chrome Web Store kit: [store/LISTING.md](store/LISTING.md).
+
+## 📱 Android app: your tracked sites in your pocket
+
+<p><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/SEO-God-Mode.apk"><img src="https://img.shields.io/badge/Download-Android%20app%20(.apk)-000000?style=for-the-badge&logo=android&logoColor=white" alt="Download the Android app"></a></p>
+
+Your businesses, clients and competitors on your phone, synced with the Chrome extension: scores and history, the summary and fix prompt from the newest scan, keyword positions and the keyword report, and each business next to its competitors. Paste a link to look a site up, or **+ Quick add** a client, a website of yours, or a competitor. Sites added on the phone show up in the extension, ready to scan.
+
+<p align="center">
+  <img src="assets/mobile-sites.png" alt="Android app: tracked sites" width="200">
+  <img src="assets/mobile-site.png" alt="Android app: one site's scores and summary" width="200">
+  <img src="assets/mobile-compare.png" alt="Android app: a business next to its competitors" width="200">
+  <img src="assets/mobile-quickadd.png" alt="Android app: Quick add a competitor" width="200">
+</p>
+
+```mermaid
+flowchart LR
+  A["Chrome extension<br/>scans sites, checks Google"] -->|"sends sites, scores, positions"| C[("Your private online copy")]
+  B["Phone app<br/>look up, compare, quick add"] <-->|"reads and adds"| C
+```
+
+**Install it:** on your phone, tap the button above (or open the [android-app release](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app)), open **SEO-God-Mode.apk**, and allow your browser to install apps if Android asks. Then sign in with the same email as the extension (Settings › Sync with your phone): the email has a **Log In** link; press and hold it, copy it, and paste it into the app. Scanning sites and checking Google stay in the extension.
 
 ## 🥊 Stays ahead of your competitors
 
