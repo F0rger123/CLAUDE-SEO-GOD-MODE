@@ -5,6 +5,7 @@
  *    Redirects are followed here, one hop at a time, so a scan knows the final address.
  *  - Haptic feedback on taps, saves and problems.
  *  - Update check: the build workflow publishes latest.json next to the APK; a newer build shows a pop-up.
+ *  - QR scanning (pairing with the extension) through Google's code scanner: no camera permission needed.
  */
 const cap = window.Capacitor;
 export const isNative = !!cap?.isNativePlatform?.();
@@ -63,4 +64,24 @@ export async function newerBuild() {
   const mine = await fetch("./build.json", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ build: 0 }));
   const latest = await fetch(LATEST + "?t=" + Date.now(), { cache: "no-store", signal: AbortSignal.timeout(15000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   return latest?.build > (mine.build || 0) && latest.apk ? { ...latest, mine: mine.build || 0 } : null;
+}
+
+/** Whether this phone can scan QR codes (the Android app, with the scanner plugin). */
+export const canScan = has("BarcodeScanner");
+
+/** Scan one QR code with Google's code scanner. Returns its text, or null if cancelled. */
+export async function scanQR() {
+  try {
+    const r = await cap.nativePromise("BarcodeScanner", "scan", { formats: ["QR_CODE"] });
+    return r?.barcodes?.[0]?.rawValue || null;
+  } catch (e) {
+    if (/cancel/i.test(String(e?.message || e))) return null;
+    // The scanner comes from Google Play services and downloads once, the first time it's needed.
+    const a = await cap.nativePromise("BarcodeScanner", "isGoogleBarcodeScannerModuleAvailable").catch(() => null);
+    if (a && !a.available) {
+      cap.nativePromise("BarcodeScanner", "installGoogleBarcodeScannerModule").catch(() => {});
+      throw new Error("Getting the QR scanner ready (a one-time download). Try again in a minute, or type the code.");
+    }
+    throw e;
+  }
 }

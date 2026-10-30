@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.23.0 (2026-10-29): extension 1.18 and app: pair with a QR code
+
+- **Pair with a QR code:** the extension's **Settings › Sync with your phone** now shows a QR code next to the sync code. In the Android app, **Scan QR code** (on the first screen, or **Account › Connect your computer**) reads it with Google's code scanner; no camera permission needed. Typing the code still works.
+- **Connect a computer later, keeping your phone's sites:** a phone-only user can pair with the extension at any time. Sites and scans on the phone that the computer doesn't have yet are sent there, and nothing on the computer is overwritten. Signing in to an account with a different code keeps the phone's sites the same way. If the sync server can't be reached, the phone stays as it was.
+- **Show this phone's QR code** (Account) to put the same sites on a second phone.
+
 ## 2.22.0 (2026-10-29): extension 1.17 and app: rate sites on the phone, update pop-up, haptics
 
 - **Rate any website on the phone:** paste a link and the app rates the whole site itself, with the same crawl, checks and scores as the extension (summary, top fixes, fix prompt). Tracked sites get **Scan now**; their scans and score history sync to the extension. No account, sync server or computer needed. The app reads sites through Android's own network client, so it isn't blocked the way a web page would be, and it can check how crawlers see the homepage.

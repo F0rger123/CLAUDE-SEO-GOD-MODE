@@ -32,6 +32,8 @@ jobs:
           npx cap add android
           npx capacitor-assets generate --android
           npx cap sync android
+          # Download Google's QR scanner with the app, so pairing works the first time.
+          sed -i 's#</application>#    <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="barcode_ui" /></application>#' android/app/src/main/AndroidManifest.xml
           # Each build gets a higher version code, so it installs over the previous one.
           VERSION=$(node -p "require('./package.json').version")
           sed -i "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"[^\"]*\"/versionName \"${VERSION}.${GITHUB_RUN_NUMBER}\"/" android/app/build.gradle

@@ -1,6 +1,7 @@
 /**
  * SEO God Mode for Android: your tracked sites, scores, positions and competitors, synced with the Chrome extension.
- *  - Start without an account, connect with the sync code from the extension, or sign in (username + password, no email).
+ *  - Start without an account, pair with the extension by scanning its QR code (or typing its sync code), or sign in
+ *    (username + password, no email). Pairing or signing in later keeps the sites already on the phone.
  *  - Sites: everything you track, grouped like the extension's Track view. Paste a link to look it up or add it.
  *  - A site: scores, history, summary and fix prompt from its newest whole-site scan, keyword positions and report,
  *    and its competitors side by side. Add or remove keywords and competitors; change what it is to you.
@@ -11,7 +12,8 @@
  * Checking Google positions stays in the extension. Everything is saved on the phone first and synced when it can
  * be, so the app works offline and before the sync server is set up.
  */
-import { EPOCH, makeCloud, newCode, siteFromRow, siteRow } from "./lib/cloud.js";
+import { cleanCode, EPOCH, makeCloud, newCode, siteFromRow, siteRow } from "./lib/cloud.js";
+import { qrSvg } from "./lib/qr.js";
 import { lineChart } from "./lib/track.js";
 import { summaryText } from "./lib/summary.js";
 import { fixAllPrompt } from "./lib/prompts.js";
@@ -19,7 +21,7 @@ import { group, keywordPrompt } from "./lib/kwcheck.js";
 import { OFF_PAGE } from "./lib/breakdown.js";
 import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
-import { haptic, installNativeFetch, isNative, newerBuild } from "./native.js";
+import { canScan, haptic, installNativeFetch, isNative, newerBuild, scanQR } from "./native.js";
 
 installNativeFetch([SB_URL]);
 
@@ -140,21 +142,69 @@ function renderSignIn(fresh = null) {
       <p class="lede">No account or email needed.</p>
       <div class="btns stack"><button id="snew" class="primary">Start without an account</button><button id="sacct">Sign in or create account</button></div>
       <h2 class="sec">Already use the Chrome extension?</h2>
-      <p class="lede">In the extension, open <b>Settings › Sync with your phone</b> and press <b>Turn on sync</b>. Type the code it shows here.</p>
-      <form id="sform" class="field"><label for="scode">Sync code</label><input id="scode" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
-      <div class="btns stack"><button id="sgo">Connect</button></div>`;
+      <p class="lede">In the extension, open <b>Settings › Sync with your phone</b> and press <b>Turn on sync and pair your phone</b>. ${canScan ? "Then scan the QR code it shows, or type its code." : "Type the code it shows here."}</p>
+      ${pairForm("s")}`;
   if (fresh) {
     $("scopy").onclick = () => copy(fresh, "Sync code copied");
     $("sgo").onclick = () => cloud.use(fresh).then(start);
     return;
   }
-  $("sform").onsubmit = (e) => { e.preventDefault(); $("sgo").click(); };
   $("snew").onclick = () => renderSignIn(newCode());
   $("sacct").onclick = () => renderAccountForm();
-  $("sgo").onclick = async () => {
+  bindPair("s");
+}
+
+// ------------------------------------------------------------------ pair with the extension (or another phone)
+/** Scan button (Android app) and a box to type the code. p: id prefix. */
+const pairForm = (p) => `${canScan ? `<div class="btns stack"><button id="${p}scan" class="primary">Scan QR code</button></div>` : ""}
+  <form id="${p}form" class="field"><label for="${p}code">${canScan ? "Or type the sync code" : "Sync code"}</label><input id="${p}code" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
+  <div class="btns stack"><button id="${p}go">Connect</button></div>`;
+function bindPair(p) {
+  const go = async (text) => { notice(""); try { await joinCode(text); } catch (e) { notice(esc(e.message || e)); } };
+  $(p + "form").onsubmit = (e) => { e.preventDefault(); go($(p + "code").value); };
+  $(p + "go").onclick = () => go($(p + "code").value);
+  if ($(p + "scan")) $(p + "scan").onclick = async () => {
     notice("");
-    try { await cloud.use($("scode").value); start(); } catch (e) { notice(esc(e.message || e)); }
+    try { const text = await scanQR(); if (text) await go(text); } catch (e) { notice(esc(e.message || e)); }
   };
+}
+/** Use a scanned or typed sync code, keeping this phone's sites. */
+async function joinCode(text) {
+  const code = cleanCode(String(text || "").match(/[0-9A-Za-z]{4}(?:[- ]?[0-9A-Za-z]{4}){4}/)?.[0]);
+  if (!code) throw new Error("That isn't a sync code. It looks like XXXX-XXXX-XXXX-XXXX-XXXX.");
+  if ((await cloud.current())?.code === code) return toast("This phone already uses that code");
+  await switchKeeping(() => cloud.use(code), "Paired");
+}
+
+/**
+ * Move this phone to another sync code (a scanned or typed one, or an account's), keeping what's on it: after the
+ * other side's sites arrive, any of this phone's sites and data it doesn't have yet are sent there. Nothing there is
+ * overwritten. If the sync server can't be reached, the phone stays as it was.
+ */
+async function switchKeeping(change, done) {
+  const before = localStorage.getItem("sgm.sync");
+  if (before) await loadCache();
+  const mine = { sites: [...S.sites.values()], data: [...S.data] };
+  const r = await change();
+  // Same code as before (an account made from this phone's code), or nothing on the phone to keep.
+  if (r?.switched === false || (!before && !mine.sites.length)) { toast(done); return start(); }
+  await clearCache();
+  $("mode").hidden = false; $("quickadd").hidden = false;
+  await pull({ quiet: false });
+  if (S.error) {
+    const why = S.error === "notready" ? "the sync server isn't set up yet" : S.error;
+    if (before) localStorage.setItem("sgm.sync", before); else await cloud.signOut();
+    S.sites = new Map(mine.sites.map((s) => [s.origin, s])); S.data = new Map(mine.data); await saveCache();
+    notice(`Couldn't connect (${esc(why)}), so this phone stays as it was. Try again when you're online.`);
+    return start();
+  }
+  const add = mine.sites.filter((s) => !S.sites.has(s.origin));
+  for (const s of add) { S.sites.set(s.origin, s); S.pending.sites[s.origin] = siteRow(s); }
+  const keys = mine.data.filter(([k]) => !S.data.has(k)).map(([k, v]) => (S.data.set(k, v), k));
+  S.pending.keys = [...new Set([...S.pending.keys, ...keys])];
+  await saveCache();
+  toast(add.length ? `${done}. Brought ${add.length} site${add.length === 1 ? "" : "s"} from this phone` : done);
+  start();
 }
 
 // Optional account (username + password, no email): it only remembers the sync code. Sign in on a new phone to get the same sites.
@@ -168,12 +218,8 @@ function renderAccountForm() {
       <div class="btns stack"><button id="ain" class="primary">Sign in</button><button id="aup">Create account</button><button id="aback">Back</button></div>`;
   const go = async (kind) => {
     notice("");
-    try {
-      const r = await cloud.account(kind, $("auser").value, $("apw").value);
-      if (r.switched) await clearCache();
-      toast(kind === "signup" ? "Account made" : "Signed in");
-      start();
-    } catch (e) { notice(esc(e.message || e)); }
+    try { await switchKeeping(() => cloud.account(kind, $("auser").value, $("apw").value), kind === "signup" ? "Account made" : "Signed in"); }
+    catch (e) { notice(esc(e.message || e)); }
   };
   $("aform").onsubmit = (e) => { e.preventDefault(); go("signin"); };
   $("ain").onclick = () => go("signin");
@@ -364,12 +410,18 @@ async function renderAccount() {
     <div class="upd">${s?.user ? `<p>Signed in as <b>${esc(s.user)}</b>. Sign in with it on another phone or computer to see the same sites.</p>` : ""}<p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
     <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database under this code, and cached on this phone so the app opens offline. Anyone with the code can see and change them, so keep it private.</p>
     <div class="btns"><button id="copycode">Copy code</button>${s?.user ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.user ? "Sign out" : "Disconnect this phone"}</button></div></div>
+    <h2 class="sec">Connect your computer</h2>
+    <p class="lede"><b>Extension not synced yet?</b> In it, open <b>Settings › Sync with your phone › I have a code</b> and type the code above. Its sites join yours.</p>
+    <p class="lede"><b>Extension already synced?</b> ${canScan ? "Scan the QR code it shows, or type its code." : "Type the code it shows."} This phone's sites come along.</p>
+    ${pairForm("j")}
+    <details class="fold"><summary>Show this phone's QR code</summary><div class="pad"><div class="pair">${qrSvg(s?.code || "", "QR code of this phone's sync code")}<p>Scan it with the app on another phone to see the same sites there.</p></div></div></details>
     <h2 class="sec">How it works</h2>
     <p class="lede">Rate any website here, with the same checks and scores as the Chrome extension. Everything is saved on this phone first and syncs with the extension when it can. Checking Google positions runs in the extension on your computer.</p>
     <p class="unknowns">App build ${esc(String(BUILD))}. <button class="linkish" id="checkupd">Check for updates</button></p>
     <p class="unknowns">SEO God Mode · Built by <a href="https://theagencyzero.com" target="_blank" rel="noopener">theagencyzero.com</a></p>`;
   $("copycode").onclick = () => copy(s?.code || "", "Sync code copied");
   $("checkupd").onclick = () => checkUpdate(true);
+  bindPair("j");
   if (!s?.user) $("acctsave").onclick = () => renderAccountForm();
   $("signout").onclick = async () => { await cloud.signOut(); await clearCache(); start(); };
 }

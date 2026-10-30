@@ -19,6 +19,7 @@ import * as K from "./lib/kwcheck.js";
 import * as U from "./lib/update.js";
 import { cloud } from "./lib/sync.js";
 import { newCode } from "./lib/cloud.js";
+import { qrSvg } from "./lib/qr.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -826,8 +827,9 @@ async function renderSync(el, mode = "") {
   if (s?.code) {
     el.innerHTML = `<div class="upd on"><p><b>On.</b> ${st?.error ? `Last try failed: ${esc(st.error)}.` : st ? `Last synced ${ago(st.at)}.` : "Syncing…"}</p>
       ${s.user ? `<p>Signed in as <b id="acctname">${esc(s.user)}</b>. Sign in with it on your phone or another computer to see the same sites.</p>` : ""}
+      <div class="pair"><div id="syncqr">${qrSvg(s.code, "QR code of your sync code")}</div><p><b>Pair your phone:</b> in the Android app, press <b>Scan QR code</b> (on its first screen, or in Account) and point it here. Sites already on the phone come along.</p></div>
       <p>Your sync code:</p><p class="synccode" id="code">${esc(s.code)}</p>
-      <p class="unknowns">Type it into the Android app (or another computer's extension) to see the same sites there. Anyone with the code can see and change your tracked sites, so keep it private${s.user ? "" : ", and write it down: it's how you get your data back on a new computer (or save it to an account)"}.</p>
+      <p class="unknowns">Or type it into the Android app (or another computer's extension) to see the same sites there. Anyone with the code can see and change your tracked sites, so keep it private${s.user ? "" : ", and write it down: it's how you get your data back on a new computer (or save it to an account)"}.</p>
       <div class="btns"><button id="copycode" class="primary">Copy code</button><a class="btn" id="mailcode" href="mailto:?subject=${encodeURIComponent("SEO God Mode sync code")}&body=${encodeURIComponent(`My SEO God Mode sync code: ${s.code}\n\nAndroid app: ${APP_DL}`)}">Email it to myself</a>${s.user ? "" : `<button id="acctsave">Save to an account</button>`}<a class="btn" href="${APP_DL}" target="_blank" rel="noopener">Get the Android app</a></div>
       <div class="btns"><button id="syncnow">Sync now</button><button id="syncoff">${s.user ? "Sign out and turn off sync here" : "Turn off sync on this computer"}</button></div>
       <p class="unknowns">Your tracked sites, competitors, keywords, scores, positions, keyword reports and newest whole-site scans are kept in SEO God Mode's online database under this code. Changes go both ways about once a minute.</p></div>`;
@@ -837,10 +839,10 @@ async function renderSync(el, mode = "") {
     $("syncoff").onclick = async () => { await chrome.runtime.sendMessage({ type: "syncStop" }); ui.toast("Sync is off here. Your data stays on this computer"); renderSync(el); };
     return;
   }
-  el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. No account or email needed: turning sync on gives you a code to type into the app. An account is optional.</p>
-    ${mode === "join" ? `<form id="syncform" class="field"><label for="synccode">Sync code from your phone or other computer</label><input id="synccode" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
+  el.innerHTML = `<p class="lede">See your businesses, clients, competitors, scores and positions on your phone, and add sites from it. No account or email needed: turning sync on shows a QR code to scan with the app. An account is optional.</p>
+    ${mode === "join" ? `<form id="syncform" class="field"><label for="synccode">Sync code from your phone (Account in the app) or other computer</label><input id="synccode" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
       <div class="btns"><button id="syncjoin" class="primary">Use this code</button><button id="syncback">Back</button></div>`
-    : `<div class="btns"><button id="syncnew" class="primary">Turn on sync</button><button id="syncjoin">I have a code</button><button id="syncacct">Sign in or create account</button><a class="btn" href="${APP_DL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
+    : `<div class="btns"><button id="syncnew" class="primary">Turn on sync and pair your phone</button><button id="syncjoin">I have a code</button><button id="syncacct">Sign in or create account</button><a class="btn" href="${APP_DL}" target="_blank" rel="noopener">Get the Android app</a></div>`}
     <p class="unknowns">Off until you turn it on. Nothing leaves this computer while it's off.</p>`;
   const go = async (code) => {
     try { await cloud.use(code); await start("Sync is on. Sending your sites…"); } catch (e) { ui.notice(esc(e.message || e)); }

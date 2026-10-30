@@ -38,6 +38,10 @@ header { padding: 14px 16px 14px; background: var(--head); color: var(--head-ink
 .brand { display: flex; align-items: center; gap: 9px; font: 800 16px/1 var(--display); letter-spacing: -.02em; }
 .mark { width: 12px; height: 12px; background: var(--head-ink); transform: rotate(45deg); border-radius: 2px; box-shadow: 4px -4px 0 -2px var(--head-muted); }
 .synccode { font: 800 22px/1.2 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .04em; margin: 4px 0 10px !important; user-select: all; overflow-wrap: anywhere; }
+/* Pairing QR: always black on white (cameras need the contrast), with a ring so it sits on dark paper too. */
+.pair { display: flex; gap: 14px; align-items: center; margin: 6px 0 12px; }
+.pair p { margin: 0; }
+svg.qr { display: block; width: 148px; height: 148px; flex: none; border-radius: var(--r-sm); box-shadow: 0 0 0 1px var(--rule-2); }
 .topright { display: flex; align-items: center; gap: 8px; }
 header .quickadd { padding: 4px 11px; font-size: 12px; font-weight: 700; background: transparent; color: var(--head-ink); border-color: #3a3a3a; }
 header .quickadd:hover, header .quickadd[aria-expanded="true"] { border-color: var(--head-ink); }
