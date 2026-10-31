@@ -491,6 +491,9 @@ for (const b of [badBase, goodBase, lookBase]) await phone.route(b + "/**", asyn
   if (!res) return r.abort();
   await r.fulfill({ response: res, headers: { ...res.headers(), "access-control-allow-origin": "*" } });
 });
+// Stands in for the browser window the Android app searches Google in.
+await phone.addInitScript((mine) => { window.sgmTestGoogle = async (qs) => qs.map((q) => ({ q, serp: { kind: "serp", query: q, readAt: new Date().toISOString(),
+  organic: [{ position: 1, url: "https://top-rival.example/", title: "Top", snippet: "" }, { position: 2, url: mine + "/", title: "Mine", snippet: "" }], paa: ["roof repair cost"], related: [] } })); }, lookBase);
 await phone.goto(`http://127.0.0.1:${app.address().port}/`);
 await phone.waitForSelector("#updnow", { timeout: 15000 });
 assert.match(await phone.$eval("#sheet", (e) => e.textContent), /Update available.*build 999/s);
@@ -498,17 +501,28 @@ await phone.screenshot({ path: path.join(repo, "assets", "mobile-update.png") })
 await phone.click("#updlater");
 assert.equal(await phone.evaluate(() => localStorage.getItem("sgm.skipBuild")), "999", "Later remembers the build");
 // A wrong code is refused with a plain message; the extension's code connects (any case, spaces instead of dashes).
-assert.match(await phone.$eval("#view", (e) => e.textContent), /Start without an account/);
-await phone.fill("#scode", "1234"); await phone.click("#sgo");
+// The app opens ready to use with no computer, account or code: a General site stays on the phone and sends nothing.
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Rate any website/);
+assert.match(await phone.$eval("#status", (e) => e.textContent), /Saved on this phone/);
+const rowsBefore = sb.tables.sites.length;
+await phone.click("#quickadd"); await phone.click('[data-qa="general"]');
+await phone.fill("#qurl", "just-looking.example"); await phone.click("#qsave");
+await phone.waitForSelector("#untrack");
+assert.match(await phone.$eval("#view", (e) => e.textContent), /General/);
+assert.equal(sb.tables.sites.length, rowsBefore, "nothing sent while sync is off");
+await phone.click("#untrack"); await phone.click("#unyes");
+await phone.waitForSelector("#pasteurl");
+await phone.click('#mode [data-tab="account"]');
+await phone.fill("#jcode", "1234"); await phone.click("#jgo");
 await phone.waitForFunction(() => /isn't a sync code/.test(document.getElementById("notice").textContent));
-await phone.fill("#scode", code.toLowerCase().replace(/-/g, " ")); await phone.click("#sgo");
+await phone.fill("#jcode", code.toLowerCase().replace(/-/g, " ")); await phone.click("#jgo");
 await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
-assert.match(await phone.$eval("#status", (e) => e.textContent), /Synced/);
+await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-sites.png") });
 await phone.click(`[data-open="${badBase}"]`);
 await phone.waitForSelector(".scorebox");
 const siteText = await phone.$eval("#view", (e) => e.textContent);
-assert.match(siteText, /Summary/); assert.match(siteText, /Top fixes/); assert.match(siteText, /Keywords/);
+assert.match(siteText, /SEO snapshot/); assert.match(siteText, /Top fixes/); assert.match(siteText, /Keywords/);
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-site.png") });
 await phone.click("#quickadd");
 await phone.click('[data-qa="competitor"]');
@@ -543,7 +557,9 @@ assert.equal(await xp.$eval("#code", (e) => e.textContent.trim()), code, "extens
 assert.deepEqual([...sb.accounts].map(([n, a]) => [n, a.code]), [["owner.roofing", code.replace(/-/g, "")]], "account remembers the code");
 await phone.click('#mode [data-tab="account"]');
 await phone.click("#signout");
-await phone.waitForSelector("#sacct"); await phone.click("#sacct");
+await phone.waitForSelector("#sacct");
+assert.ok(await phone.$('#mode [data-tab="sites"]'), "turning off sync keeps the app open");
+await phone.click("#sacct");
 await phone.fill("#auser", "owner.roofing"); await phone.fill("#apw", "wrong password");
 await phone.click("#ain");
 await phone.waitForFunction(() => /Wrong username or password/.test(document.getElementById("notice").textContent));
@@ -553,13 +569,13 @@ await phone.click('#mode [data-tab="account"]');
 assert.match(await phone.$eval("#view", (e) => e.textContent), /Signed in as owner\.roofing/);
 // Phone only, no computer: sign out, start without an account (empty list), then save it to a new account later.
 await phone.click("#signout");
-await phone.waitForSelector("#snew"); await phone.click("#snew");
-const fresh = await phone.$eval(".synccode", (e) => e.textContent.trim());
-assert.notEqual(fresh, code, "new code for a phone-only start");
-await phone.click("#sgo");
+await phone.waitForSelector("#syncnew"); await phone.click("#syncnew");
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
 assert.equal(await phone.$$eval("[data-open]", (x) => x.length), 0, "starts empty");
-await phone.click('#mode [data-tab="account"]'); await phone.click("#acctsave");
+await phone.click('#mode [data-tab="account"]');
+const fresh = await phone.$eval(".synccode", (e) => e.textContent.trim());
+assert.notEqual(fresh, code, "new code for a phone-only start");
+await phone.click("#acctsave");
 await phone.fill("#auser", "owner.roofing"); await phone.fill("#apw", "another password"); await phone.click("#aup");
 await phone.waitForFunction(() => /username is taken/.test(document.getElementById("notice").textContent));
 await phone.fill("#auser", "phone.only"); await phone.click("#aup");
@@ -570,7 +586,7 @@ await phone.click('#mode [data-tab="sites"]');
 await phone.fill("#pasteurl", lookBase); await phone.click("#paste button");
 await phone.waitForSelector("#track", { timeout: 90000 }).catch(async (e) => { console.log("phone view:", await phone.$eval("#view", (x) => x.textContent), "notice:", await phone.$eval("#notice", (x) => x.textContent)); throw e; });
 const looked = await phone.$eval("#view", (e) => e.textContent);
-assert.match(looked, /Summary/); assert.match(looked, /Overall/);
+assert.match(looked, /SEO snapshot/); assert.match(looked, /Overall/);
 await phone.screenshot({ path: path.join(repo, "assets", "mobile-rate.png") });
 await phone.click("#track"); await phone.click('[data-qa="mine"]'); await phone.click("#qsave");
 await phone.waitForSelector("#scannow");
@@ -609,6 +625,32 @@ assert.ok(sb.tables.data.some((r) => r.space === extSpace && r.key === "scan:" +
 await xp.evaluate(() => chrome.runtime.sendMessage({ type: "syncNow" }));
 const extSites = await xp.evaluate(async () => (await chrome.storage.local.get("tracked")).tracked.map((s) => s.origin));
 assert.ok(extSites.includes("https://waiting-client.example") && extSites.includes(lookBase), "the phone's sites reach the extension");
+// Check Google positions on the phone: readings and the keyword report are saved and synced.
+await phone.click(`[data-open="${lookBase}"]`);
+await phone.fill("#kwin", "roof repair york pa"); await phone.click("#addkw button");
+await phone.waitForSelector("#checkkw");
+await phone.click("#checkkw");
+await phone.waitForFunction(() => /Keyword ideas/.test(document.getElementById("view").textContent), null, { timeout: 60000 });
+const checked = await phone.$eval("#view", (e) => e.textContent);
+assert.match(checked, /#2/); assert.match(checked, /Keyword report/); assert.match(checked, /roof repair cost/);
+await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent) && !/to send/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
+for (let i = 0; i < 50 && !sb.tables.data.some((r) => r.key === "kwreport:" + lookBase); i++) await phone.waitForTimeout(200);
+assert.ok(sb.tables.data.some((r) => r.key === "kwpos:" + lookBase && r.value?.at(-1)?.pos === 2), "phone position reading synced");
+assert.ok(sb.tables.data.some((r) => r.key === "kwreport:" + lookBase), "phone keyword report synced");
+// A General site, linked to a business. A server without that site type yet still takes the rest and keeps it waiting.
+sb.flags.oldRoles = true;
+await phone.click('#mode [data-tab="sites"]');
+await phone.click("#quickadd"); await phone.click('[data-qa="general"]');
+await phone.fill("#qurl", "random-site.example");
+await phone.click(`[data-of="${lookBase}"]`); await phone.click("#qsave");
+await phone.waitForFunction(() => /except General sites/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
+assert.ok(!sb.tables.sites.some((r) => r.origin === "https://random-site.example"), "waits for the server");
+sb.flags.oldRoles = false;
+await phone.click("#syncbtn");
+await phone.waitForFunction(() => /^Synced/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
+assert.ok(sb.tables.sites.some((r) => r.origin === "https://random-site.example" && r.role === "general" && r.competitor_of === lookBase), "General site saved with its link");
+await xp.evaluate(() => chrome.runtime.sendMessage({ type: "syncNow" }));
+assert.equal(await xp.evaluate(async () => (await chrome.storage.local.get("tracked")).tracked.find((s) => s.origin === "https://random-site.example")?.role), "general", "General site reaches the extension");
 // The tables can't be read directly, like the real database.
 const anon = await xp.evaluate(async () => (await fetch("https://ouinmglpmeqriowdbwes.supabase.co/rest/v1/sync_sites?select=*", { headers: { apikey: "x" } })).status);
 assert.equal(anon, 401);

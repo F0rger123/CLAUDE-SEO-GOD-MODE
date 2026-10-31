@@ -63,7 +63,7 @@ export function readGoogle() {
   out.query = new URLSearchParams(location.search).get("q") || txt(document.querySelector("textarea[name=q], input[name=q]")) || "";
   const seen = new Set();
   const organic = [];
-  for (const h3 of document.querySelectorAll("#search a h3, #rso a h3")) {
+  for (const h3 of document.querySelectorAll('#search a h3, #rso a h3, #rso a [role="heading"]')) {
     const a = h3.closest("a");
     const href = a?.href || "";
     if (!/^https?:/.test(href) || /google\.[a-z.]+\/(search|url|maps)|googleadservices|webcache/.test(href)) continue;

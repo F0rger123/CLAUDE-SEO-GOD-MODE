@@ -385,9 +385,9 @@ Write the profile description and posts for me to paste (I make the edits at bus
 // ====================================================================== TRACK
 const roleSelect = (id, role, owned, competitorOf) => `<div class="field"><label for="${id}">This site is</label>
   <select id="${id}" class="search">${Object.entries(T.ROLES).map(([k, l]) => `<option value="${k}" ${k === role ? "selected" : ""}>${l}</option>`).join("")}</select>
-  <div class="field vs" ${role === "competitor" ? "" : "hidden"}><label for="${id}-of">Competitor of</label><select id="${id}-of" class="search">
+  <div class="field vs" ${T.canLink(role) ? "" : "hidden"}><label for="${id}-of">Competitor of, or linked to</label><select id="${id}-of" class="search">
   <option value="">(not linked)</option>${owned.map((o) => `<option value="${esc(o.origin)}" ${o.origin === competitorOf ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></div></div>`;
-const bindRole = (id) => { const sel = $(id); if (sel) sel.addEventListener("change", () => (sel.parentElement.querySelector(".vs").hidden = sel.value !== "competitor")); };
+const bindRole = (id) => { const sel = $(id); if (sel) sel.addEventListener("change", () => (sel.parentElement.querySelector(".vs").hidden = !T.canLink(sel.value))); };
 
 async function card(s, list) {
   const h = await T.scoreHistory(s.origin);
@@ -407,7 +407,7 @@ export async function renderTrack(helpers) {
   const list = await T.trackedSites();
   if (v.wizard) return renderWizard();
   if (v.detail && list.some((s) => s.origin === v.detail)) return renderSiteDetail(v.detail);
-  const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"]];
+  const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"], ["general", "General"]];
   const sections = (await Promise.all(groups.map(async ([role, title]) => {
     const xs = list.filter((s) => s.role === role);
     return xs.length ? `<h2 class="sec">${title} <small>${xs.length}</small></h2><div class="tlist">${(await Promise.all(xs.map((s) => card(s, list)))).join("")}</div>` : "";
@@ -464,7 +464,8 @@ async function renderWizard() {
   if (step === "role") body = `<h2 class="q">What is ${esc(hostOf(w.url))} to you?</h2><div class="tiles">
     ${opt("data-role", "mine", "My business", "A site you own. Compete and the charts work for it.", w.role === "mine")}
     ${opt("data-role", "client", "A client I manage", "You do its SEO. Same tools, listed under Clients.", w.role === "client")}
-    ${opt("data-role", "competitor", "A competitor", "Compared side by side with one of your businesses.", w.role === "competitor")}</div>`;
+    ${opt("data-role", "competitor", "A competitor", "Compared side by side with one of your businesses.", w.role === "competitor")}
+    ${opt("data-role", "general", "Just in general", "Any other site you want a snapshot of.", w.role === "general")}</div>`;
   if (step === "of") body = `<h2 class="q">Whose competitor is it?</h2><div class="tiles">${owned.map((o) => opt("data-of", o.origin, esc(o.name), o.role === "client" ? "Client" : "Your business", w.of === o.origin)).join("")}
     ${opt("data-of", "", "Not linked", "Track it on its own.", w.of === "")}</div>`;
   if (step === "kw") {
@@ -518,7 +519,7 @@ async function finishWizard() {
   await T.setRole(o, w.role, w.role === "competitor" ? w.of || null : null);
   const site = (await T.trackedSites()).find((s) => s.origin === o);
   if (w.kws.size || typed.length) await T.setKeywords(o, [...site.keywords, ...w.kws, ...typed]);
-  if (w.role !== "competitor" && !(await chrome.storage.local.get("mySite")).mySite) await chrome.storage.local.set({ mySite: o });
+  if (T.isOwned({ role: w.role }) && !(await chrome.storage.local.get("mySite")).mySite) await chrome.storage.local.set({ mySite: o });
   v.wizard = null; v.detail = w.back;
   ui.toast(`Tracking ${hostOf(o)} as ${T.ROLES[w.role].toLowerCase()}; scanning it now`);
   await renderTrack(ui);
@@ -635,7 +636,7 @@ async function renderSiteDetail(origin) {
   $("editbtn").onclick = () => { v.editing = v.editing === origin ? null : origin; $("editbox").hidden = v.editing !== origin; };
   const go = $("goof"); if (go) go.onclick = () => { v.detail = of.origin; renderSiteDetail(of.origin); };
   $("saverole").onclick = async () => { const role = $("editrole").value;
-    await T.renameSite(origin, $("rename").value); await T.setRole(origin, role, role === "competitor" ? $("editrole-of").value || null : null); v.editing = null; ui.toast("Saved"); renderSiteDetail(origin); };
+    await T.renameSite(origin, $("rename").value); await T.setRole(origin, role, T.canLink(role) ? $("editrole-of").value || null : null); v.editing = null; ui.toast("Saved"); renderSiteDetail(origin); };
   $("rescan1").onclick = () => rescan([origin]);
   const rg = $("rescangroup"); if (rg) rg.onclick = () => rescan([origin, ...T.competitorsOf(origin, list).map((r) => r.origin)]);
   const cc = $("cmpcopy"); if (cc) cc.onclick = () => ui.copy(comparePrompt(v.cmp), "Fix prompt copied");

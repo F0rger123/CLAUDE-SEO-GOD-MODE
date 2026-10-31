@@ -50,7 +50,15 @@ export async function push() {
   if (!s) { queue.sites.clear(); queue.keys.clear(); return; }
   const sites = [...queue.sites.values()]; queue.sites.clear();
   const keys = [...queue.keys]; queue.keys.clear();
-  await cloud.putSites(sites.map((x) => siteRow(x.site, x.deleted)));
+  // General sites go last and separately, so a server without that site type yet still takes everything else.
+  await cloud.putSites(sites.filter((x) => x.site.role !== "general").map((x) => siteRow(x.site, x.deleted)));
+  const general = sites.filter((x) => x.site.role === "general");
+  let later = null;
+  await cloud.putSites(general.map((x) => siteRow(x.site, x.deleted))).catch((e) => {
+    if (!e.needsUpdate) throw e;
+    later = e;
+    for (const x of general) queue.sites.set(x.site.origin, x);
+  });
   const got = keys.length ? await chrome.storage.local.get(keys) : {};
   const rows = keys.map((k) => {
     const m = k.match(SCANS);
@@ -58,7 +66,7 @@ export async function push() {
     return { key, value, deleted_at: value == null ? new Date().toISOString() : null };
   });
   if (rows.length) await cloud.putData(rows);
-  await status(null);
+  await status(later);
 }
 
 /** Everything here, sent once right after signing in. */

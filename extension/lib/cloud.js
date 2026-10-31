@@ -30,6 +30,8 @@ const formatCode = (v) => v.replace(/-/g, "").match(/.{4}/g).join("-");
 export function serverError(res, j, what) {
   if (res.status === 404 || j.code === "PGRST202")
     return Object.assign(new Error("The sync server isn't set up yet: its database script hasn't been run."), { notReady: true });
+  // 23514: a check rule refused the row. Today that only means the "General" site type's database script hasn't been run.
+  if (j.code === "23514") return Object.assign(new Error("General sites can't sync until the sync server's newest database script is run."), { needsUpdate: true });
   return new Error(j.message || `${what} (${res.status})`);
 }
 
@@ -94,6 +96,6 @@ export function makeCloud(store) {
 
 // Local site entry <-> sites row.
 export const siteRow = (s, deleted = false) => ({ origin: s.origin, name: s.name || "", role: s.role || "mine",
-  competitor_of: s.role === "competitor" ? s.competitorOf || null : null, keywords: (s.keywords || []).slice(0, 200),
+  competitor_of: s.role === "competitor" || s.role === "general" ? s.competitorOf || null : null, keywords: (s.keywords || []).slice(0, 200),
   added_at: s.addedAt || new Date().toISOString(), deleted_at: deleted ? new Date().toISOString() : null });
 export const siteFromRow = (r) => ({ origin: r.origin, name: r.name, addedAt: r.added_at, keywords: r.keywords || [], role: r.role, competitorOf: r.competitor_of || null });

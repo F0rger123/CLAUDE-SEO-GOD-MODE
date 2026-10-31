@@ -5,6 +5,7 @@
  *    Redirects are followed here, one hop at a time, so a scan knows the final address.
  *  - Haptic feedback on taps, saves and problems.
  *  - Update check: the build workflow publishes latest.json next to the APK; a newer build shows a pop-up.
+ *  - Google searches for position checks, in a real browser window on the phone, read the same way the extension does.
  *  - QR scanning (pairing with the extension) through Google's code scanner: no camera permission needed.
  */
 const cap = window.Capacitor;
@@ -84,4 +85,49 @@ export async function scanQR() {
     }
     throw e;
   }
+}
+
+/** Whether this phone can search Google for position checks (the Android app). */
+export const canSearch = () => !!globalThis.sgmTestGoogle || has("InAppBrowser");
+
+/**
+ * Search each keyword on Google in a browser window shown on screen, one at a time a few seconds apart, reading each
+ * results page with `read`. It never tries to get past a robot check: it waits for you to solve it in that window.
+ * Returns [{ q, serp }] for the searches done; serp is null if that page couldn't be read. Closing the window stops it.
+ */
+export async function searchGoogle(qs, read, onProgress = () => {}) {
+  if (globalThis.sgmTestGoogle) return globalThis.sgmTestGoogle(qs);
+  const browser = cap.registerPlugin("InAppBrowser");
+  let wake = null, closed = false;
+  const code = `window.mobileApp.postMessage({ detail: { serp: (${read})() } })`;
+  const handles = await Promise.all([
+    browser.addListener("browserPageLoaded", () => setTimeout(() => browser.executeScript({ code }).catch(() => {}), 700)),
+    browser.addListener("messageFromWebview", (e) => wake?.(e.detail?.serp)),
+    browser.addListener("closeEvent", () => { closed = true; wake?.(null); }),
+  ]);
+  const search = (url, first) => new Promise((resolve) => {
+    const done = (serp) => { clearTimeout(timer); wake = null; resolve(serp); };
+    const timer = setTimeout(() => done(null), 120000);
+    wake = (serp) => {
+      if (closed || !serp) return done(null);
+      if (serp.blocked) return onProgress("Google is asking for a robot check. Solve it in the window and the check carries on.");
+      if (serp.kind === "serp") done(serp); // Anything else (a cookie page) waits for you to get past it.
+    };
+    (first ? browser.openWebView({ url, title: "Google", isPresentAfterPageLoad: false }) : browser.setUrl({ url })).catch(() => done(null));
+  });
+  const out = [];
+  try {
+    for (const [i, q] of qs.entries()) {
+      if (i) await new Promise((r) => setTimeout(r, 2500 + Math.random() * 1500));
+      if (closed) break;
+      onProgress(`Searching Google for “${q}” (${i + 1} of ${qs.length})…`);
+      const serp = await search("https://www.google.com/search?q=" + encodeURIComponent(q), i === 0);
+      if (closed) break;
+      out.push({ q, serp });
+    }
+  } finally {
+    if (!closed) await browser.close().catch(() => {});
+    handles.forEach((h) => h.remove());
+  }
+  return out;
 }

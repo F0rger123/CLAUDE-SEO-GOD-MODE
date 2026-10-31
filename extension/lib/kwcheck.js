@@ -57,9 +57,17 @@ export const group = (pos) => (pos && pos <= 3 ? "top" : pos && pos <= 10 ? "clo
  * Break down the keywords where the site isn't top 3, suggest new keywords, and save the report merged with earlier ones.
  * canRead: whether the extension may read other websites (needed to compare pages).
  */
-export async function buildReport(origin, results, { canRead = true, onProgress = () => {} } = {}) {
+export async function buildReport(origin, results, opts = {}) {
   const site = (await trackedSites()).find((s) => s.origin === origin);
-  const old = (await chrome.storage.local.get(reportKey(origin)))[reportKey(origin)] || { rows: [], ideas: [] };
+  const old = (await chrome.storage.local.get(reportKey(origin)))[reportKey(origin)];
+  const report = await mergeReport(old, origin, site?.keywords, results, opts);
+  await chrome.storage.local.set({ [reportKey(origin)]: report });
+  return report;
+}
+
+/** An earlier report (or nothing) with these search results merged in. Used by the extension and the phone. */
+export async function mergeReport(old, origin, keywords, results, { canRead = true, onProgress = () => {} } = {}) {
+  old = old || { rows: [], ideas: [] };
   const rows = new Map(old.rows.map((r) => [r.q, r]));
   const ideas = new Map(old.ideas.map((x) => [x.q.toLowerCase(), x]));
   for (const r of results.filter((x) => !x.error)) {
@@ -77,11 +85,9 @@ export async function buildReport(origin, results, { canRead = true, onProgress 
     for (const q of r.serp.paa || []) ideas.set(q.toLowerCase(), { q, kind: "question", from: r.q });
     for (const q of r.serp.related || []) ideas.set(q.toLowerCase(), { q, kind: "related", from: r.q });
   }
-  const have = new Set([...(site?.keywords || []), ...rows.keys()].map((k) => k.toLowerCase()));
-  const report = { t: new Date().toISOString(), rows: [...rows.values()],
+  const have = new Set([...(keywords || []), ...rows.keys()].map((k) => k.toLowerCase()));
+  return { t: new Date().toISOString(), rows: [...rows.values()],
     ideas: [...ideas.values()].filter((x) => !have.has(x.q.toLowerCase())).slice(0, 15) };
-  await chrome.storage.local.set({ [reportKey(origin)]: report });
-  return report;
 }
 
 export async function getReport(origin) { return (await chrome.storage.local.get(reportKey(origin)))[reportKey(origin)] || null; }

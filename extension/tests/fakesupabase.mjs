@@ -32,6 +32,8 @@ export function fakeSupabase() {
     if (!fn) return json(route, 401, { code: "42501", message: "permission denied" });
     if (flags.notReady) return json(route, 404, { code: "PGRST202", message: `Could not find the function public.${fn} in the schema cache` });
     const body = JSON.parse(req.postData() || "{}");
+    // oldRoles: a server that hasn't run the General site type's script yet.
+    if (flags.oldRoles && fn === "sgm_push_sites" && body.p_rows.some((r) => r.role === "general")) return json(route, 400, { code: "23514", message: "violates check constraint" });
     if (fn === "sgm_account") {
       const n = String(body.p_name || "").trim().toLowerCase(), pw = String(body.p_password || "");
       if (!/^[a-z0-9._@-]{3,60}$/.test(n)) return json(route, 200, { error: "Pick a username of 3 to 60 letters, numbers, dots, dashes or underscores." });

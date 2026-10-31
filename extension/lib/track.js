@@ -11,9 +11,11 @@ const originOf = (url) => new URL(/^https?:/i.test(url) ? url : "https://" + url
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 
 /** What a tracked site is to you. Older entries without a role count as your own business. */
-export const ROLES = { mine: "My business", client: "Client (I manage its SEO)", competitor: "Competitor" };
+export const ROLES = { mine: "My business", client: "Client (I manage its SEO)", competitor: "Competitor", general: "General (just keeping an eye on it)" };
 export const roleOf = (s) => (s?.role && ROLES[s.role] ? s.role : "mine");
-export const isOwned = (s) => roleOf(s) !== "competitor";
+export const isOwned = (s) => roleOf(s) === "mine" || roleOf(s) === "client";
+/** Roles that can point at one of your businesses: a competitor of it, or a general site linked to it. */
+export const canLink = (role) => role === "competitor" || role === "general";
 
 export async function trackedSites() { return ((await chrome.storage.local.get(LIST))[LIST] || []).map((s) => ({ ...s, role: roleOf(s), competitorOf: s.competitorOf || null })); }
 
@@ -23,7 +25,7 @@ export async function trackSite(url, name = "", role = "mine", competitorOf = nu
   const list = await trackedSites();
   const cur = list.find((s) => s.origin === origin);
   if (cur) { if (role === "competitor" && competitorOf && !cur.competitorOf && roleOf(cur) === "competitor") cur.competitorOf = competitorOf; }
-  else list.push({ origin, name: name || hostOf(origin), addedAt: new Date().toISOString(), keywords: [], role, competitorOf: role === "competitor" ? competitorOf : null });
+  else list.push({ origin, name: name || hostOf(origin), addedAt: new Date().toISOString(), keywords: [], role, competitorOf: canLink(role) ? competitorOf : null });
   await chrome.storage.local.set({ [LIST]: list });
   return origin;
 }
@@ -31,7 +33,7 @@ export async function trackSite(url, name = "", role = "mine", competitorOf = nu
 export async function setRole(origin, role, competitorOf = null) {
   const list = await trackedSites();
   const s = list.find((x) => x.origin === origin);
-  if (s) { s.role = role; s.competitorOf = role === "competitor" ? competitorOf : null; }
+  if (s) { s.role = role; s.competitorOf = canLink(role) ? competitorOf : null; }
   // A business that becomes a competitor can't keep competitors of its own.
   if (role === "competitor") list.forEach((x) => { if (x.competitorOf === origin) x.competitorOf = competitorOf; });
   await chrome.storage.local.set({ [LIST]: list });
@@ -100,6 +102,16 @@ export async function addScorePoint(origin, scan) {
 export async function scoreHistory(origin) { return (await chrome.storage.local.get(trendKey(origin)))[trendKey(origin)] || []; }
 
 /** Record each tracked site's position on a results page; the keyword is added to that site's list. */
+/** A site's position rows with this search added. One reading per keyword per hour: a newer one within the hour
+ *  replaces it (so Check always shows the latest position) instead of adding a duplicate point. */
+export function addReading(rows, serp, origin) {
+  const q = serp.query.trim().toLowerCase(), t = serp.readAt || new Date().toISOString();
+  const hit = serp.organic.find((o) => hostOf(o.url) === hostOf(origin));
+  const out = rows.filter((r) => !(r.q === q && Math.abs(new Date(r.t) - new Date(t)) < 3600e3));
+  out.push({ t, q, pos: hit ? hit.position : null, of: serp.organic.length, url: hit?.url || null, top: serp.organic.slice(0, 3).map((o) => hostOf(o.url)) });
+  return out.slice(-MAX_POINTS * 5);
+}
+
 export async function recordPositions(serp) {
   if (!serp?.query || !serp.organic?.length) return [];
   const q = serp.query.trim().toLowerCase(), t = serp.readAt || new Date().toISOString();
@@ -108,14 +120,7 @@ export async function recordPositions(serp) {
     const hit = serp.organic.find((o) => hostOf(o.url) === hostOf(s.origin));
     const k = posKey(s.origin);
     const rows = (await chrome.storage.local.get(k))[k] || [];
-    // One reading per keyword per hour: a newer reading within the hour replaces it (so Check always shows the
-    // latest position) instead of adding a duplicate point.
-    const reading = { t, q, pos: hit ? hit.position : null, of: serp.organic.length, url: hit?.url || null,
-      top: serp.organic.slice(0, 3).map((o) => hostOf(o.url)) };
-    const same = rows.findIndex((r) => r.q === q && Math.abs(new Date(r.t) - new Date(t)) < 3600e3);
-    if (same >= 0) rows.splice(same, 1);
-    rows.push(reading);
-    await chrome.storage.local.set({ [k]: rows.slice(-MAX_POINTS * 5) });
+    await chrome.storage.local.set({ [k]: addReading(rows, serp, s.origin) });
     if (s.keywords.includes(q) || hit) await setKeywords(s.origin, [...s.keywords, q]);
     out.push({ origin: s.origin, name: s.name, pos: hit ? hit.position : null });
   }

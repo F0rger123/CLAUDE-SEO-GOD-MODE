@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.24.0 (2026-10-31): extension 1.19 and app: fully usable on the phone alone, General sites
+
+- **No computer, account or code needed:** the app opens straight to rating and keeping sites. Sync is optional, in **Account**. With sync off, nothing leaves the phone except requests to the sites and searches you ask for.
+- **Check Google positions on the phone:** **Check positions on Google** searches each keyword in a browser window on the phone, records positions and builds the same keyword report as the extension, with new keyword ideas to add. It never tries to get past a robot check; you solve it in that window.
+- **General site type:** keep any site that isn't yours, a client's or a competitor's, optionally linked to one of your businesses, with its dated **SEO snapshot**. Also available in the extension. Syncing General sites needs `supabase/migrations/20261031000000_general_sites.sql` run once; until then they wait and everything else still syncs.
+- Turning off sync without an account now keeps the sites on the phone.
+
 ## 2.23.0 (2026-10-29): extension 1.18 and app: pair with a QR code
 
 - **Pair with a QR code:** the extension's **Settings › Sync with your phone** now shows a QR code next to the sync code. In the Android app, **Scan QR code** (on the first screen, or **Account › Connect your computer**) reads it with Google's code scanner; no camera permission needed. Typing the code still works.

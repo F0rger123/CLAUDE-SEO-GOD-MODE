@@ -1,27 +1,31 @@
 /**
  * SEO God Mode for Android: your tracked sites, scores, positions and competitors, synced with the Chrome extension.
- *  - Start without an account, pair with the extension by scanning its QR code (or typing its sync code), or sign in
- *    (username + password, no email). Pairing or signing in later keeps the sites already on the phone.
+ *  - Opens ready to use and works entirely on the phone, with no computer, account or sync. Sync is optional, in Account:
+ *    turn it on, pair with the extension by QR code or sync code, or sign in (username + password, no email). Doing
+ *    any of those later keeps the sites already on the phone.
  *  - Sites: everything you track, grouped like the extension's Track view. Paste a link to look it up or add it.
  *  - A site: scores, history, summary and fix prompt from its newest whole-site scan, keyword positions and report,
  *    and its competitors side by side. Add or remove keywords and competitors; change what it is to you.
  *  - Compare: a business next to its competitors, scores and positions.
- *  - Quick add: a client, a website of yours, or a competitor (then whose).
+ *  - Quick add: a client, a website of yours, a competitor (then whose), or a site in general (optionally linked).
  *  - Rate any website right here: the same whole-site crawl, checks and scores as the extension (lib/siterate.js),
  *    with no account or database needed. Scans of tracked sites sync to the extension.
- * Checking Google positions stays in the extension. Everything is saved on the phone first and synced when it can
- * be, so the app works offline and before the sync server is set up.
+ *  - Check Google positions here too: a browser window on the phone searches each keyword (native.js), then the same
+ *    keyword report as the extension: where the site ranks, what to change, new keyword ideas.
+ * Everything is saved on the phone first and synced only if sync is on.
  */
 import { cleanCode, EPOCH, makeCloud, newCode, siteFromRow, siteRow } from "./lib/cloud.js";
 import { qrSvg } from "./lib/qr.js";
 import { lineChart } from "./lib/track.js";
 import { summaryText } from "./lib/summary.js";
 import { fixAllPrompt } from "./lib/prompts.js";
-import { group, keywordPrompt } from "./lib/kwcheck.js";
+import { group, keywordPrompt, mergeReport } from "./lib/kwcheck.js";
+import { readGoogle } from "./lib/google.js";
+import { addReading } from "./lib/track.js";
 import { OFF_PAGE } from "./lib/breakdown.js";
 import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
-import { canScan, haptic, installNativeFetch, isNative, newerBuild, scanQR } from "./native.js";
+import { canScan, canSearch, haptic, installNativeFetch, isNative, newerBuild, scanQR, searchGoogle } from "./native.js";
 
 installNativeFetch([SB_URL]);
 
@@ -32,9 +36,11 @@ const when = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "shor
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : when(new Date(t).toISOString()); };
 const status = (n) => (n == null ? "" : n >= 85 ? "s-pass" : n >= 65 ? "s-part" : "s-fail");
 const posStatus = (p) => (p == null ? "s-fail" : p <= 3 ? "s-pass" : p <= 10 ? "s-part" : "s-fail");
-const ROLES = { mine: "My business", client: "Client", competitor: "Competitor" };
-const owned = () => [...S.sites.values()].filter((s) => s.role !== "competitor");
+const ROLES = { mine: "My business", client: "Client", competitor: "Competitor", general: "General" };
+const owned = () => [...S.sites.values()].filter((s) => s.role === "mine" || s.role === "client");
+const canLink = (role) => role === "competitor" || role === "general";
 const competitorsOf = (o) => [...S.sites.values()].filter((s) => s.role === "competitor" && s.competitorOf === o);
+const linkedTo = (o) => [...S.sites.values()].filter((s) => s.role === "general" && s.competitorOf === o);
 const originOf = (raw) => { const u = new URL(/^https?:/i.test(raw.trim()) ? raw.trim() : "https://" + raw.trim()); if (!u.hostname.includes(".")) throw new Error(); return u.origin; };
 
 // ------------------------------------------------------------------ storage: session in localStorage, data in IndexedDB
@@ -69,9 +75,13 @@ const pendingCount = () => Object.keys(S.pending.sites).length + S.pending.keys.
 /** Send what's waiting. Throws (and keeps it waiting) if the server can't take it. */
 async function flush() {
   const sites = Object.values(S.pending.sites), keys = [...S.pending.keys];
-  if (sites.length) await cloud.putSites(sites);
+  // General sites go last and separately, so a server without that site type yet still takes everything else.
+  const general = sites.filter((r) => r.role === "general"), rest = sites.filter((r) => r.role !== "general");
+  if (rest.length) await cloud.putSites(rest);
+  S.oldServer = false;
+  if (general.length) await cloud.putSites(general).catch((e) => { if (!e.needsUpdate) throw e; S.oldServer = true; });
   if (keys.length) await cloud.putData(keys.map((key) => { const value = S.data.get(key) ?? null; return { key, value, deleted_at: value == null ? new Date().toISOString() : null }; }));
-  for (const r of sites) if (S.pending.sites[r.origin] === r) delete S.pending.sites[r.origin];
+  for (const r of S.oldServer ? rest : sites) if (S.pending.sites[r.origin] === r) delete S.pending.sites[r.origin];
   S.pending.keys = S.pending.keys.filter((k) => !keys.includes(k));
   await saveCache();
 }
@@ -80,6 +90,9 @@ async function flush() {
 async function pull({ quiet = true } = {}) {
   // Already syncing: go again right after, so a change saved meanwhile isn't left waiting.
   if (S.busy) { S.again = true; return; }
+  // Sync is off: everything stays on this phone.
+  S.local = !(await cloud.current());
+  if (S.local) { if (!quiet) render(); return paintStatus(); }
   S.busy = true; paintStatus();
   try {
     await flush();
@@ -125,33 +138,10 @@ function paintStatus() {
   const el = $("status");
   if (!el || $("mode").hidden) return;
   const waiting = pendingCount();
-  el.innerHTML = `${S.busy ? "Syncing…" : S.error === "notready" ? "Saved on this phone. Sync starts once the sync server is set up"
+  if (S.local) { el.textContent = "Saved on this phone"; return; }
+  el.innerHTML = `${S.busy ? "Syncing…" : S.oldServer ? "Synced, except General sites (sync server needs its newest script)" : S.error === "notready" ? "Saved on this phone. Sync starts once the sync server is set up"
     : S.error ? `Saved on this phone${waiting ? ` (${waiting} to send)` : ""}. Offline: ${esc(S.error)}` : S.lastSync ? `Synced ${ago(S.lastSync)}` : "Not synced yet"} <button class="linkish" id="syncbtn">Sync</button>`;
   $("syncbtn").onclick = () => pull({ quiet: false });
-}
-
-// ------------------------------------------------------------------ connect with a sync code
-function renderSignIn(fresh = null) {
-  $("mode").hidden = true; $("quickadd").hidden = true;
-  $("status").textContent = "Your tracked sites, on your phone";
-  $("view").innerHTML = fresh ? `<h1 class="q">Your sync code</h1>
-      <p class="synccode">${esc(fresh)}</p>
-      <p class="lede">No account needed: your sites are kept under this code. Copy it somewhere safe. To see the same sites on your computer, type it into the Chrome extension (Settings › Sync with your phone › I have a code). Anyone with the code can see and change your tracked sites. You can make an account later in Account, so you can sign in instead.</p>
-      <div class="btns stack"><button id="scopy">Copy code</button><button id="sgo" class="primary">Continue</button></div>`
-    : `<h1 class="q">Get started</h1>
-      <p class="lede">No account or email needed.</p>
-      <div class="btns stack"><button id="snew" class="primary">Start without an account</button><button id="sacct">Sign in or create account</button></div>
-      <h2 class="sec">Already use the Chrome extension?</h2>
-      <p class="lede">In the extension, open <b>Settings › Sync with your phone</b> and press <b>Turn on sync and pair your phone</b>. ${canScan ? "Then scan the QR code it shows, or type its code." : "Type the code it shows here."}</p>
-      ${pairForm("s")}`;
-  if (fresh) {
-    $("scopy").onclick = () => copy(fresh, "Sync code copied");
-    $("sgo").onclick = () => cloud.use(fresh).then(start);
-    return;
-  }
-  $("snew").onclick = () => renderSignIn(newCode());
-  $("sacct").onclick = () => renderAccountForm();
-  bindPair("s");
 }
 
 // ------------------------------------------------------------------ pair with the extension (or another phone)
@@ -183,13 +173,12 @@ async function joinCode(text) {
  */
 async function switchKeeping(change, done) {
   const before = localStorage.getItem("sgm.sync");
-  if (before) await loadCache();
+  await loadCache();
   const mine = { sites: [...S.sites.values()], data: [...S.data] };
   const r = await change();
-  // Same code as before (an account made from this phone's code), or nothing on the phone to keep.
-  if (r?.switched === false || (!before && !mine.sites.length)) { toast(done); return start(); }
+  // Same code as before (an account made from this phone's code): nothing moves.
+  if (before && r?.switched === false) { toast(done); return start(); }
   await clearCache();
-  $("mode").hidden = false; $("quickadd").hidden = false;
   await pull({ quiet: false });
   if (S.error) {
     const why = S.error === "notready" ? "the sync server isn't set up yet" : S.error;
@@ -204,12 +193,13 @@ async function switchKeeping(change, done) {
   S.pending.keys = [...new Set([...S.pending.keys, ...keys])];
   await saveCache();
   toast(add.length ? `${done}. Brought ${add.length} site${add.length === 1 ? "" : "s"} from this phone` : done);
+  S.tab = "sites"; S.open = null;
   start();
 }
 
 // Optional account (username + password, no email): it only remembers the sync code. Sign in on a new phone to get the same sites.
 function renderAccountForm() {
-  const connected = !$("mode").hidden;
+  const connected = !S.local;
   $("view").innerHTML = `<h1 class="q">${connected ? "Save to an account" : "Sign in"}</h1>
       <p class="lede">${connected ? "Keep your sync code in an account, so signing in on another phone or computer finds these sites." : "Sign in to get your sites, or create an account to keep them. Works without a computer. Just a username and password: no email."}</p>
       <form id="aform" class="field"><label for="auser">Username</label><input id="auser" class="search big" autocomplete="username" autocapitalize="none" spellcheck="false">
@@ -224,7 +214,7 @@ function renderAccountForm() {
   $("aform").onsubmit = (e) => { e.preventDefault(); go("signin"); };
   $("ain").onclick = () => go("signin");
   $("aup").onclick = () => go("signup");
-  $("aback").onclick = () => (connected ? renderAccount() : renderSignIn());
+  $("aback").onclick = () => renderAccount();
 }
 
 async function clearCache() {
@@ -273,9 +263,9 @@ function renderLookup(o) {
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
     <div class="hero"><div><b>${esc(hostOf(o))}</b><small>Not tracked · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(o)}</a></small></div></div>
     ${running ? `<div class="emptybox"><b>Rating the whole site…</b><p id="scanprog">${esc(hostOf(o))}: ${esc(S.scanning.text)}</p><p>Same crawl, checks and scores as the Chrome extension. Takes up to a minute.</p></div>`
-      : scan ? `${scoreBoxes(scan.scores)}<h2 class="sec">Summary <small>${scan.pagesRated} pages</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
+      : scan ? `${scoreBoxes(scan.scores)}<h2 class="sec">SEO snapshot <small>${scan.pagesRated} pages, ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
         ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>` : ""}
-        <div class="btns stack">${failed.length ? `<button id="copyfix">Copy fix prompt</button>` : ""}<button id="track" class="primary">Track this site</button><button id="rescan">Scan again</button></div>`
+        <div class="btns stack">${failed.length ? `<button id="copyfix">Copy fix prompt</button>` : ""}<button id="track" class="primary">Keep this site</button><button id="rescan">Scan again</button></div>`
       : `<div class="emptybox"><b>Couldn't rate it</b><p>Check the address and your connection, then try again.</p></div><div class="btns stack"><button id="rescan" class="primary">Try again</button></div>`}`;
   $("back").onclick = () => { S.open = null; render(); };
   if ($("copyfix")) $("copyfix").onclick = () => copy(fixAllPrompt(scan), "Fix prompt copied");
@@ -291,17 +281,17 @@ function card(s) {
   const d = last && prev ? last.overall - prev.overall : null;
   const rivals = competitorsOf(s.origin).length;
   const of = s.competitorOf && S.sites.get(s.competitorOf);
-  return `<div class="tcard"><button class="topen" data-open="${esc(s.origin)}"><div class="thead"><div><b>${esc(s.name)}</b><small>${last ? "Scanned " + when(last.t) : "Not scanned yet"} · ${s.keywords.length} keyword${s.keywords.length === 1 ? "" : "s"}${rivals ? ` · ${rivals} competitor${rivals === 1 ? "" : "s"}` : ""}${of ? ` · vs ${esc(of.name)}` : ""}</small></div>
+  return `<div class="tcard"><button class="topen" data-open="${esc(s.origin)}"><div class="thead"><div><b>${esc(s.name)}</b><small>${last ? "Scanned " + when(last.t) : "Not scanned yet"} · ${s.keywords.length} keyword${s.keywords.length === 1 ? "" : "s"}${rivals ? ` · ${rivals} competitor${rivals === 1 ? "" : "s"}` : ""}${of ? ` · ${s.role === "general" ? "linked to" : "vs"} ${esc(of.name)}` : ""}</small></div>
     <div class="tscore ${status(last?.overall)}">${last ? last.overall : "–"}${d ? `<i class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}</i>` : ""}</div></div>
     ${h.length > 1 ? lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }], { height: 54, label: s.name + " score history" }) : ""}</button></div>`;
 }
 
 function renderSites() {
   const list = [...S.sites.values()];
-  const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"]];
+  const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"], ["general", "General"]];
   $("view").innerHTML = `<form id="paste" class="field"><label for="pasteurl">Rate any website</label><div class="row"><input id="pasteurl" class="search big" inputmode="url" autocomplete="off" placeholder="Paste a link"><button class="primary">Rate it</button></div></form>
     ${list.length ? groups.map(([role, title]) => { const xs = list.filter((s) => s.role === role); return xs.length ? `<h2 class="sec">${title} <small>${xs.length}</small></h2><div class="tlist">${xs.map(card).join("")}</div>` : ""; }).join("")
-      : `<div class="emptybox"><b>Nothing tracked yet</b><p>Paste a link above to rate any website, or press + Quick add to track one. Sites you track in the Chrome extension show up here once sync is on there.</p></div>`}`;
+      : `<div class="emptybox"><b>Nothing tracked yet</b><p>Paste a link above to rate any website, or press + Quick add to keep one here. Everything works on this phone, with no computer needed.</p></div>`}`;
   $("paste").onsubmit = (e) => {
     e.preventDefault();
     let o; try { o = originOf($("pasteurl").value); } catch { return notice("That doesn't look like a website address. Try something like example.com."); }
@@ -330,27 +320,31 @@ function renderSite(o) {
   const kws = s.keywords;
   const weak = report ? report.rows.filter((r) => group(r.pos) !== "top") : [];
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
-    <div class="hero"><div><b>${esc(s.name)}</b><small>${ROLES[s.role]}${of ? ` of <button class="linkish" data-open="${esc(of.origin)}">${esc(of.name)}</button>` : ""} · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(hostOf(o))}</a></small></div></div>
+    <div class="hero"><div><b>${esc(s.name)}</b><small>${ROLES[s.role]}${of ? ` ${s.role === "general" ? "linked to" : "of"} <button class="linkish" data-open="${esc(of.origin)}">${esc(of.name)}</button>` : ""} · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(hostOf(o))}</a></small></div></div>
     ${scoreBoxes(p)}
     ${running ? `<div class="emptybox"><b>Rating the whole site…</b><p id="scanprog">${esc(hostOf(o))}: ${esc(S.scanning.text)}</p></div>` : `<div class="btns stack"><button id="scannow"${scan ? "" : ` class="primary"`}>${scan ? "Scan again" : "Scan now"}</button></div>`}
     ${h.length > 1 ? lineChart([{ name: "Overall", cls: "main", points: h.map((x) => ({ t: x.t, v: x.overall })) }], { label: s.name + " score history" }) : ""}
-    ${scan ? `<h2 class="sec">Summary <small>scanned ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
+    ${scan ? `<h2 class="sec">SEO snapshot <small>scanned ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
       ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>
         <div class="btns stack"><button id="copyfix" class="primary">Copy fix prompt</button></div>` : ""}`
       : running ? "" : `<div class="emptybox"><b>Not scanned yet</b><p>Press Scan now to rate the whole site on this phone. Scans from the Chrome extension show up here too.</p></div>`}
     <h2 class="sec">Keywords <small>${kws.length}</small></h2>
     ${kws.length ? `<table class="mini"><tr><th>Search</th><th>Position</th><th></th></tr>${kws.map((q) => { const r = latestPos(o, q); return `<tr><td>${esc(q)}${r ? `<small class="when">${when(r.t)}</small>` : ""}</td><td class="${r ? posStatus(r.pos) : ""}"><b class="posn">${r ? (r.pos ? "#" + r.pos : "not top " + (r.of || 10)) : "not checked"}</b></td><td><button class="tdel inline" data-rmkw="${esc(q)}" aria-label="Remove ${esc(q)}">×</button></td></tr>`; }).join("")}</table>
-      <p class="unknowns">Positions come from the Chrome extension: press Check in Track on your computer to update them.</p>` : ""}
+      ${S.checking?.origin === o ? `<div class="emptybox"><b>Checking Google…</b><p id="checkprog">${esc(S.checking.text)}</p></div>`
+        : canSearch() ? `<div class="btns stack"><button id="checkkw" class="primary">Check positions on Google</button></div><p class="unknowns">Opens Google on this phone and searches each keyword. If Google asks for a robot check, solve it there and the check carries on.</p>`
+        : `<p class="unknowns">Checking positions needs the Android app.</p>`}` : ""}
     <form id="addkw" class="field"><label for="kwin">Add keywords (comma separated)</label><div class="row"><input id="kwin" class="search" placeholder="roof repair york pa"><button>Add</button></div></form>
     ${report?.rows?.length ? `<h2 class="sec">Keyword report <small>${when(report.t)}</small></h2>
       <div class="kwsum"><span class="s-pass"><b>${report.rows.filter((r) => group(r.pos) === "top").length}</b>top 3</span><span class="s-part"><b>${report.rows.filter((r) => group(r.pos) === "close").length}</b>rest of page 1</span><span class="s-fail"><b>${report.rows.filter((r) => group(r.pos) === "behind").length}</b>further down</span></div>
-      ${weak.length ? `<div class="list">${weak.map((r) => `<div class="factor"><span class="dot ${posStatus(r.pos)}"></span><div><b>${esc(r.q)} · ${r.pos ? "#" + r.pos : "not in top " + (r.of || 10)}</b>${r.score != null ? `<small>on-page ${r.score} vs ${esc((r.others || []).join(", ") || "–")}</small>` : ""}${r.verdict ? `<p>${esc(r.verdict)}</p>` : ""}</div></div>`).join("")}</div>
+      ${weak.length ? `<div class="list">${weak.map((r) => `<div class="factor"><span class="dot ${posStatus(r.pos)}"></span><div><b>${esc(r.q)} · ${r.pos ? "#" + r.pos : "not in top " + (r.of || 10)}</b>${r.score != null ? `<small>on-page ${r.score} vs ${esc((r.others || []).join(", ") || "–")}</small>` : ""}${r.verdict ? `<p>${esc(r.verdict)}</p>` : ""}${r.gaps?.length ? `<small>${r.gaps.map((g) => esc(g.fix || g.label)).join(" ")}</small>` : ""}${r.top?.length ? `<small>Top: ${r.top.map((x) => esc(x.host)).join(", ")}</small>` : ""}</div></div>`).join("")}</div>
         <div class="btns stack"><button id="copykw" class="primary">Copy keyword fix prompt</button></div>` : `<p class="verdict">Every checked keyword is in the top 3. ${esc(OFF_PAGE)}</p>`}` : ""}
-    ${s.role !== "competitor" ? `<h2 class="sec">Competitors <small>${rivals.length}</small></h2>${rivals.length ? compareTable(s, rivals) : `<p class="lede">None linked yet.</p>`}
+    ${report?.ideas?.length ? `<h2 class="sec">Keyword ideas <small>${report.ideas.length}</small></h2><div class="list">${report.ideas.map((x) => `<div class="factor"><div><b>${esc(x.q)}</b><small>${x.kind === "question" ? "People also ask" : "Related search"}</small></div><button data-addkw="${esc(x.q)}">Add</button></div>`).join("")}</div>` : ""}
+    ${linkedTo(o).length ? `<h2 class="sec">Linked sites <small>${linkedTo(o).length}</small></h2><div class="tlist">${linkedTo(o).map(card).join("")}</div>` : ""}
+    ${s.role === "mine" || s.role === "client" ? `<h2 class="sec">Competitors <small>${rivals.length}</small></h2>${rivals.length ? compareTable(s, rivals) : `<p class="lede">None linked yet.</p>`}
       <div class="btns"><button id="addcomp">Add a competitor</button><button id="gocompare">Compare</button></div>` : ""}
     <h2 class="sec">This site</h2>
-    <div class="field"><label for="role">This site is</label><select id="role" class="search">${Object.entries({ mine: "My business", client: "A client I manage", competitor: "A competitor" }).map(([k, l]) => `<option value="${k}" ${k === s.role ? "selected" : ""}>${l}</option>`).join("")}</select></div>
-    <div class="field" id="ofwrap" ${s.role === "competitor" ? "" : "hidden"}><label for="of">Competitor of</label><select id="of" class="search"><option value="">(not linked)</option>${owned().filter((x) => x.origin !== o).map((x) => `<option value="${esc(x.origin)}" ${x.origin === s.competitorOf ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></div>
+    <div class="field"><label for="role">This site is</label><select id="role" class="search">${Object.entries({ mine: "My business", client: "A client I manage", competitor: "A competitor", general: "Just in general" }).map(([k, l]) => `<option value="${k}" ${k === s.role ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+    <div class="field" id="ofwrap" ${canLink(s.role) ? "" : "hidden"}><label for="of">Competitor of, or linked to</label><select id="of" class="search"><option value="">(not linked)</option>${owned().filter((x) => x.origin !== o).map((x) => `<option value="${esc(x.origin)}" ${x.origin === s.competitorOf ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></div>
     <div class="btns"><button id="saverole">Save</button><button id="untrack" class="danger">Stop tracking</button></div><div id="untrackbox"></div>`;
   $("back").onclick = () => { S.open = null; render(); };
   bindOpen();
@@ -365,13 +359,48 @@ function renderSite(o) {
     const add = $("kwin").value.split(",").map((k) => k.trim().toLowerCase()).filter(Boolean);
     if (add.length) putSite({ ...s, keywords: [...new Set([...s.keywords, ...add])] }).then(() => toast("Keywords added")).catch(fail);
   };
-  $("role").onchange = () => ($("ofwrap").hidden = $("role").value !== "competitor");
-  $("saverole").onclick = () => { const role = $("role").value; putSite({ ...s, role, competitorOf: role === "competitor" ? $("of").value || null : null }).then(() => toast("Saved")).catch(fail); };
+  if ($("checkkw")) $("checkkw").onclick = () => checkKeywords(o);
+  document.querySelectorAll("[data-addkw]").forEach((b) => (b.onclick = () => putSite({ ...s, keywords: [...new Set([...s.keywords, b.dataset.addkw.toLowerCase()])] }).then(() => toast("Keyword added")).catch(fail)));
+  $("role").onchange = () => ($("ofwrap").hidden = !canLink($("role").value));
+  $("saverole").onclick = () => { const role = $("role").value; putSite({ ...s, role, competitorOf: canLink(role) ? $("of").value || null : null }).then(() => toast("Saved")).catch(fail); };
   $("untrack").onclick = () => {
     $("untrackbox").innerHTML = `<div class="confirm"><p><b>Stop tracking ${esc(s.name)}?</b> It's removed from the extension too at its next sync. Its history stays on the computer until then.</p><div class="btns"><button id="unyes" class="danger solid">Stop tracking</button><button id="unno">Keep it</button></div></div>`;
     $("unno").onclick = () => ($("untrackbox").innerHTML = "");
     $("unyes").onclick = () => { S.open = null; putSite(s, true).then(() => toast(`Stopped tracking ${s.name}`)).catch(fail); };
   };
+}
+
+/** Check a site's keywords on Google from the phone, record positions for every tracked site, and update its report. */
+async function checkKeywords(o) {
+  if (S.checking) return;
+  const s = S.sites.get(o), progress = (text) => { S.checking.text = text; const el = $("checkprog"); if (el) el.textContent = text; };
+  S.checking = { origin: o, text: "Opening Google…" };
+  render();
+  try {
+    const found = await searchGoogle(s.keywords, readGoogle, progress);
+    const keys = new Set(), results = [];
+    for (const { q, serp } of found) {
+      if (!serp?.organic?.length) { results.push({ q, error: true }); continue; }
+      serp.query = q;
+      for (const x of S.sites.values()) {
+        if (x.origin !== o && !serp.organic.some((r) => hostOf(r.url) === hostOf(x.origin))) continue;
+        S.data.set("kwpos:" + x.origin, addReading(kwpos(x.origin), serp, x.origin));
+        keys.add("kwpos:" + x.origin);
+      }
+      const mine = serp.organic.find((r) => hostOf(r.url) === hostOf(o));
+      results.push({ q, pos: mine ? mine.position : null, of: serp.organic.length, serp });
+    }
+    const failed = results.filter((r) => r.error).length;
+    if (results.length > failed) {
+      S.data.set("kwreport:" + o, await mergeReport(S.data.get("kwreport:" + o), o, s.keywords, results, { onProgress: progress }));
+      keys.add("kwreport:" + o);
+      await saveCache();
+      await putData([...keys]);
+      toast(`Checked ${results.length - failed} keyword${results.length - failed === 1 ? "" : "s"}`);
+    }
+    if (failed) notice(`Couldn't read Google's results for ${failed} keyword${failed === 1 ? "" : "s"}. Nothing was recorded for ${failed === 1 ? "it" : "them"}.`);
+  } catch (e) { fail(e); }
+  finally { S.checking = null; render(); }
 }
 
 /** A business and its competitors: latest scores, and the verdict when it's already ahead. */
@@ -406,24 +435,43 @@ function renderCompare() {
 
 async function renderAccount() {
   const s = await cloud.current();
+  const about = `<h2 class="sec">How it works</h2>
+    <p class="lede">Rate any website, keep sites, compare competitors and check Google positions, all on this phone. Everything is saved here first. A computer is optional: pair with the Chrome extension to share your sites with it.</p>
+    <p class="unknowns">App build ${esc(String(BUILD))}. <button class="linkish" id="checkupd">Check for updates</button></p>
+    <p class="unknowns">SEO God Mode · Built by <a href="https://theagencyzero.com" target="_blank" rel="noopener">theagencyzero.com</a></p>`;
+  if (!s) {
+    $("view").innerHTML = `<h2 class="sec first">Sync (optional)</h2>
+      <p class="lede">Everything is saved on this phone and you don't need anything else. Turn on sync only to back it up, or to share it with a computer or another phone.</p>
+      <div class="btns stack"><button id="syncnew">Turn on sync</button><button id="sacct">Sign in or create account</button></div>
+      <h2 class="sec">Connect your computer</h2>
+      <p class="lede">In the Chrome extension, open <b>Settings › Sync with your phone</b>. ${canScan ? "Scan the QR code it shows, or type its code." : "Type the code it shows."} This phone's sites come along.</p>
+      ${pairForm("j")}${about}`;
+    $("syncnew").onclick = () => switchKeeping(() => cloud.use(newCode()), "Sync is on").catch(fail);
+    $("sacct").onclick = () => renderAccountForm();
+    $("checkupd").onclick = () => checkUpdate(true);
+    return bindPair("j");
+  }
   $("view").innerHTML = `<h2 class="sec first">Account</h2>
     <div class="upd">${s?.user ? `<p>Signed in as <b>${esc(s.user)}</b>. Sign in with it on another phone or computer to see the same sites.</p>` : ""}<p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
     <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database under this code, and cached on this phone so the app opens offline. Anyone with the code can see and change them, so keep it private.</p>
-    <div class="btns"><button id="copycode">Copy code</button>${s?.user ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.user ? "Sign out" : "Disconnect this phone"}</button></div></div>
+    <div class="btns"><button id="copycode">Copy code</button>${s?.user ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.user ? "Sign out" : "Turn off sync"}</button></div></div>
     <h2 class="sec">Connect your computer</h2>
     <p class="lede"><b>Extension not synced yet?</b> In it, open <b>Settings › Sync with your phone › I have a code</b> and type the code above. Its sites join yours.</p>
     <p class="lede"><b>Extension already synced?</b> ${canScan ? "Scan the QR code it shows, or type its code." : "Type the code it shows."} This phone's sites come along.</p>
     ${pairForm("j")}
     <details class="fold"><summary>Show this phone's QR code</summary><div class="pad"><div class="pair">${qrSvg(s?.code || "", "QR code of this phone's sync code")}<p>Scan it with the app on another phone to see the same sites there.</p></div></div></details>
-    <h2 class="sec">How it works</h2>
-    <p class="lede">Rate any website here, with the same checks and scores as the Chrome extension. Everything is saved on this phone first and syncs with the extension when it can. Checking Google positions runs in the extension on your computer.</p>
-    <p class="unknowns">App build ${esc(String(BUILD))}. <button class="linkish" id="checkupd">Check for updates</button></p>
-    <p class="unknowns">SEO God Mode · Built by <a href="https://theagencyzero.com" target="_blank" rel="noopener">theagencyzero.com</a></p>`;
+    ${about}`;
   $("copycode").onclick = () => copy(s?.code || "", "Sync code copied");
   $("checkupd").onclick = () => checkUpdate(true);
   bindPair("j");
   if (!s?.user) $("acctsave").onclick = () => renderAccountForm();
-  $("signout").onclick = async () => { await cloud.signOut(); await clearCache(); start(); };
+  // Signing out of an account clears its sites from this phone. Turning off sync without one keeps them here.
+  $("signout").onclick = async () => {
+    await cloud.signOut();
+    if (s?.user) await clearCache();
+    else { S.cursor = { sites: EPOCH, data: EPOCH }; S.pending = { sites: {}, keys: [] }; S.error = null; S.lastSync = 0; await saveCache(); }
+    S.tab = "account"; start();
+  };
 }
 
 // ------------------------------------------------------------------ quick add (bottom sheet)
@@ -437,9 +485,10 @@ function quickAdd(pre = {}) {
   const tile = (attr, val, title, desc, on) => `<button class="tile ${on ? "on" : ""}" ${attr}="${esc(val)}" aria-pressed="${on}"><b>${title}</b><small>${desc}</small></button>`;
   const draw = () => {
     const biz = owned();
-    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">${w.role ? "Add " + { client: "a client", mine: "a website of yours", competitor: "a competitor" }[w.role] : "Quick add"}</h2><button id="qclose" class="linkish">Close</button></div>
-      ${!w.role ? `<div class="tiles">${tile("data-qa", "client", "A client", "You manage its SEO.", false)}${tile("data-qa", "mine", "A website of mine", "Your own business.", false)}${tile("data-qa", "competitor", "A competitor", "Then pick whose competitor it is.", false)}</div>`
+    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">${w.role ? "Add " + { client: "a client", mine: "a website of yours", competitor: "a competitor", general: "a site in general" }[w.role] : "Quick add"}</h2><button id="qclose" class="linkish">Close</button></div>
+      ${!w.role ? `<div class="tiles">${tile("data-qa", "client", "A client", "You manage its SEO.", false)}${tile("data-qa", "mine", "A website of mine", "Your own business.", false)}${tile("data-qa", "competitor", "A competitor", "Then pick whose competitor it is.", false)}${tile("data-qa", "general", "Just in general", "Any other site you want a snapshot of.", false)}</div>`
       : `<form id="qform"><div class="field"><label for="qurl">Website address</label><input id="qurl" class="search big" inputmode="url" autocomplete="off" placeholder="example.com" value="${esc(w.url)}"></div>
+        ${w.role === "general" && biz.length ? `<div class="field"><label>Link it to one of your businesses? (optional)</label><div class="tiles">${biz.map((b) => tile("data-of", b.origin, esc(b.name), b.role === "client" ? "Client" : "Your business", w.of === b.origin)).join("")}${tile("data-of", "", "No link", "Keep it on its own.", !w.of)}</div></div>` : ""}
         ${w.role === "competitor" ? `<div class="field"><label>Whose competitor is it?</label><div class="tiles">${biz.map((b) => tile("data-of", b.origin, esc(b.name), b.role === "client" ? "Client" : "Your business", w.of === b.origin)).join("")}${tile("data-of", "", "Not linked", "Track it on its own.", w.of === "")}</div></div>` : ""}
         <div class="field"><label for="qkw">Searches it should rank for (optional, comma separated)</label><input id="qkw" class="search" placeholder="roof repair york pa, metal roofing"></div>
         <div class="btns stack"><button class="primary" id="qsave" ${w.role === "competitor" && biz.length && w.of == null ? "disabled" : ""}>Add</button>${w.fixed ? "" : `<button type="button" id="qback">Back</button>`}</div></form>`}`;
@@ -455,7 +504,7 @@ function quickAdd(pre = {}) {
       const kws = $("qkw").value.split(",").map((k) => k.trim().toLowerCase()).filter(Boolean);
       const old = S.sites.get(o);
       const site = { origin: o, name: old?.name || hostOf(o), addedAt: old?.addedAt || new Date().toISOString(), keywords: [...new Set([...(old?.keywords || []), ...kws])],
-        role: w.role, competitorOf: w.role === "competitor" ? w.of || null : null };
+        role: w.role, competitorOf: canLink(w.role) ? w.of || null : null };
       $("qsave").disabled = true;
       try {
         await putSite(site); close();
@@ -486,9 +535,9 @@ function render() {
 let poll;
 async function start() {
   clearInterval(poll);
-  if (!(await cloud.current())) return renderSignIn();
   $("mode").hidden = false; $("quickadd").hidden = false;
   await loadCache();
+  S.local = !(await cloud.current());
   render(); paintStatus();
   await pull({ quiet: false });
   // While the app is open: every 20 seconds, and whenever it comes back to the front.
