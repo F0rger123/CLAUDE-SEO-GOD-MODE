@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.24.1 (2026-10-31): app: new look and animations
+
+- **Bottom tab bar** with a sliding pill, in thumb reach, and a bold **Rate any website** card.
+- **Animations:** screens slide in by direction and their parts arrive in turn; score rings fill and count up; charts draw themselves; a sweeping ring and moving bar show long scans; the sheet and toast spring; errors shake; a dot pulses while syncing. A background sync never re-animates the screen, and the phone's reduced-motion setting turns motion off.
+
 ## 2.24.0 (2026-10-31): extension 1.19 and app: fully usable on the phone alone, General sites
 
 - **No computer, account or code needed:** the app opens straight to rating and keeping sites. Sync is optional, in **Account**. With sync off, nothing leaves the phone except requests to the sites and searches you ask for.

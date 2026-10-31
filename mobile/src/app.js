@@ -131,15 +131,16 @@ async function putData(keys) {
 
 // ------------------------------------------------------------------ UI helpers
 let toastT;
-function toast(t) { haptic("ok"); const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2200); }
-function notice(html) { if (html) haptic("warn"); const n = $("notice"); n.hidden = !html; n.innerHTML = html || ""; }
+function toast(t) { haptic("ok"); const el = $("toast"); el.textContent = t; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2200); }
+function notice(html) { if (html) haptic("warn"); const n = $("notice"); n.hidden = !html; n.innerHTML = html || ""; n.classList.remove("shake"); if (html) { void n.offsetWidth; n.classList.add("shake"); } }
 async function copy(text, msg) { try { await navigator.clipboard.writeText(text); toast(msg); } catch { notice("Couldn't copy. Long-press the text below to copy it."); } }
 function paintStatus() {
   const el = $("status");
   if (!el || $("mode").hidden) return;
   const waiting = pendingCount();
-  if (S.local) { el.textContent = "Saved on this phone"; return; }
-  el.innerHTML = `${S.busy ? "Syncing…" : S.oldServer ? "Synced, except General sites (sync server needs its newest script)" : S.error === "notready" ? "Saved on this phone. Sync starts once the sync server is set up"
+  el.className = `url ${S.busy ? "busy" : S.local || !S.error && !S.oldServer ? "ok" : "wait"}`;
+  if (S.local) { el.innerHTML = `<i class="syncdot"></i>Saved on this phone`; return; }
+  el.innerHTML = `<i class="syncdot"></i>${S.busy ? "Syncing…" : S.oldServer ? "Synced, except General sites (sync server needs its newest script)" : S.error === "notready" ? "Saved on this phone. Sync starts once the sync server is set up"
     : S.error ? `Saved on this phone${waiting ? ` (${waiting} to send)` : ""}. Offline: ${esc(S.error)}` : S.lastSync ? `Synced ${ago(S.lastSync)}` : "Not synced yet"} <button class="linkish" id="syncbtn">Sync</button>`;
   $("syncbtn").onclick = () => pull({ quiet: false });
 }
@@ -254,7 +255,7 @@ async function scanSite(origin) {
   } catch (e) {
     if (!S.sites.has(origin)) S.lookup = { origin, scan: null };
     notice(esc(e.message || e));
-  } finally { S.scanning = null; render(); }
+  } finally { S.scanning = null; lastScreen = null; render(); }
 }
 
 function renderLookup(o) {
@@ -262,7 +263,7 @@ function renderLookup(o) {
   const failed = scan ? scan.results.filter((r) => r.ratio != null && r.ratio < 0.999 && r.cat !== "info").sort((a, b) => (b.gain || 0) - (a.gain || 0)) : [];
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
     <div class="hero"><div><b>${esc(hostOf(o))}</b><small>Not tracked · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(o)}</a></small></div></div>
-    ${running ? `<div class="emptybox"><b>Rating the whole site…</b><p id="scanprog">${esc(hostOf(o))}: ${esc(S.scanning.text)}</p><p>Same crawl, checks and scores as the Chrome extension. Takes up to a minute.</p></div>`
+    ${running ? scanBox("Rating the whole site…", "scanprog", `${hostOf(o)}: ${S.scanning.text}`, "Same crawl, checks and scores as the Chrome extension. Takes up to a minute.")
       : scan ? `${scoreBoxes(scan.scores)}<h2 class="sec">SEO snapshot <small>${scan.pagesRated} pages, ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
         ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>` : ""}
         <div class="btns stack">${failed.length ? `<button id="copyfix">Copy fix prompt</button>` : ""}<button id="track" class="primary">Keep this site</button><button id="rescan">Scan again</button></div>`
@@ -282,16 +283,16 @@ function card(s) {
   const rivals = competitorsOf(s.origin).length;
   const of = s.competitorOf && S.sites.get(s.competitorOf);
   return `<div class="tcard"><button class="topen" data-open="${esc(s.origin)}"><div class="thead"><div><b>${esc(s.name)}</b><small>${last ? "Scanned " + when(last.t) : "Not scanned yet"} · ${s.keywords.length} keyword${s.keywords.length === 1 ? "" : "s"}${rivals ? ` · ${rivals} competitor${rivals === 1 ? "" : "s"}` : ""}${of ? ` · ${s.role === "general" ? "linked to" : "vs"} ${esc(of.name)}` : ""}</small></div>
-    <div class="tscore ${status(last?.overall)}">${last ? last.overall : "–"}${d ? `<i class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}</i>` : ""}</div></div>
+    <div class="tscore">${ring(last?.overall)}${d ? `<i class="${d > 0 ? "up" : "down"}">${d > 0 ? "+" : ""}${d}</i>` : ""}</div></div>
     ${h.length > 1 ? lineChart([{ name: "Overall", cls: "main", points: h.map((p) => ({ t: p.t, v: p.overall })) }], { height: 54, label: s.name + " score history" }) : ""}</button></div>`;
 }
 
 function renderSites() {
   const list = [...S.sites.values()];
   const groups = [["mine", "Your businesses"], ["client", "Clients you manage"], ["competitor", "Competitors"], ["general", "General"]];
-  $("view").innerHTML = `<form id="paste" class="field"><label for="pasteurl">Rate any website</label><div class="row"><input id="pasteurl" class="search big" inputmode="url" autocomplete="off" placeholder="Paste a link"><button class="primary">Rate it</button></div></form>
+  $("view").innerHTML = `<form id="paste" class="ratehero"><label for="pasteurl">Rate any website</label><small>SEO, AI answers and AI search, scored out of 100.</small><div class="row"><input id="pasteurl" class="search big" inputmode="url" autocomplete="off" placeholder="Paste a link"><button class="primary">Rate it</button></div></form>
     ${list.length ? groups.map(([role, title]) => { const xs = list.filter((s) => s.role === role); return xs.length ? `<h2 class="sec">${title} <small>${xs.length}</small></h2><div class="tlist">${xs.map(card).join("")}</div>` : ""; }).join("")
-      : `<div class="emptybox"><b>Nothing tracked yet</b><p>Paste a link above to rate any website, or press + Quick add to keep one here. Everything works on this phone, with no computer needed.</p></div>`}`;
+      : `<div class="emptybox"><div class="empty-art" aria-hidden="true"><span></span><span></span><span></span></div><b>Nothing tracked yet</b><p>Paste a link above to rate any website, or press + Quick add to keep one here. Everything works on this phone, with no computer needed.</p></div>`}`;
   $("paste").onsubmit = (e) => {
     e.preventDefault();
     let o; try { o = originOf($("pasteurl").value); } catch { return notice("That doesn't look like a website address. Try something like example.com."); }
@@ -305,9 +306,12 @@ function renderSites() {
 const bindOpen = () => document.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openSite(b.dataset.open)));
 function openSite(o) { S.open = o; S.tab = "sites"; render(); scrollTo(0, 0); }
 
+/** A score ring: fills up and counts up when its screen opens. */
+const ring = (n, size = "") => `<span class="sring ${size} ${status(n)}"><svg viewBox="0 0 40 40" aria-hidden="true"><circle class="trk" cx="20" cy="20" r="17" pathLength="100"/>${n == null ? "" : `<circle class="val" cx="20" cy="20" r="17" pathLength="100" style="--v:${n}"/>`}</svg><b ${n == null ? "" : `data-n="${n}"`}>${n ?? "–"}</b></span>`;
 function scoreBoxes(p) {
-  return `<div class="scorebox">${[["Overall", p?.overall], ["SEO", p?.seo], ["AEO", p?.aeo], ["GEO", p?.geo]].map(([k, n]) => `<div class="${status(n)}"><b>${n ?? "–"}</b><span>${k}</span></div>`).join("")}</div>`;
+  return `<div class="scorebox"><div class="big">${ring(p?.overall, "lg")}<span>Overall</span></div><div class="three">${[["SEO", p?.seo], ["AEO", p?.aeo], ["GEO", p?.geo]].map(([k, n]) => `<div>${ring(n)}<span>${k}</span></div>`).join("")}</div></div>`;
 }
+const scanBox = (title, id, text, sub = "") => `<div class="scanbox"><span class="sweep" aria-hidden="true"></span><div><b>${title}</b><p id="${id}">${esc(text)}</p>${sub ? `<small>${sub}</small>` : ""}</div><i class="scanbar" aria-hidden="true"></i></div>`;
 
 function renderSite(o) {
   const s = S.sites.get(o);
@@ -322,7 +326,7 @@ function renderSite(o) {
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
     <div class="hero"><div><b>${esc(s.name)}</b><small>${ROLES[s.role]}${of ? ` ${s.role === "general" ? "linked to" : "of"} <button class="linkish" data-open="${esc(of.origin)}">${esc(of.name)}</button>` : ""} · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(hostOf(o))}</a></small></div></div>
     ${scoreBoxes(p)}
-    ${running ? `<div class="emptybox"><b>Rating the whole site…</b><p id="scanprog">${esc(hostOf(o))}: ${esc(S.scanning.text)}</p></div>` : `<div class="btns stack"><button id="scannow"${scan ? "" : ` class="primary"`}>${scan ? "Scan again" : "Scan now"}</button></div>`}
+    ${running ? scanBox("Rating the whole site…", "scanprog", `${hostOf(o)}: ${S.scanning.text}`) : `<div class="btns stack"><button id="scannow"${scan ? "" : ` class="primary"`}>${scan ? "Scan again" : "Scan now"}</button></div>`}
     ${h.length > 1 ? lineChart([{ name: "Overall", cls: "main", points: h.map((x) => ({ t: x.t, v: x.overall })) }], { label: s.name + " score history" }) : ""}
     ${scan ? `<h2 class="sec">SEO snapshot <small>scanned ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
       ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>
@@ -330,7 +334,7 @@ function renderSite(o) {
       : running ? "" : `<div class="emptybox"><b>Not scanned yet</b><p>Press Scan now to rate the whole site on this phone. Scans from the Chrome extension show up here too.</p></div>`}
     <h2 class="sec">Keywords <small>${kws.length}</small></h2>
     ${kws.length ? `<table class="mini"><tr><th>Search</th><th>Position</th><th></th></tr>${kws.map((q) => { const r = latestPos(o, q); return `<tr><td>${esc(q)}${r ? `<small class="when">${when(r.t)}</small>` : ""}</td><td class="${r ? posStatus(r.pos) : ""}"><b class="posn">${r ? (r.pos ? "#" + r.pos : "not top " + (r.of || 10)) : "not checked"}</b></td><td><button class="tdel inline" data-rmkw="${esc(q)}" aria-label="Remove ${esc(q)}">×</button></td></tr>`; }).join("")}</table>
-      ${S.checking?.origin === o ? `<div class="emptybox"><b>Checking Google…</b><p id="checkprog">${esc(S.checking.text)}</p></div>`
+      ${S.checking?.origin === o ? scanBox("Checking Google…", "checkprog", S.checking.text)
         : canSearch() ? `<div class="btns stack"><button id="checkkw" class="primary">Check positions on Google</button></div><p class="unknowns">Opens Google on this phone and searches each keyword. If Google asks for a robot check, solve it there and the check carries on.</p>`
         : `<p class="unknowns">Checking positions needs the Android app.</p>`}` : ""}
     <form id="addkw" class="field"><label for="kwin">Add keywords (comma separated)</label><div class="row"><input id="kwin" class="search" placeholder="roof repair york pa"><button>Add</button></div></form>
@@ -400,7 +404,7 @@ async function checkKeywords(o) {
     }
     if (failed) notice(`Couldn't read Google's results for ${failed} keyword${failed === 1 ? "" : "s"}. Nothing was recorded for ${failed === 1 ? "it" : "them"}.`);
   } catch (e) { fail(e); }
-  finally { S.checking = null; render(); }
+  finally { S.checking = null; lastScreen = null; render(); }
 }
 
 /** A business and its competitors: latest scores, and the verdict when it's already ahead. */
@@ -475,10 +479,14 @@ async function renderAccount() {
 }
 
 // ------------------------------------------------------------------ quick add (bottom sheet)
+let sheetT;
+function openSheet() { clearTimeout(sheetT); const s = $("sheet"); s.classList.remove("closing"); s.hidden = false; }
+function closeSheet() { const s = $("sheet"); s.classList.add("closing"); clearTimeout(sheetT); sheetT = setTimeout(() => { s.hidden = true; s.classList.remove("closing"); }, reduced ? 0 : 190); }
+
 function quickAdd(pre = {}) {
   const w = { role: pre.role || null, of: pre.of ?? null, url: pre.url || "", fixed: !!pre.role };
   const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
-  const close = () => { sheet.hidden = true; document.removeEventListener("keydown", esc_); };
+  const close = () => { closeSheet(); document.removeEventListener("keydown", esc_); };
   const esc_ = (e) => e.key === "Escape" && close();
   document.addEventListener("keydown", esc_);
   sheet.onclick = (e) => { if (e.target === sheet) close(); };
@@ -516,20 +524,47 @@ function quickAdd(pre = {}) {
     };
   };
   draw();
-  sheet.hidden = false;
+  openSheet();
   box.querySelector("button, input")?.focus();
 }
 
 const fail = (e) => notice(esc(e.message || e));
 
 // ------------------------------------------------------------------ app
+// A new screen slides in, its parts arrive one after another, and rings count up. A background sync that redraws the
+// same screen animates nothing, so the page never flickers.
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const TABS = ["sites", "compare", "account"];
+let lastScreen = null, lastDepth = 0;
+function countUp(el) {
+  const to = +el.dataset.n, t0 = performance.now(), dur = 950;
+  const step = (t) => { if (!el.isConnected) return; const k = Math.min(1, (t - t0) / dur); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+  el.textContent = 0; requestAnimationFrame(step);
+}
+function animateScreen() {
+  const v = $("view"), depth = TABS.indexOf(S.tab) * 2 + (S.open ? 1 : 0), screen = S.tab + "|" + (S.open || "");
+  if (screen === lastScreen) return v.classList.remove("enter", "back");
+  const back = lastScreen !== null && depth < lastDepth, first = lastScreen === null;
+  lastScreen = screen; lastDepth = depth;
+  v.classList.remove("enter", "back");
+  [...v.children].forEach((c, i) => c.style.setProperty("--i", Math.min(i, 10)));
+  v.querySelectorAll(".tlist > *, .list > *").forEach((c, i) => c.style.setProperty("--j", Math.min(i, 10)));
+  v.querySelectorAll(".chart .ln.main").forEach((l) => l.setAttribute("pathLength", "1"));
+  if (reduced) return;
+  void v.offsetWidth;
+  v.classList.add("enter");
+  if (back && !first) v.classList.add("back");
+  v.querySelectorAll("[data-n]").forEach(countUp);
+}
 function render() {
   if ($("mode").hidden) return;
   document.querySelectorAll("#mode button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tab === S.tab)));
+  $("pill").style.setProperty("--tab", TABS.indexOf(S.tab));
   if (S.tab === "compare") renderCompare();
-  else if (S.tab === "account") renderAccount();
+  else if (S.tab === "account") return void renderAccount().then(animateScreen);
   else if (S.open) renderSite(S.open);
   else renderSites();
+  animateScreen();
 }
 
 let poll;
@@ -563,9 +598,9 @@ async function checkUpdate(asked = false) {
     <p class="unknowns">Update now downloads it in your browser. Open the download and tap Install; your sites stay on the phone.</p>
     <div class="btns stack"><button id="updnow" class="primary">Update now</button><button id="updlater">Later</button></div>`;
   sheet.onclick = null;
-  sheet.hidden = false;
-  $("updnow").onclick = () => { sheet.hidden = true; location.href = u.apk; };
-  $("updlater").onclick = () => { localStorage.setItem("sgm.skipBuild", String(u.build)); sheet.hidden = true; };
+  openSheet();
+  $("updnow").onclick = () => { closeSheet(); location.href = u.apk; };
+  $("updlater").onclick = () => { localStorage.setItem("sgm.skipBuild", String(u.build)); closeSheet(); };
 }
 $("quickadd").onclick = () => quickAdd();
 document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") return; checkUpdate(); if (!$("mode").hidden) pull(); });

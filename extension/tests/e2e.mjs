@@ -497,7 +497,7 @@ await phone.addInitScript((mine) => { window.sgmTestGoogle = async (qs) => qs.ma
 await phone.goto(`http://127.0.0.1:${app.address().port}/`);
 await phone.waitForSelector("#updnow", { timeout: 15000 });
 assert.match(await phone.$eval("#sheet", (e) => e.textContent), /Update available.*build 999/s);
-await phone.screenshot({ path: path.join(repo, "assets", "mobile-update.png") });
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-update.png") });
 await phone.click("#updlater");
 assert.equal(await phone.evaluate(() => localStorage.getItem("sgm.skipBuild")), "999", "Later remembers the build");
 // A wrong code is refused with a plain message; the extension's code connects (any case, spaces instead of dashes).
@@ -518,18 +518,19 @@ await phone.waitForFunction(() => /isn't a sync code/.test(document.getElementBy
 await phone.fill("#jcode", code.toLowerCase().replace(/-/g, " ")); await phone.click("#jgo");
 await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
-await phone.screenshot({ path: path.join(repo, "assets", "mobile-sites.png") });
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-sites.png") });
 await phone.click(`[data-open="${badBase}"]`);
 await phone.waitForSelector(".scorebox");
+assert.ok(await phone.$eval("#view", (e) => e.classList.contains("enter")), "a new screen animates in");
 const siteText = await phone.$eval("#view", (e) => e.textContent);
 assert.match(siteText, /SEO snapshot/); assert.match(siteText, /Top fixes/); assert.match(siteText, /Keywords/);
-await phone.screenshot({ path: path.join(repo, "assets", "mobile-site.png") });
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-site.png") });
 await phone.click("#quickadd");
 await phone.click('[data-qa="competitor"]');
 await phone.fill("#qurl", "rival-roofing.example");
 await phone.click(`[data-of="${badBase}"]`);
 assert.equal(await phone.$eval("#qurl", (e) => e.value), "rival-roofing.example", "address kept when picking the business");
-await phone.screenshot({ path: path.join(repo, "assets", "mobile-quickadd.png") });
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-quickadd.png") });
 await phone.click("#qsave");
 await phone.waitForFunction(() => document.getElementById("sheet").hidden);
 assert.ok(sb.tables.sites.some((r) => r.origin === "https://rival-roofing.example" && r.role === "competitor" && r.competitor_of === badBase), "competitor saved online");
@@ -544,7 +545,7 @@ assert.match(await xp.$eval("#view", (e) => e.textContent), /Added on your phone
 await phone.click('#mode [data-tab="compare"]');
 await phone.waitForSelector("table.mini"); await phone.waitForTimeout(400);
 assert.match(await phone.$eval("#view", (e) => e.textContent), /rival-roofing\.example/);
-await phone.screenshot({ path: path.join(repo, "assets", "mobile-compare.png") });
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-compare.png") });
 await noClaude(phone, "phone app");
 // Optional account (username + password, no email): the extension saves its code to a new account; the phone signs out, then signs in with the account
 // (no code typed) and gets the same sites. A wrong password is refused.
@@ -587,7 +588,7 @@ await phone.fill("#pasteurl", lookBase); await phone.click("#paste button");
 await phone.waitForSelector("#track", { timeout: 90000 }).catch(async (e) => { console.log("phone view:", await phone.$eval("#view", (x) => x.textContent), "notice:", await phone.$eval("#notice", (x) => x.textContent)); throw e; });
 const looked = await phone.$eval("#view", (e) => e.textContent);
 assert.match(looked, /SEO snapshot/); assert.match(looked, /Overall/);
-await phone.screenshot({ path: path.join(repo, "assets", "mobile-rate.png") });
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-rate.png") });
 await phone.click("#track"); await phone.click('[data-qa="mine"]'); await phone.click("#qsave");
 await phone.waitForSelector("#scannow");
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 20000 });

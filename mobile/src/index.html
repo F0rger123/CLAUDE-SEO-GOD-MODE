@@ -16,13 +16,14 @@
       <div class="brand"><span class="mark" aria-hidden="true"></span>SEO God Mode</div>
       <button id="quickadd" class="quickadd" hidden>+ Quick add</button>
     </div>
-    <nav id="mode" class="mode three" aria-label="Sections" hidden>
-      <button data-tab="sites" aria-pressed="true">Sites</button><button data-tab="compare" aria-pressed="false">Compare</button><button data-tab="account" aria-pressed="false">Account</button>
-    </nav>
     <div id="status" class="url"></div>
   </header>
   <div id="notice" class="notice" role="status" hidden></div>
   <main id="view" class="view"></main>
+  <nav id="mode" class="mode three" aria-label="Sections" hidden>
+    <span id="pill" aria-hidden="true"></span>
+    <button data-tab="sites" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M9 10v9"/></svg>Sites</button><button data-tab="compare" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>Compare</button><button data-tab="account" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4.5 4-6 8-6s7 1.500 8 6"/></svg>Account</button>
+  </nav>
   <div id="sheet" class="sheet" hidden><div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="sheettitle"></div></div>
   <div id="toast" class="toast" role="status"></div>
 </body>
