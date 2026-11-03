@@ -155,7 +155,7 @@ export async function askChatGPT(qs, read, onProgress) {
 /** Live updates: new screens and features arrive inside the app, no reinstall (Capgo updater, from our own release). */
 export const canLiveUpdate = has("CapacitorUpdater");
 export const liveReady = () => canLiveUpdate && cap.nativePromise("CapacitorUpdater", "notifyAppReady").catch(() => {});
-/** Download a web bundle. Returns its id. */
-export const liveDownload = async (url, version) => (await cap.nativePromise("CapacitorUpdater", "download", { url, version: String(version) })).id;
+/** Download a web bundle, checked against its SHA-256 (the plugin refuses a download without one). Returns its id. */
+export const liveDownload = async (url, version, checksum) => (await cap.nativePromise("CapacitorUpdater", "download", { url, version: String(version), checksum })).id;
 /** Switch to a downloaded bundle: now (reloads the app) or the next time it opens. */
 export const liveApply = (id, now) => cap.nativePromise("CapacitorUpdater", now ? "set" : "next", { id });

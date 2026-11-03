@@ -224,6 +224,10 @@ const serpHtml = `<!doctype html><html><head><title>roof repair york pa - Google
 <div id="botstuff"><a href="/search?q=roof+repair+cost">roof repair cost</a><a href="/search?q=emergency+roof+repair">emergency roof repair</a></div>
 </body></html>`;
 await ctx.route("https://www.google.com/search*", (route) => route.fulfill({ status: 200, contentType: "text/html", body: serpHtml }));
+// Address lookups and map tiles, as OpenStreetMap would answer (the business audit's map).
+await ctx.route("https://nominatim.openstreetmap.org/**", (r) => r.fulfill({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "application/json" },
+  body: JSON.stringify([{ lat: "39.96", lon: "-76.73", display_name: "York, Pennsylvania" }]) }));
+await ctx.route("https://tile.openstreetmap.org/**", (r) => r.fulfill({ status: 200, contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") }));
 await ctx.route("https://suggestqueries.google.com/**", (route) => { const q = new URL(route.request().url()).searchParams.get("q");
   route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([q, q.startsWith("how much") ? ["how much does roof repair york pa cost", "how much does roof repair cost per square"] : [q + " near me", "is " + q + " covered by insurance"]]) }); });
 await ctx.route("https://api.github.com/repos/**", (route) => route.fulfill({ status: 200, contentType: "application/json",
@@ -329,6 +333,14 @@ await cp.waitForSelector(".ba-head", { timeout: 240000 });
 const auditText = await cp.$eval("#sub", (e) => e.textContent);
 assert.match(auditText, /Business Score/); assert.match(auditText, /Not listed on Yelp/); assert.match(auditText, /Summit Ridge Roofing/);
 assert.match(auditText, /Profile is claimed by the owner/); assert.match(auditText, /Check Bing Places/);
+assert.match(auditText, /Get more Google reviews/, "the plan leads with the biggest lever"); assert.match(auditText, /You have 14 reviews/);
+await cp.click('[data-batab="map"]');
+await cp.waitForSelector("#bamap .pin.me", { timeout: 20000 });
+await cp.click('[data-batab="services"]');
+assert.match(await cp.$eval('[data-pane="services"]', (e) => e.textContent), /They offer, you don't/);
+await cp.click('[data-batab="compare"]');
+assert.ok((await cp.$$(".cmp-card")).length >= 2, "you and a competitor side by side");
+await cp.click('[data-batab="plan"]');
 await noToast(); await cp.evaluate(() => window.scrollTo(0, 0)); await cp.waitForTimeout(300);
 await cp.screenshot({ path: path.join(repo, "assets", "extension-audit.png") });
 // Track a ranking site as a competitor straight from the results list.
@@ -713,8 +725,21 @@ await phone.waitForSelector(".ba-head");
 const pAudit = await phone.$eval("#view", (e) => e.textContent);
 assert.match(pAudit, /Business Score/); assert.match(pAudit, /Not listed on BBB/); assert.match(pAudit, /Same phone number everywhere/);
 assert.match(pAudit, /\(717\) 555-0199/, "a listing's different phone is shown"); assert.match(pAudit, /Summit Ridge Roofing/);
-assert.match(pAudit, /Listed · important/); assert.match(pAudit, /Opening hours set/);
+assert.match(pAudit, /Get more Google reviews/); assert.match(pAudit, /Use one phone number everywhere/);
+await phone.click('[data-batab="listings"]');
+assert.match(await phone.$eval('[data-pane="listings"]', (e) => e.textContent), /Listed · important/);
+await phone.click('[data-batab="details"]');
+assert.match(await phone.$eval('[data-pane="details"]', (e) => e.textContent), /Opening hours set/);
+await phone.click('[data-batab="map"]');
+await phone.waitForSelector("#bamap .pin.me", { timeout: 20000 });
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-audit-map.png") });
+await phone.click('[data-batab="services"]');
+await phone.waitForTimeout(900); await phone.screenshot({ path: path.join(repo, "assets", "mobile-audit-services.png") });
+await phone.click('[data-batab="compare"]');
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-audit-compare.png") });
+await phone.click('[data-batab="plan"]');
 await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-audit.png") });
+await phone.click('[data-batab="compare"]');
 await phone.click("[data-track]");
 await phone.waitForFunction(() => /Tracking Summit Ridge Roofing/.test(document.getElementById("toast").textContent));
 assert.ok(sb.tables.data.some((r) => r.key === "baudit:" + badBase && r.value?.score != null), "audit synced");

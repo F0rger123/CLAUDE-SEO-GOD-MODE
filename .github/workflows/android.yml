@@ -66,5 +66,6 @@ jobs:
           SUBJECT=$(git log -1 --format=%s)
           VERSION=$(node -p "require('./mobile/package.json').version")
           NATIVE=$(node -p "require('./mobile/www/build.json').native")
-          node -e 'const [b, v, n, nat] = process.argv.slice(1); const R = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/"; console.log(JSON.stringify({ build: +b, version: v, notes: n, native: nat, apk: R + "SEO-God-Mode.apk", web: R + "web.zip" }))' "$GITHUB_RUN_NUMBER" "$VERSION" "$SUBJECT" "$NATIVE" > latest.json
+          WEBSHA=$(sha256sum web.zip | cut -d' ' -f1)
+          node -e 'const [b, v, n, nat, sha] = process.argv.slice(1); const R = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/"; console.log(JSON.stringify({ build: +b, version: v, notes: n, native: nat, apk: R + "SEO-God-Mode.apk", web: R + "web.zip", webSha256: sha }))' "$GITHUB_RUN_NUMBER" "$VERSION" "$SUBJECT" "$NATIVE" "$WEBSHA" > latest.json
           gh release upload android-app latest.json --clobber

@@ -21,7 +21,7 @@ import { cloud } from "./lib/sync.js";
 import { newCode } from "./lib/cloud.js";
 import { qrSvg } from "./lib/qr.js";
 import { runBusinessAudit } from "./lib/business.js";
-import { auditHtml, auditPrompt } from "./lib/businessview.js";
+import { auditHtml, auditPrompt, bindAudit } from "./lib/businessview.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -79,7 +79,8 @@ export async function renderCompete(helpers) {
   const el = $("view");
   const tab = await ui.activeTab();
   const onGoogle = /^https:\/\/(www\.)?google\.[a-z.]+\/(search|maps)/.test(tab?.url || "");
-  if (onGoogle && (!v.google || v.google.url !== tab.url) && (await chrome.permissions.contains({ origins: GOOGLE }))) {
+  // While a business audit runs it searches Google in its own tab: stay on the audit.
+  if (onGoogle && !v.auditing && (!v.google || v.google.url !== tab.url) && (await chrome.permissions.contains({ origins: GOOGLE }))) {
     try { v.google = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }))[0].result; } catch { v.google = null; }
     if (v.google?.kind === "serp") { T.recordPositions(v.google); v.sub = v.focus ? "result" : "rank"; }
     if (v.google?.kind === "maps") v.sub = "biz";
@@ -193,6 +194,7 @@ async function renderRank(onGoogle, tab) {
       rescan([b.dataset.comp], { quiet: true });
     };
   });
+  if (!$("cmp")) return; // the panel moved on while this drew
   $("cmp").onclick = async () => {
     if (!me) return ui.notice("Add your website first (the box above), so there's something to compare.");
     if (!(await access(ALL_SITES, "Comparing needs permission to read the ranking websites. Press Compare again and choose Allow."))) return;
@@ -367,24 +369,25 @@ async function renderAudit() {
   const { [key]: last, ["sitescans:" + me.origin]: scans = [] } = await chrome.storage.local.get([key, "sitescans:" + me.origin]);
   const ent = scans[0]?.entity || {}, b = last?.biz || {};
   const val = (k, fb) => esc(b[k] || fb || "");
-  s.innerHTML = `${siteSelectNote(me)}
-    <form id="baform" class="ba-form"><div class="field"><label for="baname">Business name</label><input id="baname" class="search" value="${val("name", ent.name || me.name)}"></div>
+  const form = `<form id="baform" class="ba-form"><div class="field"><label for="baname">Business name</label><input id="baname" class="search" value="${val("name", ent.name || me.name)}"></div>
       <div class="row2"><div class="field"><label for="bacity">Town and state</label><input id="bacity" class="search" placeholder="York PA" value="${val("city", ent.city)}"></div>
       <div class="field"><label for="bacat">What it does</label><input id="bacat" class="search" placeholder="roofing contractor" value="${val("category", "")}"></div></div></form>
     <div class="btns stack"><button id="barun" class="primary run">${last ? "Run the audit again" : "Run complete business audit"}</button></div>
-    <p class="unknowns">Searches Google 6–10 times in a background tab (a few seconds apart) and rates up to 4 competitors' websites. Takes 2–4 minutes. ${scans[0] ? "" : "Rate the whole site first (Track) to include the website score."}</p>
-    <div id="baout">${last ? auditHtml(last, { tracked: new Set((await T.trackedSites()).map((x) => x.origin)) }) + `<div class="btns stack"><button id="bacopy">Copy fix prompt</button></div>` : ""}</div>`;
-  const bindOut = (r) => {
-    s.querySelectorAll("[data-track]").forEach((x) => (x.onclick = async () => { await T.trackSite(x.dataset.track, x.dataset.name, "competitor", me.origin); x.replaceWith(Object.assign(document.createElement("small"), { textContent: "Tracked" })); ui.toast(`Tracking ${x.dataset.name} as a competitor`); }));
-    const c = $("bacopy"); if (c) c.onclick = () => ui.copy(auditPrompt(r), "Fix prompt copied");
-  };
-  if (last) bindOut(last);
+    <p class="unknowns">Searches Google 6–10 times in a background tab (a few seconds apart) and rates up to 4 competitors' websites. Takes 2–4 minutes. ${scans[0] ? "" : "Rate the whole site first (Track) to include the website score."}</p>`;
+  s.innerHTML = `${siteSelectNote(me)}
+    ${last ? `<div id="baout">${auditHtml(last, { tracked: new Set((await T.trackedSites()).map((x) => x.origin)) })}</div><div class="btns stack"><button id="bacopy" class="primary">Copy fix prompt</button></div>
+      <details class="fold"><summary>Run the audit again</summary><div class="pad">${form}</div></details>` : form}`;
+  if (last) {
+    bindAudit($("baout"), last, { onTrack: async (o, name) => { await T.trackSite(o, name, "competitor", me.origin); ui.toast(`Tracking ${name} as a competitor`); } });
+    $("bacopy").onclick = () => ui.copy(auditPrompt(last), "Fix prompt copied");
+  }
   $("baform").onsubmit = (e) => { e.preventDefault(); $("barun").click(); };
   $("barun").onclick = async () => {
     const biz = { name: $("baname").value.trim(), city: $("bacity").value.trim(), category: $("bacat").value.trim(), origin: me.origin };
     if (!biz.name) return ui.notice("Add the business name.");
     if (!(await access([...GOOGLE, ...ALL_SITES], "The audit needs to read Google and competitors' websites. Press Run again and choose Allow."))) return;
     busy(true, "Auditing…");
+    v.auditing = true;
     try {
       const { psiKey = "" } = await chrome.storage.local.get("psiKey");
       const trend = (await chrome.storage.local.get("trend:" + me.origin))["trend:" + me.origin] || [];
@@ -397,8 +400,9 @@ async function renderAudit() {
       await chrome.storage.local.set({ [key]: r });
       ui.toast(`Business Score ${r.score ?? "–"}`);
     } catch (e) { ui.notice(esc(e.message || e)); }
+    v.auditing = false;
     busy(false);
-    renderAudit();
+    if (v.sub === "audit" && $("sub")) renderAudit();
   };
 }
 const siteSelectNote = (me) => `<p class="lede">Auditing <b>${esc(me.name)}</b>. Change it in the Working on list on the Compete page.</p>`;

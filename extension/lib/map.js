@@ -23,7 +23,7 @@ const colour = (n) => (n == null ? "s-none" : n >= 85 ? "s-pass" : n >= 65 ? "s-
 
 /**
  * Draw the map in `el`. pins: [{ origin, name, lat, lng, scores, me }]. metric: "overall" | "seo" | "aeo" | "geo".
- * onOpen(origin): a pin's popup button was pressed.
+ * size: 0–1, optional (pin grows with it, e.g. by review count). onOpen(origin): a pin's popup button was pressed.
  */
 export async function drawMap(el, pins, metric, onOpen) {
   // The screen can redraw while the map code loads: only the newest call draws, into the map box on screen now.
@@ -40,13 +40,13 @@ export async function drawMap(el, pins, metric, onOpen) {
   for (const p of pins) {
     const n = p.scores?.[metric] ?? null;
     const icon = L.divIcon({ className: "", iconSize: [38, 38], iconAnchor: [19, 19],
-      html: `<span class="pin ${colour(n)} ${p.me ? "me" : ""}" data-pin="${p.origin}">${n ?? "–"}</span>` });
+      html: `<span class="pin ${colour(n)} ${p.me ? "me" : ""}" data-pin="${p.origin}" style="--sz:${p.size == null ? 1 : (0.8 + 0.7 * p.size).toFixed(2)}">${n ?? "–"}</span>` });
     const m = L.marker([p.lat, p.lng], { icon, title: p.name }).addTo(map);
     const box = document.createElement("div");
     box.className = "pinpop";
     box.innerHTML = `<b></b><small></small><button class="linkish">Open</button>`;
     box.querySelector("b").textContent = p.name;
-    box.querySelector("small").textContent = ["overall", "seo", "aeo", "geo"].map((k) => `${k === "overall" ? "Overall" : k.toUpperCase()} ${p.scores?.[k] ?? "–"}`).join(" · ");
+    box.querySelector("small").textContent = ["overall", "seo", "aeo", "geo"].map((k) => `${k === "overall" ? "Overall" : k.toUpperCase()} ${p.scores?.[k] ?? "–"}`).join(" · ") + (p.note ? ` · ${p.note}` : "");
     box.querySelector("button").onclick = () => onOpen(p.origin);
     m.bindPopup(box);
     layer.push([p.lat, p.lng]);

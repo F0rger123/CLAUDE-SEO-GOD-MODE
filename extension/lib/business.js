@@ -13,6 +13,7 @@
  * The Business Score weighs those five parts. A part that couldn't be checked is left out, never guessed.
  */
 import { auditBusiness, DIRECTORIES as DIRECTORY_HOSTS, detectTargets, sameDomain, terms } from "./compete.js";
+import { geocode } from "./map.js";
 
 export const PARTS = {
   website: { label: "Website", weight: 35 },
@@ -43,7 +44,9 @@ const fmtPhone = (p) => (p ? `(${p.slice(0, 3)}) ${p.slice(3, 6)}-${p.slice(6)}`
 /** Does this text name the business? Most of the name's distinctive words have to be there. */
 export function namesBusiness(text, name) {
   const want = terms(name).filter((w) => w.length > 2);
-  if (!want.length) return false;
+  // A name with one distinctive word ("Hi Roofing") must appear whole, or every roofer would match.
+  const flat = (s) => ` ${String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+  if (want.length <= 1) return flat(text).includes(flat(name));
   const have = new Set(terms(text));
   return want.filter((w) => have.has(w)).length / want.length >= 0.6;
 }
@@ -77,7 +80,7 @@ export function competitorsFrom(serp, myOrigin, max = 4) {
   for (const o of serp?.organic || []) {
     let origin; try { origin = new URL(o.url).origin; } catch { continue; }
     if (DIRECTORY_HOSTS.test(hostOf(o.url)) || sameDomain(origin, myOrigin) || sites.some((s) => s.origin === origin)) continue;
-    sites.push({ origin, name: o.title.split(/[|–—-]/)[0].trim() || hostOf(origin), position: o.position });
+    sites.push({ origin, name: o.title.split(/\s[|–—-]\s|\s\||:\s/)[0].trim() || hostOf(origin), position: o.position });
   }
   return { sites: sites.slice(0, max), mapPack: (serp?.local || []).slice(0, 6) };
 }
@@ -149,16 +152,25 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   onProgress("Rating competitors' websites…");
   const found = competitorsFrom(rivalSerp, biz.origin);
   const mine = await detectTargets(biz.origin + "/").catch(() => null);
-  const myServices = new Set((mine?.services || []).flatMap((s) => terms(s.phrase)));
+  const myPhrases = (mine?.services || []).map((s) => s.phrase).slice(0, 14);
+  const myServices = new Set(myPhrases.flatMap((ph) => terms(ph)));
   const competitors = [];
   for (const c of found.sites) {
     onProgress(`Rating ${hostOf(c.origin)}…`);
     const r = rate ? await rate(c.origin).catch(() => null) : null;
     const t = await detectTargets(c.origin + "/").catch(() => null);
-    const offers = (t?.services || []).map((s) => s.phrase).filter((ph) => terms(ph).some((w) => !myServices.has(w))).slice(0, 6);
-    competitors.push({ ...c, scores: r?.scores ? { overall: r.scores.overall, seo: r.scores.seo, aeo: r.scores.aeo, geo: r.scores.geo } : null, offers,
+    const services = (t?.services || []).map((s) => s.phrase).slice(0, 14);
+    const offers = services.filter((ph) => terms(ph).some((w) => !myServices.has(w))).slice(0, 6);
+    competitors.push({ ...c, scores: r?.scores ? { overall: r.scores.overall, seo: r.scores.seo, aeo: r.scores.aeo, geo: r.scores.geo } : null, offers, services,
+      pages: r?.pages_rated ?? null, entity: r?.entity || null,
       pack: found.mapPack.find((m) => namesBusiness(m.name, c.name) || namesBusiness(c.name, m.name)) || null });
   }
+
+  // Where everyone is, for the map: coordinates from each site's schema, else its address looked up on OpenStreetMap.
+  onProgress("Placing everyone on the map…");
+  const locate = async (e) => (e?.lat != null ? { lat: e.lat, lng: e.lng } : e?.address ? await geocode(e.address).catch(() => null) : null);
+  const place = (await locate(ent)) || (biz.city ? { ...(await geocode(biz.city).catch(() => null)), approx: true } : null);
+  for (const c of competitors) c.place = await locate(c.entity);
 
   // Parts and score
   const core = listings.filter((l) => l.status !== "unknown");
@@ -173,8 +185,11 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
     reviews: rv && ratio(rv) != null ? Math.round(100 * ratio(rv)) : null,
   };
   const report = { t: new Date().toISOString(), biz, parts, score: businessScore(parts), profile, profileQuery: plan[0].q, listings, consistency, competitors,
-    mapPack: found.mapPack, searched: plan.length, unread: got.filter((g) => !g.serp).length };
+    mapPack: found.mapPack, searched: plan.length, unread: got.filter((g) => !g.serp).length,
+    me: { services: myPhrases, place: place?.lat != null ? place : null, scores: scan?.scores ? { overall: websiteScore ?? scan.scores.overall, seo: scan.scores.seo, aeo: scan.scores.aeo, geo: scan.scores.geo } : null,
+      rating: panel?.rating ?? null, reviews: panel?.reviews ?? null, pages: scan?.pagesRated ?? null } };
   report.issues = issuesFrom(report);
+  report.levers = levers(report);
   return report;
 }
 
@@ -200,4 +215,62 @@ export function issuesFrom(r) {
   for (const c of r.competitors) if (c.offers.length) add("website", `${c.name} lists services you don't`, `Their site has pages or headings for: ${c.offers.join(", ")}.`,
     ["If you offer these, give each its own page: what it is, the area you serve, prices or a range, photos, and a call to action.", "Link each new page from your homepage and services page.", "If you don't offer them, ignore this."], null, 1);
   return out.sort((a, b) => b.size - a.size);
+}
+
+// ---------------------------------------------------------------- the plan: the few things that would move the most
+const median = (xs) => { const s = xs.filter((x) => x != null).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
+
+/** Services: who offers what. Rows are services (yours and theirs, similar names merged); cells say who lists each. */
+export function serviceMatrix(r) {
+  const key = (ph) => terms(ph).sort().join(" ");
+  const close = (a, b) => { const A = new Set(terms(a)), B = new Set(terms(b)); const both = [...A].filter((w) => B.has(w)).length; return both / Math.max(1, Math.min(A.size, B.size)) >= 0.75; };
+  const rows = [];
+  const addRow = (ph, who) => { if (!key(ph)) return; let row = rows.find((x) => close(x.name, ph)); if (!row) rows.push((row = { name: ph, who: new Set() })); row.who.add(who); };
+  (r.me?.services || []).forEach((ph) => addRow(ph, "me"));
+  r.competitors.forEach((c) => (c.services || []).forEach((ph) => addRow(ph, c.origin)));
+  const list = rows.map((x) => ({ name: x.name, me: x.who.has("me"), rivals: r.competitors.filter((c) => x.who.has(c.origin)).map((c) => c.origin) }));
+  return {
+    only: list.filter((x) => x.me && !x.rivals.length),
+    shared: list.filter((x) => x.me && x.rivals.length).sort((a, b) => b.rivals.length - a.rivals.length),
+    gaps: list.filter((x) => !x.me && x.rivals.length).sort((a, b) => b.rivals.length - a.rivals.length),
+  };
+}
+
+/**
+ * The biggest levers, in order, each with why (from this audit's own numbers) and the steps. impact: 3 biggest, 2 big, 1 helps.
+ * Nothing here is a promise of rankings; it's where the gaps against these competitors are largest.
+ */
+export function levers(r) {
+  const out = [];
+  const add = (id, impact, title, detail, steps, link = null) => out.push({ id, impact, title, detail, steps, link });
+  const peers = (r.mapPack || []).filter((m) => !namesBusiness(m.name, r.biz.name) && m.reviews != null);
+  const peerReviews = median(peers.map((m) => m.reviews)), most = peers.reduce((a, m) => Math.max(a, m.reviews), 0);
+  const myReviews = r.me?.reviews;
+  if (!r.profile && r.parts.profile === 0) add("profile", 3, "Get on Google Maps", "Google showed no business profile for you, so you can't appear in the map pack at all. This comes before everything else.",
+    ["Create or claim your profile at business.google.com.", "Pick the primary category that matches your main service.", "Add phone, website, hours and service area, then verify."], "https://business.google.com");
+  if (myReviews != null && peerReviews && myReviews < peerReviews) {
+    const big = myReviews < peerReviews / 2;
+    add("reviews", big ? 3 : 2, "Get more Google reviews", `You have ${myReviews} reviews; ${peers.length === 1 ? `the other business in the map pack has ${most}` : `the other businesses in the map pack have ${peerReviews} (typical) and up to ${most}`}. Review count is one of the strongest signals for who shows in the map pack, and it's what customers compare first.`,
+      ["Text every finished customer a direct review link (Google profile › Ask for reviews gives you one).", `Aim to close the gap to ${peerReviews} steadily: a few every week beats a burst.`, "Reply to every review, good and bad, within a day or two.", "Never buy, filter or reward reviews: Google removes them and can suspend the profile."]);
+  }
+  if (r.me?.rating != null && r.me.rating < 4.5) add("rating", 2, "Lift your star rating", `You're at ${r.me.rating} stars${peers.length ? `; the map pack averages ${(peers.reduce((a, m) => a + (m.rating || 0), 0) / peers.length).toFixed(1)}` : ""}. Many customers filter to 4.5+.`,
+    ["Answer every low review calmly and offer to fix the problem.", "Ask happy repeat customers for reviews to balance older bad ones."]);
+  const unclaimed = r.profile?.checks.find((c) => c.id === "claimed" && c.ok === false);
+  if (unclaimed) add("claim", 3, "Claim your Google profile", "Google shows \"Claim this business\": anyone can suggest edits to it and it ranks worse until you own it.", [unclaimed.fix], "https://business.google.com");
+  const missingCore = r.listings.filter((l) => l.status === "missing" && l.core);
+  if (missingCore.length) add("listings", missingCore.length >= 3 ? 2 : 1, `Get listed on ${missingCore.length} important site${missingCore.length === 1 ? "" : "s"}`, `Not found on ${missingCore.map((l) => l.name).join(", ")}. These pages rank for your name, feed Apple Maps, Bing and AI assistants, and are all free.`,
+    ["Open the Listings tab and press Add free on each.", "Use exactly the same name, phone and address as Google."]);
+  const best = r.competitors.filter((c) => c.scores).sort((a, b) => b.scores.overall - a.scores.overall)[0];
+  const mine = r.parts.website;
+  if (best && mine != null && best.scores.overall > mine) add("website", best.scores.overall - mine >= 15 ? 2 : 1, "Improve your website", `Your site scores ${mine}; ${best.name} scores ${best.scores.overall}. The site rating lists what to fix first, by points gained.`,
+    ["Open Overview and copy the fix prompt.", "Fix the top items, then scan again to confirm."]);
+  const m = serviceMatrix(r);
+  if (m.gaps.length) add("services", m.gaps.length >= 3 ? 2 : 1, "Add pages for services you offer that you don't show", `Competitors have pages for ${m.gaps.slice(0, 4).map((x) => x.name).join(", ")}${m.gaps.length > 4 ? ` and ${m.gaps.length - 4} more` : ""}. If you do these, a page for each lets you rank for them.`,
+    ["For each service you actually offer: one page with what it is, where you do it, a price range, photos and a call to action.", "Link each from your homepage and services page."]);
+  if (m.only.length) add("unique", 1, "Lead with what only you offer", `None of these competitors lists ${m.only.slice(0, 4).map((x) => x.name).join(", ")}. That's where you face the least competition.`,
+    ["Put these services on your homepage and Google profile (services and posts).", "Add them to your Google profile's secondary categories if one fits."]);
+  const phone = r.consistency.find((c) => c.id === "phone-match" && c.ok === false);
+  if (phone) add("nap", 2, "Use one phone number everywhere", `Different numbers show up: ${phone.detail}. Mismatches split your identity across Google, maps and directories.`,
+    ["Pick one main number.", "Change it on every listing and on your website and its schema."]);
+  return out.sort((a, b) => b.impact - a.impact);
 }

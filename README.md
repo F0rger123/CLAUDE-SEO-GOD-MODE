@@ -116,7 +116,8 @@ Not only the website: the whole business, the way customers and AI assistants fi
 - **Google Business Profile:** found or missing, claimed, category, rating and reviews against the map pack, website, phone, hours, photos, description.
 - **Listings:** Bing Places, Apple Maps, Yelp, Facebook, BBB, Nextdoor, Yellow Pages, Manta, Hotfrog, Foursquare, LinkedIn, Alignable, and trade directories (Angi, Thumbtack, Houzz, Porch, Bark, BuildZoom, HomeGuide) for the trades they serve. Only places with a **free** listing, each with its sign-up link and step-by-step instructions.
 - **Consistent details:** the same phone number on the website, its schema, Google and every listing found; address and hours.
-- **Competitors:** found automatically from "what you do + town", rated the same way, with the services they list that you don't. Adding your business or a client offers to find its competitors for you.
+- **Competitors:** found automatically from "what you do + town", rated the same way. A **map** of you and them (coloured by score, sized by reviews), **services** they offer that you don't and that only you offer, and a side-by-side **compare**.
+- **Plan:** the few biggest levers first, from the numbers, like "get more Google reviews: you have 14, the typical competitor 212". Adding your business or a client offers to find its competitors for you.
 
 ```mermaid
 flowchart LR
@@ -130,7 +131,9 @@ flowchart LR
 ```
 
 <p align="center">
-  <img src="assets/mobile-audit.png" alt="Android app: business audit with Business Score" width="200">
+  <img src="assets/mobile-audit.png" alt="Android app: business audit plan with Business Score" width="200">
+  <img src="assets/mobile-audit-map.png" alt="Android app: map of you and competitors, coloured by score, sized by reviews" width="200">
+  <img src="assets/mobile-audit-services.png" alt="Android app: services they offer that you don't" width="200">
   <img src="assets/extension-audit.png" alt="Chrome extension: complete business audit" width="260">
 </p>
 

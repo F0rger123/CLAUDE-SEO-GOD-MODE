@@ -178,17 +178,6 @@ div.brow { grid-template-columns: 1fr auto; grid-template-areas: "nm share"; }
 .metrics { display: flex; gap: 6px; margin-bottom: 10px; }
 .metrics button { flex: 1; justify-content: center; }
 .metrics button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.map { height: 340px; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--rule); background: var(--wash); z-index: 0; }
-.pin { display: grid; place-content: center; width: 38px; height: 38px; border-radius: 50%; font: 800 13px/1 var(--display); color: #fff; background: var(--st, #8a8a8a);
-  border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); animation: pinin .45s var(--spring) both; }
-.pin.me { outline: 3px solid #000; outline-offset: 1px; }
-.pin.s-none, .legend3 .s-none { --st: #8a8a8a; }
-.pin.s-part { color: #000; }
-@keyframes pinin { from { transform: scale(0) translateY(10px); } }
-.pinpop b { display: block; font-size: 13px; } .pinpop small { display: block; color: #555; margin: 2px 0 6px; }
-.legend3 { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 2px 4px; font-size: 11.5px; color: var(--muted); }
-.legend3 i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--st); margin-right: 5px; vertical-align: -1px; }
-.leaflet-container { font: inherit; }
 .excerpt { color: var(--muted); font-size: 12px; font-style: italic; }
 .factor.idea { grid-template-columns: 1fr auto; align-items: center; }
 

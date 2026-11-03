@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.28.0 (2026-11-03): extension 1.23, app 1.2: business audit map, services and plan; in-app update fix
+
+- **In-app updates fixed:** the update plugin refuses a download without a SHA-256 checksum, so "Couldn't download the update" appeared. Each build now publishes the checksum in `latest.json` and the app passes it. If an in-app update ever fails, the app offers the normal download instead of an error. Install this build once from the APK; updates after it install in the app.
+- **Business audit, now in sections:**
+  - **Plan:** the biggest levers first, from the audit's own numbers. For example: get more Google reviews (you 14, typical competitor 212), claim the profile, one phone number everywhere, services to add, and what only you offer.
+  - **Map:** you and competitors placed from their sites' addresses, pins coloured by score and sized by Google reviews.
+  - **Services:** what they offer that you don't, what only you offer, and what you both offer.
+  - **Compare:** a card each with scores and bars for reviews, pages and services, plus the map pack sized by reviews.
+  - **Listings** and **Details**, as before.
+- **Animations:** the Business Score ring fills and counts up, part bars grow, levers and cards arrive in turn, service chips pop in, bars grow, and sections slide in and scroll into view.
+- Name matching is stricter, so a competitor called "Summit Ridge Roofing" is no longer mistaken for "Hi Roofing".
+- The map and Leaflet are shared by the extension and the app (`extension/lib/map.js`).
+
 ## 2.27.0 (2026-11-03): extension 1.22, app 1.1: complete business audit and Business Score
 
 - **Complete business audit:** in the extension (Compete › Complete business audit), the app (a business › Business audit) and the skill (`workflows/business-audit.md`).

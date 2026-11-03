@@ -28,8 +28,8 @@ import { SB_URL } from "./lib/cloud.js";
 import { askChatGPT, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle } from "./native.js";
 import { readChat } from "./readers.js";
 import { competitorsFrom, runBusinessAudit } from "./lib/business.js";
-import { auditHtml, auditPrompt } from "./lib/businessview.js";
-import { drawMap, geocode } from "./map.js";
+import { auditHtml, auditPrompt, bindAudit } from "./lib/businessview.js";
+import { drawMap, geocode } from "./lib/map.js";
 
 installNativeFetch([SB_URL]);
 
@@ -403,7 +403,8 @@ function bindSite(s, o) {
     $("baform").onsubmit = (e) => { e.preventDefault(); auditSite(o); };
     on("barun", () => auditSite(o));
     on("bacopy", () => copy(auditPrompt(S.data.get("baudit:" + o)), "Fix prompt copied"));
-    document.querySelectorAll("[data-track]").forEach((b) => (b.onclick = () => trackRival(o, b.dataset.track, b.dataset.name)));
+    const out = document.querySelector(".ba-out");
+    if (out) bindAudit(out, S.data.get("baudit:" + o), { onTrack: (x, name) => trackRival(o, x, name), onOpenSite: (x) => (S.sites.has(x) ? openSite(x) : window.open(x, "_blank", "noopener")) });
   }
   on("copyfix", () => copy(fixAllPrompt(scan), "Fix prompt copied"));
   on("copykw", () => copy(keywordPrompt(o, report), "Keyword fix prompt copied"));
@@ -875,10 +876,13 @@ async function checkUpdate(asked = false) {
   const u = await newerBuild();
   if (!u) return asked && toast("You have the newest version");
   // Same native parts: download the new screens and install them inside the app, no reinstall.
-  if (canLiveUpdate && u.web && u.native && u.native === u.mineNative) {
+  let id = null;
+  if (canLiveUpdate && u.web && u.webSha256 && u.native && u.native === u.mineNative) {
     if (asked) toast("Downloading the update…");
-    let id;
-    try { id = await liveDownload(u.web, u.build); } catch (e) { return asked && notice(`Couldn't download the update: ${esc(e.message || e)}`); }
+    // If it can't install in the app, fall through to offering the full download.
+    try { id = await liveDownload(u.web, `${u.version}.${u.build}`, u.webSha256); } catch { id = null; }
+  }
+  if (id) {
     const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
     box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Update ready</h2></div>
       <p class="lede">Build ${esc(String(u.build))} is downloaded and installs right here, no download or reinstall.${u.notes ? ` ${esc(u.notes)}` : ""}</p>
@@ -893,7 +897,7 @@ async function checkUpdate(asked = false) {
   const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
   box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Update available</h2></div>
     <p class="lede">A newer version of SEO God Mode is ready (build ${esc(String(u.build))}, you have ${esc(String(u.mine || "an older one"))}).${u.notes ? ` ${esc(u.notes)}` : ""}</p>
-    <p class="unknowns">This one changes the app itself, so it's a download: open it and tap Install. Your sites stay on the phone. Smaller updates install right inside the app.</p>
+    <p class="unknowns">This one needs a download: open it and tap Install. Your sites stay on the phone. Most updates install right inside the app.</p>
     <div class="btns stack"><button id="updnow" class="primary">Update now</button><button id="updlater">Later</button></div>`;
   sheet.onclick = null;
   openSheet();

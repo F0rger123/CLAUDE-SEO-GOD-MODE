@@ -467,3 +467,75 @@ input[role="switch"]:disabled { opacity: .4; cursor: default; }
 .ba-chips { display: flex; gap: 4px; margin: 4px 0; flex-wrap: wrap; }
 .ba-chips .chip { display: inline-flex; gap: 3px; align-items: baseline; padding: 2px 7px; border-radius: 99px; font-size: 10.5px; color: var(--muted); background: color-mix(in srgb, var(--st, var(--faint)) 14%, transparent); }
 .ba-chips .chip b { color: var(--st, var(--ink)); font-size: 12px; display: inline; }
+
+/* Maps (lib/map.js): pins coloured by score; size can grow with the business's review count. */
+.map { height: 340px; border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--rule); background: var(--wash); z-index: 0; }
+.pin { display: grid; place-content: center; width: calc(38px * var(--sz, 1)); height: calc(38px * var(--sz, 1)); margin: calc(19px - 19px * var(--sz, 1)) 0 0 calc(19px - 19px * var(--sz, 1)); border-radius: 50%; font: 800 13px/1 var(--display); color: #fff; background: var(--st, #8a8a8a);
+  border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); animation: pinin .45s cubic-bezier(.2, 1.25, .35, 1) both; }
+.pin.me { outline: 3px solid #000; outline-offset: 1px; }
+.pin.s-none, .legend3 .s-none { --st: #8a8a8a; }
+.pin.s-part { color: #000; }
+@keyframes pinin { from { transform: scale(0) translateY(10px); } }
+.pinpop b { display: block; font-size: 13px; } .pinpop small { display: block; color: #555; margin: 2px 0 6px; }
+.legend3 { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 2px 4px; font-size: 11.5px; color: var(--muted); }
+.legend3 i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--st); margin-right: 5px; vertical-align: -1px; }
+.leaflet-container { font: inherit; }
+
+/* Business audit, second look: a ring that fills, part bars that grow, section tabs, and each section's parts arriving in turn. */
+.ba-head { border-top: 4px solid var(--st, var(--rule)); }
+.ba-ring { position: relative; display: grid; place-items: center; width: 112px; height: 112px; text-align: center; }
+.ba-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ba-ring circle { fill: none; stroke-width: 3.8; }
+.ba-ring .trk { stroke: var(--rule); }
+.ba-ring .val { stroke: var(--st, var(--ink)); stroke-linecap: round; stroke-dasharray: var(--v) 100; animation: ba-fill 1.1s cubic-bezier(.2, .8, .2, 1) both .1s; }
+.ba-ring b { font: 800 34px/1 var(--display); color: var(--st, var(--ink)); font-variant-numeric: tabular-nums; }
+.ba-ring small { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); width: 64px; font-size: 9px; line-height: 1.1; color: var(--muted); }
+@keyframes ba-fill { from { stroke-dasharray: 0 100; } }
+.ba-parts div { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; border: 0; padding: 0; }
+.ba-parts div i { grid-column: 1 / -1; display: block; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--st, var(--faint)) 85%, transparent); width: var(--w); animation: ba-grow .9s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 90ms + .2s); }
+.ba-parts div:not([class*="s-"]) i { background: var(--rule-2); }
+@keyframes ba-grow { from { width: 0; } }
+.ba-tabs { display: flex; gap: 4px; padding: 4px; margin: 12px 0; background: var(--wash); border-radius: 14px; overflow-x: auto; scrollbar-width: none; }
+.ba-tabs button { flex: 1 0 auto; display: grid; justify-items: center; gap: 1px; border: 0; background: transparent; color: var(--muted); padding: 7px 10px; font-size: 12.5px; border-radius: 10px; transition: background .2s, color .2s; }
+.ba-tabs button small { font-size: 10.5px; color: var(--faint); font-weight: 600; }
+.ba-tabs button[aria-selected="true"] { background: var(--panel); color: var(--ink); font-weight: 750; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.ba-pane.in > * { animation: rise .32s var(--ease) both; }
+.ba-pane.in > *:nth-child(2) { animation-delay: 50ms; } .ba-pane.in > *:nth-child(3) { animation-delay: 100ms; } .ba-pane.in > *:nth-child(n+4) { animation-delay: 150ms; }
+/* Plan: the levers, biggest first (numbered: it's the order to do them in) */
+.ba-levers { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: lv; }
+.ba-lever { counter-increment: lv; position: relative; padding: 12px 14px 10px 46px; border-radius: var(--r-lg); background: var(--panel); border: 1px solid var(--rule); animation: rise .4s var(--ease) both; animation-delay: calc(var(--i, 0) * 70ms + 80ms); }
+.ba-lever::before { content: counter(lv); position: absolute; left: 12px; top: 12px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-content: center; font: 800 12.5px/1 var(--display); background: var(--ink); color: var(--paper); }
+.ba-lever .lv-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.ba-lever .lv-top b { font: 750 14px/1.3 var(--display); }
+.lv-imp { flex: none; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--wash); color: var(--muted); }
+.ba-lever.i3 .lv-imp { background: color-mix(in srgb, var(--fail) 16%, transparent); color: var(--fail); }
+.ba-lever.i2 .lv-imp { background: color-mix(in srgb, var(--part) 18%, transparent); color: var(--part); }
+.ba-lever.i3 { border-left: 3px solid var(--fail); } .ba-lever.i2 { border-left: 3px solid var(--part); }
+.ba-lever p { margin: 4px 0 6px; font-size: 12.5px; color: var(--muted); }
+.ba-lever details summary { cursor: pointer; font-size: 12.5px; font-weight: 700; }
+.ba-lever details ol { margin: 6px 0 8px; padding-left: 18px; font-size: 12.5px; display: grid; gap: 3px; }
+.ba-issue { animation: rise .35s var(--ease) both; animation-delay: calc(var(--i, 0) * 25ms); }
+/* Services: who offers what */
+.ba-svc { display: flex; flex-wrap: wrap; gap: 6px; }
+.svc { display: grid; gap: 1px; padding: 7px 11px; border-radius: 12px; font-size: 12.5px; background: var(--wash); animation: ba-pop .35s cubic-bezier(.2, 1.25, .35, 1) both; animation-delay: calc(var(--i, 0) * 35ms); }
+.svc b { font-weight: 700; } .svc small { font-size: 11px; color: var(--muted); }
+.svc.gap { background: color-mix(in srgb, var(--fail) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fail) 35%, transparent); }
+.svc.only { background: color-mix(in srgb, var(--pass) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pass) 40%, transparent); }
+@keyframes ba-pop { from { opacity: 0; transform: scale(.85); } }
+/* Compare: one card each, bars that grow */
+.ba-cmp { display: grid; gap: 8px; }
+.cmp-card { display: grid; gap: 7px; padding: 12px 14px; border-radius: var(--r-lg); border: 1px solid var(--rule); background: var(--panel); animation: rise .38s var(--ease) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.cmp-card.me { border-color: var(--ink); box-shadow: inset 3px 0 0 var(--ink); }
+.cmp-head b { display: block; font: 750 14px/1.3 var(--display); } .cmp-head small, .cmp-t { color: var(--muted); font-size: 11.5px; }
+.cmp-scores { display: flex; gap: 5px; flex-wrap: wrap; }
+.cmp-scores .chip { display: inline-flex; gap: 3px; align-items: baseline; padding: 2px 8px; border-radius: 99px; font-size: 10.5px; color: var(--muted); background: color-mix(in srgb, var(--st, var(--faint)) 14%, transparent); }
+.cmp-scores .chip b { color: var(--st, var(--ink)); font-size: 12.5px; }
+.cmp-row { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; font-size: 12px; }
+.cmp-row span:first-child { color: var(--muted); }
+.ba-bar { display: block; height: 8px; border-radius: 4px; background: var(--wash); overflow: hidden; min-width: 60px; }
+.ba-bar i { display: block; height: 100%; width: var(--w); border-radius: 4px; background: var(--ink); animation: ba-grow 1s cubic-bezier(.2, .8, .2, 1) both .2s; }
+.cmp-card.me .ba-bar i { background: var(--pass); }
+.ba-row .pack { display: grid; gap: 2px; justify-items: end; min-width: 90px; }
+.ba-row .pack small { font-size: 10.5px; }
+.ba-mapwrap .map { height: 320px; }
+.cmp-card button { justify-self: start; padding: 5px 12px; font-size: 12px; }
