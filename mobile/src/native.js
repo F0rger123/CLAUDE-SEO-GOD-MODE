@@ -97,8 +97,11 @@ export const canSearch = () => !!globalThis.sgmTestBrowse || has("InAppBrowser")
  * load) or "blocked" (a robot check or sign-in: you deal with it in the window). It never tries to get past one.
  * Returns [{ q, value }] for the jobs done; value is null if that page couldn't be read. Closing the window stops it.
  */
-async function browse(jobs, read, { title, accept, blockedText, onProgress = () => {}, timeout = 120000 }) {
-  const browser = cap.registerPlugin("InAppBrowser");
+async function browse(jobs, read, { title, accept, blockedText, headers, onProgress = () => {}, timeout = 120000 }) {
+  // The app has no bundler, so there's no registerPlugin(): call the plugin through the native bridge directly.
+  const call = (method) => (opts = {}) => cap.nativePromise("InAppBrowser", method, opts);
+  const browser = { openWebView: call("openWebView"), setUrl: call("setUrl"), executeScript: call("executeScript"), close: call("close"),
+    addListener: (event, fn) => cap.addListener("InAppBrowser", event, fn) };
   let wake = null, closed = false;
   const code = `Promise.resolve((${read})()).then((v) => window.mobileApp.postMessage({ detail: { value: v } }))`;
   const handles = await Promise.all([
@@ -115,7 +118,7 @@ async function browse(jobs, read, { title, accept, blockedText, onProgress = () 
       if (a === "blocked") onProgress(blockedText);
       else if (a === "done") done(v);
     };
-    (first ? browser.openWebView({ url, title, isPresentAfterPageLoad: false }) : browser.setUrl({ url })).catch(() => done(null));
+    (first ? browser.openWebView({ url, title, isPresentAfterPageLoad: false, ...(headers ? { headers } : {}) }) : browser.setUrl({ url })).catch(() => done(null));
   });
   const out = [];
   try {
@@ -134,13 +137,28 @@ async function browse(jobs, read, { title, accept, blockedText, onProgress = () 
   return out;
 }
 
+const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
+
 /** Google each keyword. Returns [{ q, serp }]. */
 export async function searchGoogle(qs, read, onProgress) {
   if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("google", qs)).map(({ q, value }) => ({ q, serp: value }));
   const jobs = qs.map((q, i) => ({ q, url: "https://www.google.com/search?q=" + encodeURIComponent(q), label: `Searching Google for “${q}” (${i + 1} of ${qs.length})…` }));
-  const got = await browse(jobs, read, { title: "Google", onProgress, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
+  // Google's phone pages hide each result's address behind an encrypted redirect; its desktop page links them
+  // directly, the same page the Chrome extension reads.
+  const got = await browse(jobs, read, { title: "Google", onProgress, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
     accept: (v) => (v.blocked ? "blocked" : v.kind === "serp" ? "done" : "wait") });
   return got.map(({ q, value }) => ({ q, serp: value }));
+}
+
+/** A business on Google Maps (the full profile: hours, photos, claim status). read: readGoogle. Returns its page read. */
+export async function searchMaps(q, read, onProgress) {
+  if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("maps", [q]))[0]?.value || null;
+  // Maps fills the place in after the page loads: read again for up to 10 seconds until it's there.
+  const waitRead = new Function(`return async function () { for (let i = 0; i < 20; i++) { const r = (${read})(); if (r.business || i === 19) return r; await new Promise((s) => setTimeout(s, 500)); } }`)();
+  const got = await browse([{ q, url: "https://www.google.com/maps/search/" + encodeURIComponent(q), label: `Finding “${q}” on Google Maps…` }], waitRead,
+    { title: "Google Maps", onProgress, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
+      accept: (v) => (v.blocked ? "blocked" : v.kind === "maps" ? "done" : "wait") });
+  return got[0]?.value || null;
 }
 
 /** Ask ChatGPT each question in a window on the phone (no account needed; sign in there if it asks). Returns [{ q, answer }]. */

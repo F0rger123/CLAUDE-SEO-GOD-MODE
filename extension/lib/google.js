@@ -65,8 +65,17 @@ export function readGoogle() {
   const organic = [];
   for (const h3 of document.querySelectorAll('#search a h3, #rso a h3, #rso a [role="heading"]')) {
     const a = h3.closest("a");
-    const href = a?.href || "";
-    if (!/^https?:/.test(href) || /google\.[a-z.]+\/(search|url|maps)|googleadservices|webcache/.test(href)) continue;
+    let href = a?.href || "";
+    // Google sometimes wraps each result in an encrypted redirect (/goto?url=…, /url?…). The address it shows under
+    // the title ("https://example.com › services › roofing") still names the site, so read that instead.
+    // Path parts stop at the first shortened ("…") or worded ("Home Services") one.
+    if (/google\.[a-z.]+\/(goto|url)/.test(href)) {
+      const q = new URL(href).searchParams, direct = q.get("q") || q.get("url") || "";
+      const cite = (a.closest("[data-hveid], .g, [jscontroller]")?.querySelector("cite")?.textContent || "").trim();
+      const m = cite.match(/^(https?:\/\/)?([a-z0-9.-]+\.[a-z]{2,})((?:\s*›\s*[^›…]+)*)/i);
+      href = /^https?:\/\//.test(direct) ? direct : m ? `${m[1] || "https://"}${m[2]}/${(() => { const segs = m[3].split("›").map((s) => s.trim()).filter(Boolean), cut = segs.findIndex((s) => !/^[a-z0-9._~%-]+$/i.test(s)); return (cut < 0 ? segs : segs.slice(0, cut)).map(encodeURIComponent).join("/"); })()}`.replace(/\/$/, "/") : "";
+    }
+    if (!/^https?:/.test(href) || /google\.[a-z.]+\/(search|url|maps|goto)|googleadservices|webcache/.test(href)) continue;
     if (a.closest('[data-text-ad], #tads, #bottomads, [aria-label="Ads"]')) continue;
     const u = new URL(href); u.hash = "";
     const key = u.href;
@@ -84,11 +93,26 @@ export function readGoogle() {
   for (const r of document.querySelectorAll('[role="img"][aria-label*="out of 5"], [role="img"][aria-label*="stars"], span[aria-label^="Rated"]')) {
     const block = r.closest('[data-cid], [jscontroller][data-hveid], .VkpGBb, [role="listitem"], .rllt__details')?.closest("div") || r.parentElement?.parentElement;
     if (!block || block.closest("#rhs")) continue;
+    // A star rating inside an ordinary result (a directory's or a site's own reviews) isn't the map pack.
+    // Only the map pack's own entries: shopping and product cards have star ratings too.
+    if (!r.closest(".rllt__details, .VkpGBb")) continue;
     const name = txt(block.querySelector('[role="heading"], .OSrXXb, .dbg0pd')) || txt(block).split(/\s*\d[.,]\d\s*\(/)[0].slice(0, 80);
     if (!name || local.some((l) => l.name === name)) continue;
     const label = r.getAttribute("aria-label") || "";
     const t = txt(block);
-    local.push({ position: local.length + 1, name, rating: num((label.match(/\d[.,]\d/) || [])[0]?.replace(",", ".")),
+    // Its Website and Directions links sit a few levels up, in the box that holds only this business.
+    // Climb until the box has its Website or Directions link, without taking in another business (another heading).
+    const linkish = (el) => [...el.querySelectorAll("a")].some((a) => /^(website|directions)$/i.test(txt(a)) || /\/maps\/dir\//.test(a.getAttribute("data-url") || a.getAttribute("href") || ""));
+    const headings = (el) => new Set([...el.querySelectorAll('[role="heading"], .OSrXXb, .dbg0pd')].map(txt).filter(Boolean)).size;
+    let box = block;
+    for (let i = 0; i < 8 && !linkish(box) && box.parentElement && headings(box.parentElement) <= 1; i++) box = box.parentElement;
+    const links = linkish(box) ? [...box.querySelectorAll("a")] : [];
+    const siteLink = links.find((a) => /^website$/i.test(txt(a)) || /website/i.test(a.getAttribute("aria-label") || ""));
+    const dir = links.map((a) => a.getAttribute("data-url") || a.getAttribute("href") || "").find((h) => h.includes("/maps/dir/"));
+    // "/maps/dir//Wagler+Steel,+6+Township+Dr,+Paradise,+PA+17562/data=…" -> "6 Township Dr, Paradise, PA 17562"
+    const dirText = dir ? decodeURIComponent((dir.split("/maps/dir//")[1] || "").split("/")[0].replace(/\+/g, " ")) : "";
+    const address = dirText.includes(",") ? dirText.split(",").slice(1).join(",").trim() || null : null;
+    local.push({ position: local.length + 1, name, rating: num((label.match(/\d[.,]\d/) || [])[0]?.replace(",", ".")), website: siteLink?.href || null, address,
       // "Bealing Roofing 4.9 (522) · Roofers 19+ years in business" / "(3K)"
       reviews: count((t.match(/\(([\d,.]+\s*[KM]?)\)/i) || [])[1]), category: (t.match(/\)\s*·\s*([A-Za-z][A-Za-z &]*?[A-Za-z])(?=\s*\d|\s*·|$)/) || [])[1] || null });
     if (local.length >= 6) break;

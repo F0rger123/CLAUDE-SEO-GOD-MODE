@@ -327,7 +327,15 @@ await cp.screenshot({ path: path.join(repo, "assets", "extension-business.png") 
 await cp.click(".crumb .back");
 await cp.click('.tile[data-sub="audit"]');
 await cp.waitForSelector("#barun");
-await cp.fill("#baname", "Hi Roofing"); await cp.fill("#bacity", "York PA"); await cp.fill("#bacat", "roofing contractor");
+// First visit fills the details in from the website by itself; then they can be changed and added to.
+await cp.waitForFunction(() => /Filled in|Nothing new|Couldn't/.test(document.getElementById("badstat")?.textContent || ""), null, { timeout: 30000 });
+assert.match(await cp.$eval("#badstat", (e) => e.textContent), /Filled in from your website/);
+await cp.fill("#baname", "Hi Roofing"); await cp.fill("#bacat", "roofing contractor");
+await cp.fill("#ba-locations", "York PA"); await cp.click('[data-addbtn="locations"]');
+await cp.fill("#ba-services", "gutter cleaning, skylights"); await cp.press("#ba-services", "Enter");
+assert.match(await cp.$eval('[data-list="services"]', (e) => e.textContent), /gutter cleaning.*skylights/s);
+await cp.click('[data-list="services"] [data-rm="skylights"]');
+assert.doesNotMatch(await cp.$eval('[data-list="services"]', (e) => e.textContent), /skylights/);
 await cp.click("#barun");
 await cp.waitForSelector(".ba-head", { timeout: 240000 });
 const auditText = await cp.$eval("#sub", (e) => e.textContent);
@@ -524,7 +532,7 @@ await phone.addInitScript(({ mine, rival }) => { const serp = (q, rest) => ({ ki
         local: [{ name: "Summit Ridge Roofing", rating: 4.9, reviews: 212 }, { name: "Keystone Roofers", rating: 4.6, reviews: 87 }] })
     : /^roofing contractor/.test(q) ? serp(q, { organic: [{ position: 1, url: rival + "/", title: "Summit Ridge Roofing: Roof Repair & Replacement, York PA", snippet: "" }], local: [{ name: "Summit Ridge Roofing", rating: 4.9, reviews: 212 }] })
     : serp(q, { organic: [{ position: 1, url: "https://top-rival.example/", title: "Top", snippet: "" }, { position: 2, url: mine + "/", title: "Mine", snippet: "" }], paa: ["roof repair cost"] });
-  window.sgmTestBrowse = async (kind, qs) => qs.map((q) => ({ q, value: kind === "google" ? google(q)
+  window.sgmTestBrowse = async (kind, qs) => qs.map((q) => ({ q, value: kind === "maps" ? { ...google(q), kind: "maps" } : kind === "google" ? google(q)
   : { kind: "chat", text: "For " + q + ", homeowners often recommend Rival Roofing (rival-roofing.example) and Acme Roofs.", links: ["https://rival-roofing.example/", "https://acme-roofs.example/"] } })); }, { mine: lookBase, rival });
 // Address lookups and map tiles, as OpenStreetMap would answer.
 await phone.route("https://nominatim.openstreetmap.org/**", (r) => r.fulfill({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "application/json" },
@@ -717,7 +725,8 @@ await phone.click('[data-stab="audit"]');
 // The extension's audit of this site has synced here, so its result shows first and the form is folded below it.
 await phone.waitForSelector(".ba-head");
 await phone.$eval("details.bafold", (d) => (d.open = true));
-await phone.fill("#baname", "Hi Roofing"); await phone.fill("#bacity", "York PA"); await phone.fill("#bacat", "roofing contractor");
+await phone.fill("#baname", "Hi Roofing"); await phone.fill("#bacat", "roofing contractor");
+assert.match(await phone.$eval('[data-list="locations"]', (e) => e.textContent), /York PA/, "details typed in the extension synced to the phone");
 await phone.click("#barun");
 // Wait for the phone's own run to finish.
 await phone.waitForFunction(() => /Business Score \d+/.test(document.getElementById("toast").textContent), null, { timeout: 180000 });
@@ -740,7 +749,7 @@ await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo,
 await phone.click('[data-batab="plan"]');
 await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-audit.png") });
 await phone.click('[data-batab="compare"]');
-await phone.click("[data-track]");
+await phone.click(`[data-track="${rival}"]`);
 await phone.waitForFunction(() => /Tracking Summit Ridge Roofing/.test(document.getElementById("toast").textContent));
 assert.ok(sb.tables.data.some((r) => r.key === "baudit:" + badBase && r.value?.score != null), "audit synced");
 // Find competitors automatically from a business's Competitors section.

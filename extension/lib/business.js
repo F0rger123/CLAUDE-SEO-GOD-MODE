@@ -12,7 +12,8 @@
  *    that this site doesn't.
  * The Business Score weighs those five parts. A part that couldn't be checked is left out, never guessed.
  */
-import { auditBusiness, DIRECTORIES as DIRECTORY_HOSTS, detectTargets, sameDomain, terms } from "./compete.js";
+import { auditBusiness, DIRECTORIES as DIRECTORY_HOSTS, detectTargets, fetchPage, sameDomain, terms } from "./compete.js";
+import { parseJsonld, parsePage, schemaTypes } from "./pyparse.js";
 import { geocode } from "./map.js";
 
 export const PARTS = {
@@ -56,12 +57,17 @@ const zip = (a) => (String(a || "").match(/\b\d{5}\b(?!.*\b\d{5}\b)/) || [null])
 /** The Google searches an audit makes. Listings are checked a few sites per search, to keep the searches few. */
 export function auditSearches(biz, dirs) {
   const q = (s) => s.replace(/\s+/g, " ").trim();
-  const out = [{ kind: "profile", q: q(`${biz.name} ${biz.city || ""}`) }];
-  if (biz.category) out.push({ kind: "rivals", q: q(`${biz.category} ${biz.city || ""}`) });
+  const locs = locationsOf(biz), home = locs[0] || "";
+  const out = [{ kind: "profile", q: q(`${biz.name} ${home}`) }];
+  // Competitors: what you do, in each place you work (up to 3), and your main services in your main place (up to 2).
+  const seen = new Set();
+  const rival = (what, where, label) => { const s = q(`${what} ${where}`); if (what && !seen.has(s.toLowerCase())) { seen.add(s.toLowerCase()); out.push({ kind: "rivals", q: s, label }); } };
+  for (const loc of (locs.length ? locs : [""]).slice(0, 3)) rival(biz.category, loc, loc || "your area");
+  for (const svc of (biz.services || []).filter((s) => !terms(s).every((w) => terms(biz.category || "").includes(w))).slice(0, 2)) rival(svc, home, svc);
   const searchable = dirs.filter((d) => d.domain);
   for (let i = 0; i < searchable.length; i += 4) {
     const group = searchable.slice(i, i + 4);
-    out.push({ kind: "listings", ids: group.map((d) => d.id), q: q(`"${biz.name}" ${biz.city || ""} (${group.map((d) => `site:${d.domain}`).join(" OR ")})`) });
+    out.push({ kind: "listings", ids: group.map((d) => d.id), q: q(`"${biz.name}" ${home} (${group.map((d) => `site:${d.domain}`).join(" OR ")})`) });
   }
   return out;
 }
@@ -74,16 +80,30 @@ export function readListings(serp, group, biz) {
   });
 }
 
-/** Competitors from a "<what you do> <town>" search: the map pack, and the websites ranking (directories left out). */
-export function competitorsFrom(serp, myOrigin, max = 4) {
+// Sites that rank for local searches but aren't competing businesses: government, schools, news, tourism, wikis.
+const NOT_BUSINESS = /(\.gov|\.edu|\.mil)$|(^|\.)(township|borough|county|cityof|chamber|visit[a-z]*|tourism|news|times|gazette|patch|wikipedia|wikihow|reddit|quora)[a-z]*\./i;
+/**
+ * Competitors from a "<what you do> <town>" search: ranking websites whose title or snippet mentions what the
+ * business does (directories, councils, news and tourism sites left out). words: the trade's and services' words.
+ */
+export function competitorsFrom(serp, myOrigin, max = 4, words = []) {
   const sites = [];
+  // Product pages ("$23.00", "In stock") are shops' listings, not competing local businesses.
+  const relevant = (o) => !/\$\s?\d|in stock|add to cart/i.test(`${o.title} ${o.snippet}`) && (!words.length || terms(`${o.title} ${o.snippet}`).some((w) => words.includes(w)));
   for (const o of serp?.organic || []) {
     let origin; try { origin = new URL(o.url).origin; } catch { continue; }
-    if (DIRECTORY_HOSTS.test(hostOf(o.url)) || sameDomain(origin, myOrigin) || sites.some((s) => s.origin === origin)) continue;
+    if (DIRECTORY_HOSTS.test(hostOf(o.url)) || NOT_BUSINESS.test(hostOf(o.url)) || sameDomain(origin, myOrigin) || sites.some((s) => s.origin === origin) || !relevant(o)) continue;
     sites.push({ origin, name: o.title.split(/\s[|–—-]\s|\s\||:\s/)[0].trim() || hostOf(origin), position: o.position });
   }
   return { sites: sites.slice(0, max), mapPack: (serp?.local || []).slice(0, 6) };
 }
+
+/** The real address behind a Google redirect link (a map pack business's Website button): follow it once. */
+export async function resolveLink(url) {
+  if (!url || !/google\.[a-z.]+\/(goto|url)/.test(url)) return url || null;
+  try { const r = await fetch(url, { signal: AbortSignal.timeout(12000) }); return /google\./.test(hostOf(r.url)) ? null : r.url; } catch { return null; }
+}
+const withTimeout = (p, ms) => Promise.race([p, new Promise((res) => setTimeout(() => res(null), ms))]);
 
 // ---------------------------------------------------------------- scoring
 const ratio = (xs) => { const k = xs.filter((x) => x != null); return k.length ? k.filter(Boolean).length / k.length : null; };
@@ -123,23 +143,34 @@ export function businessScore(parts) {
  *  search(queries): [{ q, serp }] in the same order (null serp if a page couldn't be read).
  *  rate(origin): a rateSite result for a competitor's website (or null to skip rating competitors).
  */
-export async function runBusinessAudit({ biz, scan, websiteScore = null, search, rate, onProgress = () => {} }) {
-  const dirs = directoriesFor(await loadDirectories(), biz.category);
-  const plan = auditSearches(biz, dirs);
-  onProgress(`Searching Google ${plan.length} times: the profile, competitors and listings…`);
-  const got = await search(plan.map((p) => p.q));
-  const serpOf = (kind) => got[plan.findIndex((p) => p.kind === kind)]?.serp || null;
+export async function runBusinessAudit({ biz, scan, websiteScore = null, search, searchProfile = null, rate, onProgress = () => {} }) {
+  // The Google profile first (on Google Maps when the caller can, where the full profile shows): it also tells
+  // what the business does when that wasn't filled in.
+  biz = { ...biz };
+  const profileQ = auditSearches(biz, [])[0].q;
+  onProgress(`Looking up ${biz.name} on Google…`);
+  const profileSerp = searchProfile ? await searchProfile(profileQ).catch(() => null) : (await search([profileQ]))[0]?.serp || null;
+  const packMe = (profileSerp?.local || []).find((m) => namesBusiness(m.name, biz.name));
+  const foundPanel = profileSerp?.business && namesBusiness(profileSerp.business.name, biz.name) ? profileSerp.business : null;
+  // No full panel, but the business is in the map pack: that's its profile, with what the map pack shows.
+  const panel = foundPanel || (packMe ? { name: packMe.name, rating: packMe.rating, reviews: packMe.reviews, category: packMe.category, address: packMe.address, website: null, claimed: null, hasHours: null } : null);
+  if (!biz.category && panel?.category) biz.category = panel.category.toLowerCase();
 
-  // Google Business Profile
-  const profileSerp = serpOf("profile"), rivalSerp = serpOf("rivals");
-  const panel = profileSerp?.business && namesBusiness(profileSerp.business.name, biz.name) ? profileSerp.business : null;
+  const dirs = directoriesFor(await loadDirectories(), biz.category);
+  const plan = auditSearches(biz, dirs).filter((p) => p.kind !== "profile");
+  onProgress(`Searching Google ${plan.length} more times: competitors and listings…`);
+  const got = await search(plan.map((p) => p.q));
+  plan.unshift({ kind: "profile", q: profileQ }); got.unshift({ q: profileQ, serp: profileSerp });
+  const serpOf = (kind) => got[plan.findIndex((p) => p.kind === kind)]?.serp || null;
+  const rivalSerp = serpOf("rivals");
+  const rivalRuns = plan.map((p, i) => ({ p, serp: got[i]?.serp || null })).filter((x) => x.p.kind === "rivals");
   const profile = panel ? auditBusiness(panel, { keyword: biz.category || "", mySite: biz.origin, local: rivalSerp?.local || profileSerp?.local || [] }) : null;
 
   // Listings
   const listings = [];
   plan.forEach((p, i) => { if (p.kind === "listings") listings.push(...readListings(got[i]?.serp, p.ids.map((id) => dirs.find((d) => d.id === id)), biz)); });
   for (const d of dirs.filter((x) => !x.domain)) listings.push({ id: d.id, status: "unknown", url: null, phones: [] });
-  const q = encodeURIComponent(`${biz.name} ${biz.city || ""}`.trim());
+  const q = encodeURIComponent(`${biz.name} ${locationsOf(biz)[0] || ""}`.trim());
   for (const l of listings) Object.assign(l, (({ name, signup, check, steps, core, why, note }) => ({ name, signup, check: check?.replace("{q}", q) || null, steps, core: !!core, why, note }))(dirs.find((d) => d.id === l.id)));
   if (panel) listings.unshift({ id: "google", name: "Google Business Profile", core: true, status: "listed", url: null, phones: panel.phone ? phonesIn(panel.phone) : [] });
 
@@ -150,15 +181,46 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
 
   // Competitors
   onProgress("Rating competitors' websites…");
-  const found = competitorsFrom(rivalSerp, biz.origin);
+  // Competitors across every search: who shows up where, best first (most searches, then best position).
+  const by = new Map(), mapPack = [], searches = [];
+  const words = [...new Set([biz.category, ...(biz.services || [])].flatMap((x) => terms(x || "")))];
+  for (const { p, serp } of rivalRuns) {
+    const f = competitorsFrom(serp, biz.origin, 6, words);
+    for (const s of f.sites) { const c = by.get(s.origin) || { ...s, seenIn: [] }; c.seenIn.push({ q: p.q, label: p.label, position: s.position }); c.position = Math.min(c.position, s.position); by.set(s.origin, c); }
+    for (const m of f.mapPack) if (!mapPack.some((x) => x.name === m.name)) mapPack.push(m);
+    const me = (serp?.organic || []).find((o) => sameDomain(o.url, biz.origin));
+    searches.push({ q: p.q, label: p.label, read: !!serp, mine: me ? me.position : null, top: f.sites.slice(0, 5).map((s) => ({ origin: s.origin, name: s.name, position: s.position })), pack: f.mapPack.map((m) => m.name) });
+  }
+  // The map pack's businesses are the most direct competitors: add them first, by their real website.
+  const packSites = [];
+  for (const m of mapPack.filter((x) => !namesBusiness(x.name, biz.name)).slice(0, 4)) {
+    // No website or address shown in the map pack: look the business up by name (Google Maps on the phone).
+    if ((!m.website || !m.address) && packSites.length < 3) {
+      onProgress(`Looking up ${m.name}…`);
+      const q = `${m.name} ${locationsOf(biz)[0] || ""}`.trim();
+      const s = searchProfile ? await searchProfile(q).catch(() => null) : (await search([q]).catch(() => []))[0]?.serp;
+      const b = s?.business && namesBusiness(s.business.name, m.name) ? s.business : null;
+      if (b) { m.website = m.website || b.website || null; m.address = m.address || b.address || null; m.reviews = m.reviews ?? b.reviews; m.rating = m.rating ?? b.rating; }
+    }
+    const site = await resolveLink(m.website);
+    let origin = null; try { origin = site ? new URL(site).origin : null; } catch {}
+    // No website link read: the same business may be among the ranking sites, by name.
+    if (!origin) origin = [...by.values()].find((s) => namesBusiness(s.name, m.name) || namesBusiness(m.name, s.name))?.origin || null;
+    if (origin && (sameDomain(origin, biz.origin) || DIRECTORY_HOSTS.test(hostOf(origin)))) continue;
+    const prior = origin && by.get(origin);
+    if (prior) by.delete(origin);
+    packSites.push({ origin, name: m.name, position: prior?.position ?? null, seenIn: prior?.seenIn || [], packAddress: m.address || null, fromPack: true });
+  }
+  const found = { sites: [...packSites, ...[...by.values()].sort((a, b) => b.seenIn.length - a.seenIn.length || a.position - b.position)].slice(0, 5), mapPack: mapPack.slice(0, 8) };
   const mine = await detectTargets(biz.origin + "/").catch(() => null);
-  const myPhrases = (mine?.services || []).map((s) => s.phrase).slice(0, 14);
+  const myPhrases = [...new Set([...(biz.services || []), ...(mine?.services || []).map((s) => s.phrase)])].slice(0, 16);
   const myServices = new Set(myPhrases.flatMap((ph) => terms(ph)));
   const competitors = [];
   for (const c of found.sites) {
-    onProgress(`Rating ${hostOf(c.origin)}…`);
-    const r = rate ? await rate(c.origin).catch(() => null) : null;
-    const t = await detectTargets(c.origin + "/").catch(() => null);
+    onProgress(`Rating ${c.origin ? hostOf(c.origin) : c.name}…`);
+    // A slow or huge site shouldn't hold up the audit: each gets a few minutes at most.
+    const r = rate && c.origin ? await withTimeout(rate(c.origin).catch(() => null), 150000) : null;
+    const t = c.origin ? await withTimeout(detectTargets(c.origin + "/").catch(() => null), 45000) : null;
     const services = (t?.services || []).map((s) => s.phrase).slice(0, 14);
     const offers = services.filter((ph) => terms(ph).some((w) => !myServices.has(w))).slice(0, 6);
     competitors.push({ ...c, scores: r?.scores ? { overall: r.scores.overall, seo: r.scores.seo, aeo: r.scores.aeo, geo: r.scores.geo } : null, offers, services,
@@ -169,8 +231,11 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   // Where everyone is, for the map: coordinates from each site's schema, else its address looked up on OpenStreetMap.
   onProgress("Placing everyone on the map…");
   const locate = async (e) => (e?.lat != null ? { lat: e.lat, lng: e.lng } : e?.address ? await geocode(e.address).catch(() => null) : null);
-  const place = (await locate(ent)) || (biz.city ? { ...(await geocode(biz.city).catch(() => null)), approx: true } : null);
-  for (const c of competitors) c.place = await locate(c.entity);
+  const firstLoc = locationsOf(biz)[0];
+  const myPack = mapPack.find((x) => namesBusiness(x.name, biz.name));
+  const place = (await locate(ent)) || (panel?.address ? await geocode(panel.address).catch(() => null) : null) || (myPack?.address ? await geocode(myPack.address).catch(() => null) : null)
+    || (firstLoc ? { ...(await geocode(firstLoc).catch(() => null)), approx: true } : null);
+  for (const c of competitors) c.place = (await locate(c.entity)) || (c.packAddress ? await geocode(c.packAddress).catch(() => null) : null);
 
   // Parts and score
   const core = listings.filter((l) => l.status !== "unknown");
@@ -185,7 +250,7 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
     reviews: rv && ratio(rv) != null ? Math.round(100 * ratio(rv)) : null,
   };
   const report = { t: new Date().toISOString(), biz, parts, score: businessScore(parts), profile, profileQuery: plan[0].q, listings, consistency, competitors,
-    mapPack: found.mapPack, searched: plan.length, unread: got.filter((g) => !g.serp).length,
+    mapPack: found.mapPack, searches, searched: plan.length, unread: got.filter((g) => !g.serp).length,
     me: { services: myPhrases, place: place?.lat != null ? place : null, scores: scan?.scores ? { overall: websiteScore ?? scan.scores.overall, seo: scan.scores.seo, aeo: scan.scores.aeo, geo: scan.scores.geo } : null,
       rating: panel?.rating ?? null, reviews: panel?.reviews ?? null, pages: scan?.pagesRated ?? null } };
   report.issues = issuesFrom(report);
@@ -273,4 +338,70 @@ export function levers(r) {
   if (phone) add("nap", 2, "Use one phone number everywhere", `Different numbers show up: ${phone.detail}. Mismatches split your identity across Google, maps and directories.`,
     ["Pick one main number.", "Change it on every listing and on your website and its schema."]);
   return out.sort((a, b) => b.impact - a.impact);
+}
+
+// ---------------------------------------------------------------- what the business is, filled in for you
+/** The places a business works, oldest field (city) included. */
+export const locationsOf = (biz) => [...new Set([...(biz.locations || []), biz.city].filter((x) => x && String(x).trim()).map((x) => String(x).trim()))];
+
+const GENERIC_TYPES = new Set(["Organization", "LocalBusiness", "ProfessionalService", "HomeAndConstructionBusiness", "Corporation", "Store", "WebSite", "WebPage", "Thing", "Place", "CreativeWork", "Brand", "OnlineBusiness", "Service"]);
+// A schema type that names a trade: "RoofingContractor", "HVACBusiness", "Electrician", "BeautySalon".
+const TRADE_TYPE = /(Contractor|Business|Store|Shop|Service|Agency|Restaurant|Dentist|Clinic|Electrician|Plumber|Locksmith|Roofing|Company|Office|Center|Studio|Salon|Firm|Attorney|Physician|Bakery|Cafe|Bar|Hotel|Dealer|Repair)$/;
+const typeWords = (t) => String(t).replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+const cityOf = (a) => {
+  if (!a) return null;
+  if (typeof a === "object") return [a.addressLocality, a.addressRegion].filter((x) => typeof x === "string" && x.trim()).join(", ") || null;
+  // "1 Main St, York, PA 17401" -> "York, PA"
+  const parts = String(a).split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const last = parts[parts.length - 1].replace(/\b\d{5}(-\d{4})?\b/, "").trim(), prev = parts[parts.length - 2];
+  return /^[A-Z]{2}$/.test(last) ? `${prev}, ${last}` : parts.length >= 3 ? `${parts[parts.length - 2]}, ${last}` : null;
+};
+const flatPlace = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const names = (v) => [].concat(v || []).map((x) => (typeof x === "string" ? x : x?.name || x?.address?.addressLocality)).filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim());
+
+/**
+ * Fill in a business's details from its own website: name, what it does (its schema type, or its main service),
+ * every address it lists, the areas it serves, its services and its phone. Each comes back with where it was found.
+ */
+export async function detectBusiness(origin) {
+  const home = await fetchPage(origin + "/");
+  if (home.status !== 200) throw new Error(`Couldn't read ${origin} (${home.status ?? home.error})`);
+  const p = parsePage(home.html);
+  const items = parseJsonld(p.jsonld).items;
+  const ents = items.filter((i) => schemaTypes(i).some((t) => !["WebSite", "WebPage", "BreadcrumbList", "FAQPage", "ImageObject", "Person", "Review", "Offer", "Product"].includes(t)) && (i.name || i.address));
+  const ent = ents.find((i) => i.address) || ents[0] || null;
+  const t = await detectTargets(origin + "/").catch(() => null);
+  const specific = ents.flatMap((e) => schemaTypes(e)).find((x) => !GENERIC_TYPES.has(x) && TRADE_TYPE.test(x));
+  const services = [...new Set([...items.filter((i) => schemaTypes(i).includes("Service")).map((i) => i.name || i.serviceType).filter(Boolean),
+    ...names(ent?.makesOffer?.map?.((o) => o.itemOffered) || []), ...(t?.services || []).map((s) => s.phrase)])]
+    // Headings like "3 steps" or "Accessories" aren't services: keep 2–5 word phrases without numbers.
+    .filter((s) => !/\d/.test(s) && terms(s).length >= 1 && s.split(/\s+/).length >= 2 && s.split(/\s+/).length <= 5).slice(0, 12);
+  const locations = [...new Set(ents.map((e) => cityOf(Array.isArray(e.address) ? e.address[0] : e.address)).filter(Boolean))];
+  const areas = [...new Set([...ents.flatMap((e) => names(e.areaServed)), ...(t?.places || []).map((x) => (typeof x === "string" ? x : x.place || x.name)).filter(Boolean)])]
+    .filter((a) => !locations.some((l) => flatPlace(l).startsWith(flatPlace(a)))).slice(0, 10);
+  const name = (typeof ent?.name === "string" && ent.name) || p.og?.["og:site_name"] || (p.title || "").split(/\s[|–—-]\s/).pop().trim() || null;
+  const tel = [].concat(ent?.telephone || [])[0] || null;
+  return {
+    name, category: specific ? typeWords(specific) : null, locations, areas, services, phone: typeof tel === "string" ? tel : null,
+    from: { name: ent?.name ? "your schema" : "your page title", category: specific ? "your schema type" : null, locations: locations.length ? "your schema address" : null },
+  };
+}
+
+/** What Google's business panel says about a name (and town): category, address, phone. search(qs) as in runBusinessAudit. */
+export async function lookupOnGoogle(biz, search) {
+  const q = `${biz.name} ${locationsOf(biz)[0] || ""}`.trim();
+  const [hit] = await search([q]);
+  const pack = (hit?.serp?.local || []).find((m) => namesBusiness(m.name, biz.name));
+  const b = hit?.serp?.business && namesBusiness(hit.serp.business.name, biz.name) ? hit.serp.business : pack;
+  if (!b) return null;
+  return { name: b.name, category: b.category ? b.category.toLowerCase() : null, locations: [cityOf(b.address)].filter(Boolean), phone: b.phone || null, website: b.website || null };
+}
+
+/** Merge found details into what's there: typed values win; lists are combined. */
+export function mergeBiz(have, found) {
+  if (!found) return have;
+  const list = (a, b) => { const seen = new Set(); return [...(a || []), ...(b || [])].map((x) => String(x).trim()).filter((x) => x && !seen.has(flatPlace(x)) && seen.add(flatPlace(x))); };
+  return { ...have, name: have.name || found.name || "", category: have.category || found.category || "", locations: list(locationsOf(have), found.locations), areas: list(have.areas, found.areas),
+    services: list(have.services, found.services).slice(0, 16), phone: have.phone || found.phone || null };
 }

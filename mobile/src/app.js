@@ -25,10 +25,10 @@ import { addReading } from "./lib/track.js";
 import { OFF_PAGE } from "./lib/breakdown.js";
 import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
-import { askChatGPT, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle } from "./native.js";
+import { askChatGPT, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle, searchMaps } from "./native.js";
 import { readChat } from "./readers.js";
-import { competitorsFrom, runBusinessAudit } from "./lib/business.js";
-import { auditHtml, auditPrompt, bindAudit } from "./lib/businessview.js";
+import { competitorsFrom, detectBusiness, locationsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
+import { auditHtml, auditPrompt, bindAudit, bindBizEditor, bizEditor } from "./lib/businessview.js";
 import { drawMap, geocode } from "./lib/map.js";
 
 installNativeFetch([SB_URL]);
@@ -340,7 +340,7 @@ function renderSite(o) {
   const body = { overview: siteOverview, audit: siteAudit, keywords: siteKeywords, competitors: siteCompetitors, settings: siteSettings }[tab](s, o);
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
     <div class="hero"><div><b>${esc(s.name)}</b><small>${ROLES[s.role]}${of ? ` ${s.role === "general" ? "linked to" : "of"} <button class="linkish" data-open="${esc(of.origin)}">${esc(of.name)}</button>` : ""} · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(hostOf(o))}</a></small></div></div>
-    ${scoreBoxes(p)}
+    ${tab === "audit" ? "" : scoreBoxes(p)}
     ${segs("data-stab", tabs, tab)}
     <div class="segbody">${body}</div>`;
   $("back").onclick = () => { S.open = null; render(); };
@@ -401,6 +401,12 @@ function bindSite(s, o) {
   on("findcomp", () => findCompetitors(o));
   if ($("baform")) {
     $("baform").onsubmit = (e) => { e.preventDefault(); auditSite(o); };
+    editor = bindBizEditor($("baform"), "ba", bizInfo(o), {
+      onDetect: async (cur) => { const merged = mergeBiz(cur, await detectBusiness(o)); await saveBizInfo(o, merged); return { merged, note: "Filled in from your website. Check it, and add anything missing." }; },
+      onGoogle: async (cur) => { if (!cur.name) throw new Error("Add the business name first."); const g = await lookupOnGoogle(cur, async (qs) => [{ q: qs[0], serp: await searchMaps(qs[0], readGoogle) }]);
+        if (!g) return null; const merged = mergeBiz(cur, g); await saveBizInfo(o, merged); return { merged, note: `Found on Google: ${[g.category, g.locations[0]].filter(Boolean).join(", ")}` }; },
+    });
+    autoDetect(o);
     on("barun", () => auditSite(o));
     on("bacopy", () => copy(auditPrompt(S.data.get("baudit:" + o)), "Fix prompt copied"));
     const out = document.querySelector(".ba-out");
@@ -442,27 +448,40 @@ function bindSite(s, o) {
 /** What the business is called, where it is and what it does: saved from the last audit or search, else from its schema. */
 function bizInfo(o) {
   const s = S.sites.get(o), saved = S.data.get("binfo:" + o) || S.data.get("baudit:" + o)?.biz || {}, ent = scanOf(o)?.entity || {};
-  return { name: saved.name || ent.name || s?.name || hostOf(o), city: saved.city || ent.city || "", category: saved.category || "", origin: o };
+  return { name: saved.name || ent.name || s?.name || hostOf(o), category: saved.category || "", locations: locationsOf(saved).length ? locationsOf(saved) : [ent.city].filter(Boolean),
+    services: saved.services || [], areas: saved.areas || [], phone: saved.phone || null, origin: o };
 }
-async function saveBizInfo(o, info) { S.data.set("binfo:" + o, { name: info.name, city: info.city, category: info.category }); await putData(["binfo:" + o]); }
+async function saveBizInfo(o, info) {
+  S.data.set("binfo:" + o, { name: info.name, category: info.category, locations: locationsOf(info), services: info.services || [], areas: info.areas || [], phone: info.phone || null });
+  await putData(["binfo:" + o]);
+}
 const bizFields = (b, p) => `<div class="field"><label for="${p}name">Business name</label><input id="${p}name" class="search" value="${esc(b.name)}"></div>
-  <div class="field"><label for="${p}city">Town and state</label><input id="${p}city" class="search" placeholder="York PA" value="${esc(b.city)}"></div>
+  <div class="field"><label for="${p}city">Town and state</label><input id="${p}city" class="search" placeholder="York PA" value="${esc(b.locations[0] || "")}"></div>
   <div class="field"><label for="${p}cat">What it does</label><input id="${p}cat" class="search" placeholder="roofing contractor" value="${esc(b.category)}"></div>`;
-const readBiz = (o, p) => ({ name: $(p + "name").value.trim(), city: $(p + "city").value.trim(), category: $(p + "cat").value.trim(), origin: o });
+const readBiz = (o, p) => ({ ...bizInfo(o), name: $(p + "name").value.trim(), locations: [$(p + "city").value.trim(), ...bizInfo(o).locations.slice(1)].filter(Boolean), category: $(p + "cat").value.trim(), origin: o });
 
 function siteAudit(s, o) {
   const r = S.data.get("baudit:" + o), b = bizInfo(o), running = S.auditing?.origin === o;
-  const form = `<form id="baform">${bizFields(b, "ba")}</form>
+  const form = `<form id="baform">${bizEditor(b, "ba", { canLookup: canSearch() })}</form>
     ${canSearch() ? `<div class="btns stack"><button id="barun" class="primary">${r ? "Run the audit again" : "Run complete business audit"}</button></div>` : `<p class="unknowns">The business audit needs the Android app (it searches Google on the phone).</p>`}`;
   if (running) return scanBox("Auditing the business…", "baprog", S.auditing.text, "Searches Google in a window on this phone and rates competitors' websites. Takes a few minutes. If Google asks for a robot check, solve it there.");
-  if (!r) return `<p class="lede">Checks the whole business, not just the website: its Google profile, listings on Yelp, Bing, Apple Maps, BBB and more, the same phone and hours everywhere, reviews, and competitors. Each problem comes with steps to fix it.</p>${form}`;
+  if (!r) return `${S.detecting === o ? `<p class="unknowns">Reading your website to fill this in…</p>` : ""}<p class="lede">Checks the whole business, not just the website: its Google profile, listings on Yelp, Bing, Apple Maps, BBB and more, the same phone and hours everywhere, reviews, and competitors. Each problem comes with steps to fix it.</p>${form}`;
   return `<div class="ba-out">${auditHtml(r, { tracked: new Set(S.sites.keys()) })}</div>
     <div class="btns stack"><button id="bacopy" class="primary">Copy fix prompt</button></div>
     <details class="fold bafold"><summary>Run the audit again</summary><div class="pad">${form}</div></details>`;
 }
+/** Fill a business's details in from its website the first time its audit opens (nothing typed is replaced). */
+async function autoDetect(o) {
+  if (S.data.get("binfo:" + o) || S.detecting || S.detected?.has(o)) return;
+  (S.detected = S.detected || new Set()).add(o);
+  S.detecting = o; render();
+  try { await saveBizInfo(o, mergeBiz(bizInfo(o), await detectBusiness(o))); } catch {}
+  S.detecting = null; if (S.open === o && S.stab === "audit") { lastScreen = null; render(); }
+}
+let editor = null;
 async function auditSite(o) {
   if (S.auditing) return;
-  const biz = readBiz(o, "ba");
+  const biz = { ...(editor ? editor.get() : readBiz(o, "ba")), origin: o };
   if (!biz.name) return notice("Add the business name.");
   await saveBizInfo(o, biz);
   const progress = (text) => { if (!text) return; S.auditing.text = text; const el = $("baprog"); if (el) el.textContent = text; };
@@ -471,6 +490,7 @@ async function auditSite(o) {
   try {
     const r = await runBusinessAudit({ biz, scan: scanOf(o), websiteScore: lastPoint(o)?.overall ?? null,
       search: async (qs) => { const got = await searchGoogle(qs, readGoogle, progress); return qs.map((q) => got.find((x) => x.q === q) || { q, serp: null }); },
+      searchProfile: (q) => searchMaps(q, readGoogle, progress),
       rate: (x) => rateSite(x + "/", { psi: false }), onProgress: progress });
     S.data.set("baudit:" + o, r);
     await putData(["baudit:" + o]);

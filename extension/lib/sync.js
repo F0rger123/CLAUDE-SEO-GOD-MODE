@@ -13,7 +13,7 @@ export const cloud = makeCloud({
   save: (s) => (s ? chrome.storage.local.set({ cloud: s }) : chrome.storage.local.remove(["cloud", "syncState", "syncStatus"])),
 });
 
-const DATA = /^(trend|kwpos|kwreport|baudit):https?:\/\//;
+const DATA = /^(trend|kwpos|kwreport|baudit|binfo):https?:\/\//;
 const SCANS = /^sitescans:(https?:\/\/.+)$/;
 const synced = (k) => k === "tracked" || DATA.test(k) || SCANS.test(k);
 // Values this worker just wrote from the cloud, so saving them doesn't send them straight back.

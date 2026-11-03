@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.29.0 (2026-11-03): extension 1.24, app 1.3: details filled in for you, many locations and services; phone searches fixed
+
+- **Fixed on the phone:** "cap.registerPlugin is not a function". The Google and ChatGPT window now works. The app has no bundler, so it calls the plugin through Capacitor's native bridge. It broke the business audit, Google position checks and Ask ChatGPT, and it's now tested on an Android emulator against live Google.
+- **Google result links:** Google now hides result links behind an encrypted redirect (`/goto?url=…`). The reader takes each site's address from the line Google shows under the title instead, so competitors and positions keep working (extension too). On the phone, the Google window presents as desktop Chrome, the same page the extension reads. Star ratings inside ordinary results are no longer mistaken for the map pack.
+- **Business details filled in automatically:**
+  - The audit reads your website (schema and pages) for your name, trade, every address, the areas you serve, your services and phone. **Look it up on Google** fills in from your Google business panel. Nothing you've typed is replaced.
+  - **Many locations, services and areas:** add or remove each as a chip. They sync between the extension and the app.
+  - The audit searches your trade in each location (up to 3) and your top services, and shows **Where you compete**: your position and who ranks, search by search.
+- **The business audit tab no longer shows the website's SEO score**: the Business Score is the audit's score.
+- **Better results from real searches** (run on an Android emulator against live Google):
+  - Your profile is read from Google Maps on the phone, where the full profile shows, and it fills in your trade when it's missing.
+  - Map pack businesses come first as competitors. Their website and address come from the map pack, or from looking each one up.
+  - Shopping cards and product pages are no longer counted as businesses, and schema types like "Place" are no longer taken for a trade.
+  - Each competitor's rating has a time limit, so one slow site can't stall the audit.
+
 ## 2.28.0 (2026-11-03): extension 1.23, app 1.2: business audit map, services and plan; in-app update fix
 
 - **In-app updates fixed:** the update plugin refuses a download without a SHA-256 checksum, so "Couldn't download the update" appeared. Each build now publishes the checksum in `latest.json` and the app passes it. If an in-app update ever fails, the app offers the normal download instead of an error. Install this build once from the APK; updates after it install in the app.

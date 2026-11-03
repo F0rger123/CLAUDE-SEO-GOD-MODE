@@ -20,8 +20,8 @@ import * as U from "./lib/update.js";
 import { cloud } from "./lib/sync.js";
 import { newCode } from "./lib/cloud.js";
 import { qrSvg } from "./lib/qr.js";
-import { runBusinessAudit } from "./lib/business.js";
-import { auditHtml, auditPrompt, bindAudit } from "./lib/businessview.js";
+import { detectBusiness, locationsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
+import { auditHtml, auditPrompt, bindAudit, bindBizEditor, bizEditor } from "./lib/businessview.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -367,11 +367,12 @@ async function renderAudit() {
   if (!me) { s.innerHTML = `<p class="lede">Track your business first (Track › Track new site), then run its audit here.</p>`; return; }
   const key = "baudit:" + me.origin;
   const { [key]: last, ["sitescans:" + me.origin]: scans = [] } = await chrome.storage.local.get([key, "sitescans:" + me.origin]);
-  const ent = scans[0]?.entity || {}, b = last?.biz || {};
-  const val = (k, fb) => esc(b[k] || fb || "");
-  const form = `<form id="baform" class="ba-form"><div class="field"><label for="baname">Business name</label><input id="baname" class="search" value="${val("name", ent.name || me.name)}"></div>
-      <div class="row2"><div class="field"><label for="bacity">Town and state</label><input id="bacity" class="search" placeholder="York PA" value="${val("city", ent.city)}"></div>
-      <div class="field"><label for="bacat">What it does</label><input id="bacat" class="search" placeholder="roofing contractor" value="${val("category", "")}"></div></div></form>
+  const ent = scans[0]?.entity || {}, infoKey = "binfo:" + me.origin;
+  const { [infoKey]: saved } = await chrome.storage.local.get(infoKey);
+  const base = saved || last?.biz || {};
+  const b = { name: base.name || ent.name || me.name, category: base.category || "", locations: locationsOf(base).length ? locationsOf(base) : [ent.city].filter(Boolean),
+    services: base.services || [], areas: base.areas || [], phone: base.phone || null };
+  const form = `<form id="baform" class="ba-form">${bizEditor(b, "ba", { canLookup: true })}</form>
     <div class="btns stack"><button id="barun" class="primary run">${last ? "Run the audit again" : "Run complete business audit"}</button></div>
     <p class="unknowns">Searches Google 6–10 times in a background tab (a few seconds apart) and rates up to 4 competitors' websites. Takes 2–4 minutes. ${scans[0] ? "" : "Rate the whole site first (Track) to include the website score."}</p>`;
   s.innerHTML = `${siteSelectNote(me)}
@@ -382,8 +383,19 @@ async function renderAudit() {
     $("bacopy").onclick = () => ui.copy(auditPrompt(last), "Fix prompt copied");
   }
   $("baform").onsubmit = (e) => { e.preventDefault(); $("barun").click(); };
+  const save = (x) => chrome.storage.local.set({ [infoKey]: { name: x.name, category: x.category, locations: locationsOf(x), services: x.services, areas: x.areas, phone: x.phone || null } });
+  const editor = bindBizEditor($("baform"), "ba", b, {
+    onDetect: async (cur) => { const merged = mergeBiz(cur, await detectBusiness(me.origin)); await save(merged); return { merged, note: "Filled in from your website. Check it, and add anything missing." }; },
+    onGoogle: async (cur) => { if (!cur.name) throw new Error("Add the business name first.");
+      if (!(await access(GOOGLE, "Looking it up needs permission to read Google. Press it again and choose Allow."))) return null;
+      const g = await lookupOnGoogle(cur, async (qs) => (await K.googleSearch(qs)).results);
+      if (!g) return null; const merged = mergeBiz(cur, g); await save(merged); return { merged, note: `Found on Google: ${[g.category, g.locations[0]].filter(Boolean).join(", ")}` }; },
+  });
+  // First time here: fill in from the website (typed details are never replaced).
+  if (!saved && !last) $("badetect").click();
   $("barun").onclick = async () => {
-    const biz = { name: $("baname").value.trim(), city: $("bacity").value.trim(), category: $("bacat").value.trim(), origin: me.origin };
+    const biz = { ...editor.get(), origin: me.origin };
+    await save(biz);
     if (!biz.name) return ui.notice("Add the business name.");
     if (!(await access([...GOOGLE, ...ALL_SITES], "The audit needs to read Google and competitors' websites. Press Run again and choose Allow."))) return;
     busy(true, "Auditing…");

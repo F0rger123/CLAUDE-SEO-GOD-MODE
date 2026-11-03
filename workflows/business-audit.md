@@ -6,14 +6,16 @@ The Chrome extension (Compete › Complete business audit) and the Android app (
 
 ## Ask first
 
-1. The business name exactly as customers see it, its town and state, and what it does in plain words ("roofing contractor", "permanent lighting installer").
+Start from the website when there is one: read its LocalBusiness schema and pages for the name, the trade (schema type or main service), every address, the areas served, the services and the phone. Show what you found and let the person correct it. The extension and app do this automatically (`detectBusiness` in `extension/lib/business.js`).
+
+1. The business name exactly as customers see it, every location (town and state), the services it sells, the areas it serves, and what it does in plain words ("roofing contractor", "permanent lighting installer").
 2. Whether it serves customers at its address or travels to them (service-area business). This decides whether a missing address counts as a problem.
 3. The main phone number and the website.
 
 ## Run it
 
 1. **Website.** Run `seo_rate_site` on the site and record the Overall score.
-2. **Competitors.** Search the web for "<what it does> <town>". Note the map pack, if shown, and the ranking business websites, skipping directories. Run `seo_competitor_scan` with up to 4 of them. Record how they score against the business and the services their sites list that it doesn't.
+2. **Competitors.** Search the web for "<what it does> <town>" for each location (up to 3), and "<service> <main town>" for the top 2 services. Note where the business itself ranks in each. Note the map pack, if shown, and the ranking business websites, skipping directories. Run `seo_competitor_scan` with up to 4 of them. Record how they score against the business and the services their sites list that it doesn't.
 3. **Google Business Profile.** Search "<name> <town>".
    - No business panel: the profile is missing (`"found": false`).
    - Panel found: check it as `workflows/local-seo.md` describes, covering claimed, primary category, rating, review count against the map pack, website link, phone, hours, photos, description, posts and Q&A.
