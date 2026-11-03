@@ -88,11 +88,13 @@ Install in four clicks: download the zip and unzip it, open `chrome://extensions
 
 <p><a href="https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/download/android-app/SEO-God-Mode.apk"><img src="https://img.shields.io/badge/Download-Android%20app%20(.apk)-000000?style=for-the-badge&logo=android&logoColor=white" alt="Download the Android app"></a></p>
 
-**Paste any link to rate the whole site right on your phone**, with the same crawl, checks and scores as the Chrome extension: summary, top fixes and the fix prompt. The app opens ready to use: no account, no computer and no setup needed. **Check Google positions on the phone** and get the keyword report, with new keyword ideas. Keep your businesses, clients, competitors and any other site in general, optionally linked to a business, with a dated SEO snapshot; sync with the extension only if you want to: scores and history, keyword positions and the keyword report, and each business next to its competitors. **+ Quick add** a client, a website of yours, or a competitor. Everything is saved on the phone first, so it works offline. When a new version is out, the app tells you and downloads it in one tap. Light haptic feedback on every tap.
+**Paste any link to rate the whole site right on your phone**, with the same crawl, checks and scores as the Chrome extension: summary, top fixes and the fix prompt. The app opens ready to use: no account, no computer and no setup needed. **Check Google positions on the phone** and get the keyword report, with new keyword ideas. **Compare** shows where each business ranks against its competitors, a map with every pin coloured by score, and who ChatGPT recommends. Updates install inside the app. Keep your businesses, clients, competitors and any other site in general, optionally linked to a business, with a dated SEO snapshot; sync with the extension only if you want to: scores and history, keyword positions and the keyword report, and each business next to its competitors. **+ Quick add** a client, a website of yours, or a competitor. Everything is saved on the phone first, so it works offline. When a new version is out, the app tells you and downloads it in one tap. Light haptic feedback on every tap.
 
 <p align="center">
   <img src="assets/mobile-rate.png" alt="Android app: rating a website on the phone" width="200">
   <img src="assets/mobile-sites.png" alt="Android app: tracked sites" width="200">
+  <img src="assets/mobile-map.png" alt="Android app: competitor map coloured by score" width="200">
+  <img src="assets/mobile-ai.png" alt="Android app: who ChatGPT recommends" width="200">
   <img src="assets/mobile-site.png" alt="Android app: one site's scores and summary" width="200">
   <img src="assets/mobile-compare.png" alt="Android app: a business next to its competitors" width="200">
   <img src="assets/mobile-quickadd.png" alt="Android app: Quick add a competitor" width="200">

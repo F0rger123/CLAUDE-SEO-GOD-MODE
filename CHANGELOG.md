@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.26.0 (2026-11-03): extension 1.21 and app 1.0: Compare rebuilt, map, ChatGPT answers, in-app updates
+
+- **Compare, in three sections:** **Rankings** opens by itself: where the business stands (#1 of 4), who leads SEO, AEO and GEO and by how much, a leaderboard with each site's colour-coded scores, Google positions side by side and scores over time. **Map** places the business and its competitors and colours each pin green, amber or red by the score you pick (Overall, SEO, AEO, GEO). **AI answers** asks ChatGPT the business's searches in a window on the phone and shows who it recommends, how often, and which other sites it cites.
+- **Locations** come from each site's own schema (coordinates or address, looked up on OpenStreetMap the first time a map opens), or from an address typed in the site's Settings. Site ratings now record the business's stated name, address and coordinates.
+- **Site screens are calmer:** scores on top, then **Overview / Keywords / Competitors / Settings** instead of one long page.
+- **Updates install inside the app:** each build also publishes the app's screens (`web.zip`). When the native parts are unchanged, the app downloads the update itself and offers **Restart now** or installs it next time it opens. Only updates that change the native parts still need the APK. This build adds that ability, so it is the last one to install by APK for most updates.
+
 ## 2.25.0 (2026-11-02): extension 1.20 and app: pairing step by step
 
 - **Extension:** **Pair your phone** shows 3 numbered steps: get the app (with a QR code to download it), open Account › Connect your computer, scan this QR code. It then watches for the phone and shows **Your phone is connected** once it pairs.

@@ -537,7 +537,7 @@ async function rescan(origins, { quiet = false } = {}) {
       const r = await rateSite(o + "/", { psiKey, onProgress: (t) => show(true, `${hostOf(o)}: ${t}`) });
       const page = { url: r.site, origin: new URL(r.site).origin, platform: "Unknown", scannedAt: new Date().toISOString(), jsonld: [], pageless: true };
       const scan = await saveScan({ mode: "site", page, site: null, scores: r.scores, results: r.checks, priority: r.priority, kits: r.kits, unknown: r.unknown,
-        pagesRated: r.pages_rated, hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages });
+        pagesRated: r.pages_rated, hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages, entity: r.entity });
       await T.addScorePoint(o, scan);
     } catch (e) { ui.notice(`${esc(hostOf(o))}: ${esc(e.message || e)}`); }
   }
@@ -802,6 +802,8 @@ async function renderSync(el, mode = "") {
   if (!el) return;
   const s = await cloud.current();
   const { syncStatus: st } = await chrome.storage.local.get("syncStatus");
+  // The panel may have moved on while this read storage.
+  if (!el.isConnected) return;
   const start = async (msg) => {
     ui.toast(msg);
     const r = await chrome.runtime.sendMessage({ type: "syncStart" });
@@ -828,6 +830,7 @@ async function renderSync(el, mode = "") {
   }
   if (s?.code) {
     const { phoneSeen } = await chrome.storage.local.get("phoneSeen");
+    if (!el.isConnected) return;
     el.innerHTML = `<div class="upd on"><p><b>On.</b> ${st?.error ? `Last try failed: ${esc(st.error)}.` : st ? `Last synced ${ago(st.at)}.` : "Syncing…"}</p>
       ${s.user ? `<p>Signed in as <b id="acctname">${esc(s.user)}</b>. Sign in with it on your phone or another computer to see the same sites.</p>` : ""}
       <h3 class="pairhead">Pair your phone in 3 steps</h3>

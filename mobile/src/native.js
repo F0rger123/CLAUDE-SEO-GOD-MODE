@@ -4,8 +4,9 @@
  *  - Website requests go through Android's own HTTP client, so the app can read any site, like the extension does.
  *    Redirects are followed here, one hop at a time, so a scan knows the final address.
  *  - Haptic feedback on taps, saves and problems.
- *  - Update check: the build workflow publishes latest.json next to the APK; a newer build shows a pop-up.
- *  - Google searches for position checks, in a real browser window on the phone, read the same way the extension does.
+ *  - Updates: the build workflow publishes latest.json, the APK and the app's screens as web.zip. A newer build with the
+ *    same native parts installs in the app (live update); one that changes them offers the APK.
+ *  - Google searches for position checks, and ChatGPT questions, in a real browser window on the phone.
  *  - QR scanning (pairing with the extension) through Google's code scanner: no camera permission needed.
  */
 const cap = window.Capacitor;
@@ -64,7 +65,7 @@ export const LATEST = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases
 export async function newerBuild() {
   const mine = await fetch("./build.json", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ build: 0 }));
   const latest = await fetch(LATEST + "?t=" + Date.now(), { cache: "no-store", signal: AbortSignal.timeout(15000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  return latest?.build > (mine.build || 0) && latest.apk ? { ...latest, mine: mine.build || 0 } : null;
+  return latest?.build > (mine.build || 0) && latest.apk ? { ...latest, mine: mine.build || 0, mineNative: mine.native || null } : null;
 }
 
 /** Whether this phone can scan QR codes (the Android app, with the scanner plugin). */
@@ -87,43 +88,44 @@ export async function scanQR() {
   }
 }
 
-/** Whether this phone can search Google for position checks (the Android app). */
-export const canSearch = () => !!globalThis.sgmTestGoogle || has("InAppBrowser");
+/** Whether this phone can open Google or ChatGPT in a browser window to read them (the Android app). */
+export const canSearch = () => !!globalThis.sgmTestBrowse || has("InAppBrowser");
 
 /**
- * Search each keyword on Google in a browser window shown on screen, one at a time a few seconds apart, reading each
- * results page with `read`. It never tries to get past a robot check: it waits for you to solve it in that window.
- * Returns [{ q, serp }] for the searches done; serp is null if that page couldn't be read. Closing the window stops it.
+ * Open each job's page in a browser window shown on screen, one at a time a few seconds apart, and read it with
+ * `read` (run inside the page; may be async). accept(value) says "done", "wait" (keep the page, read again on the next
+ * load) or "blocked" (a robot check or sign-in: you deal with it in the window). It never tries to get past one.
+ * Returns [{ q, value }] for the jobs done; value is null if that page couldn't be read. Closing the window stops it.
  */
-export async function searchGoogle(qs, read, onProgress = () => {}) {
-  if (globalThis.sgmTestGoogle) return globalThis.sgmTestGoogle(qs);
+async function browse(jobs, read, { title, accept, blockedText, onProgress = () => {}, timeout = 120000 }) {
   const browser = cap.registerPlugin("InAppBrowser");
   let wake = null, closed = false;
-  const code = `window.mobileApp.postMessage({ detail: { serp: (${read})() } })`;
+  const code = `Promise.resolve((${read})()).then((v) => window.mobileApp.postMessage({ detail: { value: v } }))`;
   const handles = await Promise.all([
     browser.addListener("browserPageLoaded", () => setTimeout(() => browser.executeScript({ code }).catch(() => {}), 700)),
-    browser.addListener("messageFromWebview", (e) => wake?.(e.detail?.serp)),
+    browser.addListener("messageFromWebview", (e) => wake?.(e.detail?.value)),
     browser.addListener("closeEvent", () => { closed = true; wake?.(null); }),
   ]);
-  const search = (url, first) => new Promise((resolve) => {
-    const done = (serp) => { clearTimeout(timer); wake = null; resolve(serp); };
-    const timer = setTimeout(() => done(null), 120000);
-    wake = (serp) => {
-      if (closed || !serp) return done(null);
-      if (serp.blocked) return onProgress("Google is asking for a robot check. Solve it in the window and the check carries on.");
-      if (serp.kind === "serp") done(serp); // Anything else (a cookie page) waits for you to get past it.
+  const one = (url, first) => new Promise((resolve) => {
+    const done = (v) => { clearTimeout(timer); wake = null; resolve(v); };
+    const timer = setTimeout(() => done(null), timeout);
+    wake = (v) => {
+      if (closed || !v) return done(null);
+      const a = accept(v);
+      if (a === "blocked") onProgress(blockedText);
+      else if (a === "done") done(v);
     };
-    (first ? browser.openWebView({ url, title: "Google", isPresentAfterPageLoad: false }) : browser.setUrl({ url })).catch(() => done(null));
+    (first ? browser.openWebView({ url, title, isPresentAfterPageLoad: false }) : browser.setUrl({ url })).catch(() => done(null));
   });
   const out = [];
   try {
-    for (const [i, q] of qs.entries()) {
+    for (const [i, job] of jobs.entries()) {
       if (i) await new Promise((r) => setTimeout(r, 2500 + Math.random() * 1500));
       if (closed) break;
-      onProgress(`Searching Google for “${q}” (${i + 1} of ${qs.length})…`);
-      const serp = await search("https://www.google.com/search?q=" + encodeURIComponent(q), i === 0);
+      onProgress(job.label);
+      const value = await one(job.url, i === 0);
       if (closed) break;
-      out.push({ q, serp });
+      out.push({ q: job.q, value });
     }
   } finally {
     if (!closed) await browser.close().catch(() => {});
@@ -131,3 +133,29 @@ export async function searchGoogle(qs, read, onProgress = () => {}) {
   }
   return out;
 }
+
+/** Google each keyword. Returns [{ q, serp }]. */
+export async function searchGoogle(qs, read, onProgress) {
+  if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("google", qs)).map(({ q, value }) => ({ q, serp: value }));
+  const jobs = qs.map((q, i) => ({ q, url: "https://www.google.com/search?q=" + encodeURIComponent(q), label: `Searching Google for “${q}” (${i + 1} of ${qs.length})…` }));
+  const got = await browse(jobs, read, { title: "Google", onProgress, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
+    accept: (v) => (v.blocked ? "blocked" : v.kind === "serp" ? "done" : "wait") });
+  return got.map(({ q, value }) => ({ q, serp: value }));
+}
+
+/** Ask ChatGPT each question in a window on the phone (no account needed; sign in there if it asks). Returns [{ q, answer }]. */
+export async function askChatGPT(qs, read, onProgress) {
+  if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("chatgpt", qs)).map(({ q, value }) => ({ q, answer: value }));
+  const jobs = qs.map((q, i) => ({ q, url: "https://chatgpt.com/?q=" + encodeURIComponent(q), label: `Asking ChatGPT “${q}” (${i + 1} of ${qs.length})…` }));
+  const got = await browse(jobs, read, { title: "ChatGPT", onProgress, timeout: 180000, blockedText: "",
+    accept: (v) => (v.kind === "chat" && v.text ? "done" : "wait") });
+  return got.map(({ q, value }) => ({ q, answer: value }));
+}
+
+/** Live updates: new screens and features arrive inside the app, no reinstall (Capgo updater, from our own release). */
+export const canLiveUpdate = has("CapacitorUpdater");
+export const liveReady = () => canLiveUpdate && cap.nativePromise("CapacitorUpdater", "notifyAppReady").catch(() => {});
+/** Download a web bundle. Returns its id. */
+export const liveDownload = async (url, version) => (await cap.nativePromise("CapacitorUpdater", "download", { url, version: String(version) })).id;
+/** Switch to a downloaded bundle: now (reloads the app) or the next time it opens. */
+export const liveApply = (id, now) => cap.nativePromise("CapacitorUpdater", now ? "set" : "next", { id });

@@ -93,7 +93,7 @@ async function scanVia(url, mode) {
   await site.waitForTimeout(300);
   const tabId = await sw.evaluate(async (u) => (await chrome.tabs.query({})).find((t) => t.url === u).id, url);
   const panel = await ctx.newPage();
-  panel.on("pageerror", (e) => { console.log("panel error:", e.message); panelErrors.push(e.message); });
+  panel.on("pageerror", (e) => { console.log("panel error:", e.stack || e.message); panelErrors.push(e.message); });
   await panel.setViewportSize({ width: 420, height: 860 });
   await panel.goto(`chrome-extension://${extId}/sidepanel.html?tabId=${tabId}`);
   await panel.waitForTimeout(300);
@@ -238,7 +238,7 @@ await cp.click('#mode [data-mode="track"]');
 await cp.click("#tracknew");
 await cp.fill("#wz-url", badBase);
 await cp.click("#wz-next");
-assert.match(await cp.$eval(".stepno", (e) => e.textContent), /Step 2 of/);
+await cp.waitForFunction(() => /Step 2 of/.test(document.querySelector(".stepno")?.textContent || ""));
 await cp.click('[data-role="mine"]');
 await cp.screenshot({ path: path.join(repo, "assets", "extension-tracknew.png") });
 await cp.click("#wz-next");
@@ -478,6 +478,7 @@ const app = http.createServer((req, res) => { const f = path.join(www, decodeURI
   res.writeHead(200, { "content-type": types[path.extname(f)] || "application/octet-stream" }); res.end(fs.readFileSync(f)); });
 await new Promise((r) => app.listen(0, "127.0.0.1", r));
 const phone = await ctx.newPage();
+const phoneErrors = []; phone.on("pageerror", (e) => phoneErrors.push(String(e.stack || e))); phone.on("console", (m) => m.type() === "error" && phoneErrors.push(m.text()));
 phone.on("pageerror", (e) => { console.log("phone error:", e.message); panelErrors.push("phone: " + e.message); });
 await phone.setViewportSize({ width: 390, height: 844 });
 // A newer published build shows the update pop-up (this test build is build 0).
@@ -492,8 +493,14 @@ for (const b of [badBase, goodBase, lookBase]) await phone.route(b + "/**", asyn
   await r.fulfill({ response: res, headers: { ...res.headers(), "access-control-allow-origin": "*" } });
 });
 // Stands in for the browser window the Android app searches Google in.
-await phone.addInitScript((mine) => { window.sgmTestGoogle = async (qs) => qs.map((q) => ({ q, serp: { kind: "serp", query: q, readAt: new Date().toISOString(),
-  organic: [{ position: 1, url: "https://top-rival.example/", title: "Top", snippet: "" }, { position: 2, url: mine + "/", title: "Mine", snippet: "" }], paa: ["roof repair cost"], related: [] } })); }, lookBase);
+// Stands in for the browser window the Android app opens Google and ChatGPT in.
+await phone.addInitScript((mine) => { window.sgmTestBrowse = async (kind, qs) => qs.map((q) => ({ q, value: kind === "google" ? { kind: "serp", query: q, readAt: new Date().toISOString(),
+  organic: [{ position: 1, url: "https://top-rival.example/", title: "Top", snippet: "" }, { position: 2, url: mine + "/", title: "Mine", snippet: "" }], paa: ["roof repair cost"], related: [] }
+  : { kind: "chat", text: "For " + q + ", homeowners often recommend Rival Roofing (rival-roofing.example) and Acme Roofs.", links: ["https://rival-roofing.example/", "https://acme-roofs.example/"] } })); }, lookBase);
+// Address lookups and map tiles, as OpenStreetMap would answer.
+await phone.route("https://nominatim.openstreetmap.org/**", (r) => r.fulfill({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "application/json" },
+  body: JSON.stringify([{ lat: "39.96", lon: "-76.73", display_name: "York, Pennsylvania" }]) }));
+await phone.route("https://tile.openstreetmap.org/**", (r) => r.fulfill({ status: 200, contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") }));
 await phone.goto(`http://127.0.0.1:${app.address().port}/`);
 await phone.waitForSelector("#updnow", { timeout: 15000 });
 assert.match(await phone.$eval("#sheet", (e) => e.textContent), /Update available.*build 999/s);
@@ -507,8 +514,9 @@ assert.match(await phone.$eval("#status", (e) => e.textContent), /Saved on this 
 const rowsBefore = sb.tables.sites.length;
 await phone.click("#quickadd"); await phone.click('[data-qa="general"]');
 await phone.fill("#qurl", "just-looking.example"); await phone.click("#qsave");
-await phone.waitForSelector("#untrack");
+await phone.waitForSelector('[data-stab="settings"]');
 assert.match(await phone.$eval("#view", (e) => e.textContent), /General/);
+await phone.click('[data-stab="settings"]');
 assert.equal(sb.tables.sites.length, rowsBefore, "nothing sent while sync is off");
 await phone.click("#untrack"); await phone.click("#unyes");
 await phone.waitForSelector("#pasteurl");
@@ -638,6 +646,7 @@ const extSites = await xp.evaluate(async () => (await chrome.storage.local.get("
 assert.ok(extSites.includes("https://waiting-client.example") && extSites.includes(lookBase), "the phone's sites reach the extension");
 // Check Google positions on the phone: readings and the keyword report are saved and synced.
 await phone.click(`[data-open="${lookBase}"]`);
+await phone.click('[data-stab="keywords"]');
 await phone.fill("#kwin", "roof repair york pa"); await phone.click("#addkw button");
 await phone.waitForSelector("#checkkw");
 await phone.click("#checkkw");
@@ -648,6 +657,29 @@ await phone.waitForFunction(() => /Synced/.test(document.getElementById("status"
 for (let i = 0; i < 50 && !sb.tables.data.some((r) => r.key === "kwreport:" + lookBase); i++) await phone.waitForTimeout(200);
 assert.ok(sb.tables.data.some((r) => r.key === "kwpos:" + lookBase && r.value?.at(-1)?.pos === 2), "phone position reading synced");
 assert.ok(sb.tables.data.some((r) => r.key === "kwreport:" + lookBase), "phone keyword report synced");
+// Compare: rankings first, then the map (locations set by hand or from the site's address) and AI answers.
+await phone.click('#mode [data-tab="sites"]'); await phone.click(`[data-open="${badBase}"]`);
+await phone.click('[data-stab="settings"]');
+await phone.fill("#locin", "York, PA"); await phone.click("#locsave");
+await phone.waitForFunction(() => /set by you/.test(document.getElementById("view").textContent), null, { timeout: 15000 });
+await phone.click('#mode [data-tab="compare"]');
+if (await phone.$('[data-biz="' + badBase + '"]')) await phone.click('[data-biz="' + badBase + '"]');
+await phone.waitForSelector(".board .brow");
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Leaderboard.*of/s);
+await phone.click('[data-ctab="map"]');
+await phone.waitForSelector('.pin[data-pin="' + badBase + '"]', { timeout: 15000 }).catch(async (e) => { console.log("phone errors:", phoneErrors.slice(-5)); console.log("map debug:", await phone.evaluate(() => ({ notice: document.getElementById("notice").textContent, map: document.getElementById("map")?.innerHTML.slice(0, 300), pins: document.querySelectorAll(".pin").length, view: document.getElementById("view").textContent.slice(0, 300) }))); throw e; });
+assert.ok(await phone.$('.pin.s-pass, .pin.s-part, .pin.s-fail'), "pins are coloured by score");
+await phone.click('[data-metric="geo"]');
+await phone.waitForSelector(".pin");
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-map.png") });
+await phone.click('[data-ctab="ai"]');
+await phone.click("#askai");
+await phone.waitForFunction(() => /Recommended most/.test(document.getElementById("view").textContent), null, { timeout: 30000 });
+const ai = await phone.$eval("#view", (e) => e.textContent);
+assert.match(ai, /not mentioned/); assert.match(ai, /also: rival-roofing\.example|also: Rival/i); assert.match(ai, /acme-roofs\.example/);
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-ai.png") });
+await phone.click('[data-ctab="rankings"]');
+await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-compare.png") });
 // A General site, linked to a business. A server without that site type yet still takes the rest and keeps it waiting.
 sb.flags.oldRoles = true;
 await phone.click('#mode [data-tab="sites"]');

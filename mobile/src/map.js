@@ -1,0 +1,57 @@
+/**
+ * The Compare map: where a business and its competitors are, each pin coloured by its score (green 85+, amber
+ * 65–84, red under 65) for the chosen score: Overall, SEO, AEO or GEO.
+ *  - Places come from each site's own schema (coordinates, or its address looked up on OpenStreetMap), or from a
+ *    location typed in the site's Settings. A site with neither isn't placed, and the list says so.
+ *  - Map tiles and address lookups are OpenStreetMap's (credited on the map). Leaflet (BSD-2) draws it.
+ */
+const NOMINATIM = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=";
+let L = null, map = null, lastLookup = 0, drawing = 0;
+
+/** Coordinates for an address, or null. At most one lookup a second, as OpenStreetMap asks. */
+export async function geocode(address) {
+  const wait = lastLookup + 1100 - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastLookup = Date.now();
+  const res = await fetch(NOMINATIM + encodeURIComponent(address), { headers: { "Accept-Language": "en", "User-Agent": "SEOGodMode/1.0 (theagencyzero.com)" } });
+  if (!res.ok) throw new Error(`Address lookup failed (${res.status})`);
+  const [hit] = await res.json();
+  return hit ? { lat: +hit.lat, lng: +hit.lon, label: hit.display_name } : null;
+}
+
+const colour = (n) => (n == null ? "s-none" : n >= 85 ? "s-pass" : n >= 65 ? "s-part" : "s-fail");
+
+/**
+ * Draw the map in `el`. pins: [{ origin, name, lat, lng, scores, me }]. metric: "overall" | "seo" | "aeo" | "geo".
+ * onOpen(origin): a pin's popup button was pressed.
+ */
+export async function drawMap(el, pins, metric, onOpen) {
+  // The screen can redraw while the map code loads: only the newest call draws, into the map box on screen now.
+  const mine = ++drawing;
+  L = L || (await import("./vendor/leaflet/leaflet-src.esm.js"));
+  if (mine !== drawing) return;
+  el = document.getElementById(el.id) || el;
+  if (map) { map.remove(); map = null; }
+  if (!el.isConnected) return;
+  map = L.map(el, { zoomControl: false, attributionControl: true });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+  const layer = [];
+  for (const p of pins) {
+    const n = p.scores?.[metric] ?? null;
+    const icon = L.divIcon({ className: "", iconSize: [38, 38], iconAnchor: [19, 19],
+      html: `<span class="pin ${colour(n)} ${p.me ? "me" : ""}" data-pin="${p.origin}">${n ?? "–"}</span>` });
+    const m = L.marker([p.lat, p.lng], { icon, title: p.name }).addTo(map);
+    const box = document.createElement("div");
+    box.className = "pinpop";
+    box.innerHTML = `<b></b><small></small><button class="linkish">Open</button>`;
+    box.querySelector("b").textContent = p.name;
+    box.querySelector("small").textContent = ["overall", "seo", "aeo", "geo"].map((k) => `${k === "overall" ? "Overall" : k.toUpperCase()} ${p.scores?.[k] ?? "–"}`).join(" · ");
+    box.querySelector("button").onclick = () => onOpen(p.origin);
+    m.bindPopup(box);
+    layer.push([p.lat, p.lng]);
+  }
+  if (layer.length === 1) map.setView(layer[0], 13);
+  else if (layer.length) map.fitBounds(layer, { padding: [36, 36], maxZoom: 14 });
+  else map.setView([39.8, -98.6], 3);
+}

@@ -25,7 +25,9 @@ import { addReading } from "./lib/track.js";
 import { OFF_PAGE } from "./lib/breakdown.js";
 import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
-import { canScan, canSearch, haptic, installNativeFetch, isNative, newerBuild, scanQR, searchGoogle } from "./native.js";
+import { askChatGPT, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle } from "./native.js";
+import { readChat } from "./readers.js";
+import { drawMap, geocode } from "./map.js";
 
 installNativeFetch([SB_URL]);
 
@@ -238,7 +240,7 @@ function scanFrom(r, origin) {
   const scannedAt = new Date().toISOString();
   return { id: scannedAt, mode: "site", page: { url: r.site, origin, platform: "Unknown", scannedAt, jsonld: [], pageless: true }, site: null,
     scores: r.scores, results: r.checks, priority: r.priority, kits: r.kits, unknown: r.unknown, pagesRated: r.pages_rated,
-    hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages };
+    hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages, entity: r.entity || null };
 }
 /** Keep a scan for a tracked site: newest scan and a point on its score history, then sync. */
 async function keepScan(origin, scan) {
@@ -312,7 +314,7 @@ function renderSites() {
   bindOpen();
 }
 const bindOpen = () => document.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openSite(b.dataset.open)));
-function openSite(o) { S.open = o; S.tab = "sites"; render(); scrollTo(0, 0); }
+function openSite(o) { S.open = o; S.tab = "sites"; S.stab = "overview"; render(); scrollTo(0, 0); }
 
 /** A score ring: fills up and counts up when its screen opens. */
 const ring = (n, size = "") => `<span class="sring ${size} ${status(n)}"><svg viewBox="0 0 40 40" aria-hidden="true"><circle class="trk" cx="20" cy="20" r="17" pathLength="100"/>${n == null ? "" : `<circle class="val" cx="20" cy="20" r="17" pathLength="100" style="--v:${n}"/>`}</svg><b ${n == null ? "" : `data-n="${n}"`}>${n ?? "–"}</b></span>`;
@@ -321,65 +323,109 @@ function scoreBoxes(p) {
 }
 const scanBox = (title, id, text, sub = "") => `<div class="scanbox"><span class="sweep" aria-hidden="true"></span><div><b>${title}</b><p id="${id}">${esc(text)}</p>${sub ? `<small>${sub}</small>` : ""}</div><i class="scanbar" aria-hidden="true"></i></div>`;
 
+const SITE_TABS = { overview: "Overview", keywords: "Keywords", competitors: "Competitors", settings: "Settings" };
+/** A row of section buttons; the chosen one is filled. */
+const segs = (attr, tabs, on) => `<div class="segs" role="tablist">${Object.entries(tabs).map(([k, l]) => `<button role="tab" ${attr}="${k}" aria-selected="${k === on}">${l}</button>`).join("")}</div>`;
+
 function renderSite(o) {
   const s = S.sites.get(o);
   if (!s) return S.lookup?.origin === o || S.scanning?.origin === o ? renderLookup(o) : ((S.open = null), renderSites());
-  const running = S.scanning?.origin === o;
-  const h = trend(o), p = h[h.length - 1] || null, scan = scanOf(o), report = S.data.get("kwreport:" + o);
+  const owns = s.role === "mine" || s.role === "client";
+  const tabs = owns ? SITE_TABS : { overview: "Overview", keywords: "Keywords", settings: "Settings" };
+  const tab = tabs[S.stab] ? S.stab : "overview";
+  const h = trend(o), p = h[h.length - 1] || null;
   const of = s.competitorOf && S.sites.get(s.competitorOf);
-  const rivals = competitorsOf(o);
-  const failed = scan ? scan.results.filter((r) => r.ratio != null && r.ratio < 0.999 && r.cat !== "info").sort((a, b) => (b.gain || 0) - (a.gain || 0)) : [];
-  const kws = s.keywords;
-  const weak = report ? report.rows.filter((r) => group(r.pos) !== "top") : [];
+  const body = { overview: siteOverview, keywords: siteKeywords, competitors: siteCompetitors, settings: siteSettings }[tab](s, o);
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
     <div class="hero"><div><b>${esc(s.name)}</b><small>${ROLES[s.role]}${of ? ` ${s.role === "general" ? "linked to" : "of"} <button class="linkish" data-open="${esc(of.origin)}">${esc(of.name)}</button>` : ""} · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(hostOf(o))}</a></small></div></div>
     ${scoreBoxes(p)}
-    ${running ? scanBox("Rating the whole site…", "scanprog", `${hostOf(o)}: ${S.scanning.text}`) : `<div class="btns stack"><button id="scannow"${scan ? "" : ` class="primary"`}>${scan ? "Scan again" : "Scan now"}</button></div>`}
-    ${h.length > 1 ? lineChart([{ name: "Overall", cls: "main", points: h.map((x) => ({ t: x.t, v: x.overall })) }], { label: s.name + " score history" }) : ""}
+    ${segs("data-stab", tabs, tab)}
+    <div class="segbody">${body}</div>`;
+  $("back").onclick = () => { S.open = null; render(); };
+  document.querySelectorAll("[data-stab]").forEach((b) => (b.onclick = () => { S.stab = b.dataset.stab; render(); }));
+  bindOpen();
+  bindSite(s, o);
+}
+
+function siteOverview(s, o) {
+  const running = S.scanning?.origin === o, h = trend(o), scan = scanOf(o);
+  const failed = scan ? scan.results.filter((r) => r.ratio != null && r.ratio < 0.999 && r.cat !== "info").sort((a, b) => (b.gain || 0) - (a.gain || 0)) : [];
+  return `${running ? scanBox("Rating the whole site…", "scanprog", `${hostOf(o)}: ${S.scanning.text}`) : `<div class="btns stack"><button id="scannow"${scan ? "" : ` class="primary"`}>${scan ? "Scan again" : "Scan now"}</button></div>`}
+    ${h.length > 1 ? `<h2 class="sec">Score history</h2>${lineChart([{ name: "Overall", cls: "main", points: h.map((x) => ({ t: x.t, v: x.overall })) }], { label: s.name + " score history" })}` : ""}
     ${scan ? `<h2 class="sec">SEO snapshot <small>scanned ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
       ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>
         <div class="btns stack"><button id="copyfix" class="primary">Copy fix prompt</button></div>` : ""}`
-      : running ? "" : `<div class="emptybox"><b>Not scanned yet</b><p>Press Scan now to rate the whole site on this phone. Scans from the Chrome extension show up here too.</p></div>`}
-    <h2 class="sec">Keywords <small>${kws.length}</small></h2>
-    ${kws.length ? `<table class="mini"><tr><th>Search</th><th>Position</th><th></th></tr>${kws.map((q) => { const r = latestPos(o, q); return `<tr><td>${esc(q)}${r ? `<small class="when">${when(r.t)}</small>` : ""}</td><td class="${r ? posStatus(r.pos) : ""}"><b class="posn">${r ? (r.pos ? "#" + r.pos : "not top " + (r.of || 10)) : "not checked"}</b></td><td><button class="tdel inline" data-rmkw="${esc(q)}" aria-label="Remove ${esc(q)}">×</button></td></tr>`; }).join("")}</table>
+      : running ? "" : `<div class="emptybox"><b>Not scanned yet</b><p>Press Scan now to rate the whole site on this phone. Scans from the Chrome extension show up here too.</p></div>`}`;
+}
+
+function siteKeywords(s, o) {
+  const kws = s.keywords, report = S.data.get("kwreport:" + o);
+  const weak = report ? report.rows.filter((r) => group(r.pos) !== "top") : [];
+  return `${kws.length ? `<table class="mini"><tr><th>Search</th><th>Position</th><th></th></tr>${kws.map((q) => { const r = latestPos(o, q); return `<tr><td>${esc(q)}${r ? `<small class="when">${when(r.t)}</small>` : ""}</td><td class="${r ? posStatus(r.pos) : ""}"><b class="posn">${r ? (r.pos ? "#" + r.pos : "not top " + (r.of || 10)) : "not checked"}</b></td><td><button class="tdel inline" data-rmkw="${esc(q)}" aria-label="Remove ${esc(q)}">×</button></td></tr>`; }).join("")}</table>
       ${S.checking?.origin === o ? scanBox("Checking Google…", "checkprog", S.checking.text)
         : canSearch() ? `<div class="btns stack"><button id="checkkw" class="primary">Check positions on Google</button></div><p class="unknowns">Opens Google on this phone and searches each keyword. If Google asks for a robot check, solve it there and the check carries on.</p>`
-        : `<p class="unknowns">Checking positions needs the Android app.</p>`}` : ""}
+        : `<p class="unknowns">Checking positions needs the Android app.</p>`}` : `<p class="lede">Add the searches this site should show up for. Then check where it ranks on Google.</p>`}
     <form id="addkw" class="field"><label for="kwin">Add keywords (comma separated)</label><div class="row"><input id="kwin" class="search" placeholder="roof repair york pa"><button>Add</button></div></form>
     ${report?.rows?.length ? `<h2 class="sec">Keyword report <small>${when(report.t)}</small></h2>
       <div class="kwsum"><span class="s-pass"><b>${report.rows.filter((r) => group(r.pos) === "top").length}</b>top 3</span><span class="s-part"><b>${report.rows.filter((r) => group(r.pos) === "close").length}</b>rest of page 1</span><span class="s-fail"><b>${report.rows.filter((r) => group(r.pos) === "behind").length}</b>further down</span></div>
       ${weak.length ? `<div class="list">${weak.map((r) => `<div class="factor"><span class="dot ${posStatus(r.pos)}"></span><div><b>${esc(r.q)} · ${r.pos ? "#" + r.pos : "not in top " + (r.of || 10)}</b>${r.score != null ? `<small>on-page ${r.score} vs ${esc((r.others || []).join(", ") || "–")}</small>` : ""}${r.verdict ? `<p>${esc(r.verdict)}</p>` : ""}${r.gaps?.length ? `<small>${r.gaps.map((g) => esc(g.fix || g.label)).join(" ")}</small>` : ""}${r.top?.length ? `<small>Top: ${r.top.map((x) => esc(x.host)).join(", ")}</small>` : ""}</div></div>`).join("")}</div>
         <div class="btns stack"><button id="copykw" class="primary">Copy keyword fix prompt</button></div>` : `<p class="verdict">Every checked keyword is in the top 3. ${esc(OFF_PAGE)}</p>`}` : ""}
-    ${report?.ideas?.length ? `<h2 class="sec">Keyword ideas <small>${report.ideas.length}</small></h2><div class="list">${report.ideas.map((x) => `<div class="factor"><div><b>${esc(x.q)}</b><small>${x.kind === "question" ? "People also ask" : "Related search"}</small></div><button data-addkw="${esc(x.q)}">Add</button></div>`).join("")}</div>` : ""}
-    ${linkedTo(o).length ? `<h2 class="sec">Linked sites <small>${linkedTo(o).length}</small></h2><div class="tlist">${linkedTo(o).map(card).join("")}</div>` : ""}
-    ${s.role === "mine" || s.role === "client" ? `<h2 class="sec">Competitors <small>${rivals.length}</small></h2>${rivals.length ? compareTable(s, rivals) : `<p class="lede">None linked yet.</p>`}
-      <div class="btns"><button id="addcomp">Add a competitor</button><button id="gocompare">Compare</button></div>` : ""}
-    <h2 class="sec">This site</h2>
-    <div class="field"><label for="role">This site is</label><select id="role" class="search">${Object.entries({ mine: "My business", client: "A client I manage", competitor: "A competitor", general: "Just in general" }).map(([k, l]) => `<option value="${k}" ${k === s.role ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+    ${report?.ideas?.length ? `<h2 class="sec">Keyword ideas <small>${report.ideas.length}</small></h2><div class="list">${report.ideas.map((x) => `<div class="factor idea"><div><b>${esc(x.q)}</b><small>${x.kind === "question" ? "People also ask" : "Related search"}</small></div><button data-addkw="${esc(x.q)}">Add</button></div>`).join("")}</div>` : ""}`;
+}
+
+function siteCompetitors(s, o) {
+  const rivals = competitorsOf(o), linked = linkedTo(o);
+  return `${rivals.length ? compareTable(s, rivals) : `<p class="lede">No competitors linked yet. Add the businesses you compete with to see who's ahead.</p>`}
+    <div class="btns"><button id="addcomp" class="primary">Add a competitor</button>${rivals.length ? `<button id="gocompare">Rankings and map</button>` : ""}</div>
+    ${linked.length ? `<h2 class="sec">Linked sites <small>${linked.length}</small></h2><div class="tlist">${linked.map(card).join("")}</div>` : ""}`;
+}
+
+function siteSettings(s, o) {
+  const g = S.data.get("geo:" + o), ent = scanOf(o)?.entity;
+  return `<div class="field"><label for="role">This site is</label><select id="role" class="search">${Object.entries({ mine: "My business", client: "A client I manage", competitor: "A competitor", general: "Just in general" }).map(([k, l]) => `<option value="${k}" ${k === s.role ? "selected" : ""}>${l}</option>`).join("")}</select></div>
     <div class="field" id="ofwrap" ${canLink(s.role) ? "" : "hidden"}><label for="of">Competitor of, or linked to</label><select id="of" class="search"><option value="">(not linked)</option>${owned().filter((x) => x.origin !== o).map((x) => `<option value="${esc(x.origin)}" ${x.origin === s.competitorOf ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></div>
-    <div class="btns"><button id="saverole">Save</button><button id="untrack" class="danger">Stop tracking</button></div><div id="untrackbox"></div>`;
-  $("back").onclick = () => { S.open = null; render(); };
-  bindOpen();
-  if ($("scannow")) $("scannow").onclick = () => scanSite(o);
-  if ($("copyfix")) $("copyfix").onclick = () => copy(fixAllPrompt(scan), "Fix prompt copied");
-  if ($("copykw")) $("copykw").onclick = () => copy(keywordPrompt(o, report), "Keyword fix prompt copied");
-  if ($("addcomp")) $("addcomp").onclick = () => quickAdd({ role: "competitor", of: o });
-  if ($("gocompare")) $("gocompare").onclick = () => { S.compare = o; S.open = null; S.tab = "compare"; render(); };
+    <div class="btns"><button id="saverole" class="primary">Save</button></div>
+    <h2 class="sec">Location <small>for the map</small></h2>
+    <p class="lede">${g ? `On the map at ${esc(g.label || `${g.lat.toFixed(4)}, ${g.lng.toFixed(4)}`)} (${g.src === "you" ? "set by you" : "from the site's own address"}).` : ent?.address ? `The site gives its address as ${esc(ent.address)}; open the map in Compare to place it.` : "Not known yet: the site doesn't state its address in its schema. Type it here."}</p>
+    <form id="locform" class="field"><label for="locin">Address or town</label><div class="row"><input id="locin" class="search" placeholder="1 Main St, York, PA" value="${esc(g?.src === "you" ? g.label : "")}"><button id="locsave">Set</button></div></form>
+    <h2 class="sec">Stop tracking</h2>
+    <div class="btns"><button id="untrack" class="danger">Stop tracking</button></div><div id="untrackbox"></div>`;
+}
+
+function bindSite(s, o) {
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  const scan = scanOf(o), report = S.data.get("kwreport:" + o);
+  on("scannow", () => scanSite(o));
+  on("copyfix", () => copy(fixAllPrompt(scan), "Fix prompt copied"));
+  on("copykw", () => copy(keywordPrompt(o, report), "Keyword fix prompt copied"));
+  on("addcomp", () => quickAdd({ role: "competitor", of: o }));
+  on("gocompare", () => { S.compare = o; S.open = null; S.tab = "compare"; render(); });
+  on("checkkw", () => checkKeywords(o));
   document.querySelectorAll("[data-rmkw]").forEach((b) => (b.onclick = () => putSite({ ...s, keywords: s.keywords.filter((k) => k !== b.dataset.rmkw) }).catch(fail)));
-  $("addkw").onsubmit = (e) => {
+  document.querySelectorAll("[data-addkw]").forEach((b) => (b.onclick = () => putSite({ ...s, keywords: [...new Set([...s.keywords, b.dataset.addkw.toLowerCase()])] }).then(() => toast("Keyword added")).catch(fail)));
+  if ($("addkw")) $("addkw").onsubmit = (e) => {
     e.preventDefault();
     const add = $("kwin").value.split(",").map((k) => k.trim().toLowerCase()).filter(Boolean);
     if (add.length) putSite({ ...s, keywords: [...new Set([...s.keywords, ...add])] }).then(() => toast("Keywords added")).catch(fail);
   };
-  if ($("checkkw")) $("checkkw").onclick = () => checkKeywords(o);
-  document.querySelectorAll("[data-addkw]").forEach((b) => (b.onclick = () => putSite({ ...s, keywords: [...new Set([...s.keywords, b.dataset.addkw.toLowerCase()])] }).then(() => toast("Keyword added")).catch(fail)));
-  $("role").onchange = () => ($("ofwrap").hidden = !canLink($("role").value));
-  $("saverole").onclick = () => { const role = $("role").value; putSite({ ...s, role, competitorOf: canLink(role) ? $("of").value || null : null }).then(() => toast("Saved")).catch(fail); };
-  $("untrack").onclick = () => {
+  if ($("role")) $("role").onchange = () => ($("ofwrap").hidden = !canLink($("role").value));
+  on("saverole", () => { const role = $("role").value; putSite({ ...s, role, competitorOf: canLink(role) ? $("of").value || null : null }).then(() => toast("Saved")).catch(fail); });
+  if ($("locform")) $("locform").onsubmit = async (e) => {
+    e.preventDefault();
+    const text = $("locin").value.trim();
+    if (!text) return;
+    try {
+      const hit = await geocode(text);
+      if (!hit) return notice("Couldn't find that place. Try a fuller address, or just the town and state.");
+      S.data.set("geo:" + o, { ...hit, label: text, src: "you", t: new Date().toISOString() });
+      await putData(["geo:" + o]); toast("Location set"); render();
+    } catch (err) { fail(err); }
+  };
+  on("untrack", () => {
     $("untrackbox").innerHTML = `<div class="confirm"><p><b>Stop tracking ${esc(s.name)}?</b> It's removed from the extension too at its next sync. Its history stays on the computer until then.</p><div class="btns"><button id="unyes" class="danger solid">Stop tracking</button><button id="unno">Keep it</button></div></div>`;
     $("unno").onclick = () => ($("untrackbox").innerHTML = "");
     $("unyes").onclick = () => { S.open = null; putSite(s, true).then(() => toast(`Stopped tracking ${s.name}`)).catch(fail); };
-  };
+  });
 }
 
 /** Check a site's keywords on Google from the phone, record positions for every tracked site, and update its report. */
@@ -427,22 +473,127 @@ function compareTable(s, rivals) {
       return `<tr class="${self ? "me" : ""}"><td><button class="linkish" data-open="${esc(x.origin)}">${esc(x.name)}</button></td>${cell(p?.overall, me?.overall, self)}${cell(p?.seo, me?.seo, self)}${cell(p?.aeo, me?.aeo, self)}${cell(p?.geo, me?.geo, self)}</tr>`; }).join("")}</table>`;
 }
 
+// ------------------------------------------------------------------ compare: rankings, map, AI answers
+const CMP_TABS = { rankings: "Rankings", map: "Map", ai: "AI answers" };
+const METRICS = { overall: "Overall", seo: "SEO", aeo: "AEO", geo: "GEO" };
+const chip = (n, label) => `<span class="chip ${status(n)}"><b>${n ?? "–"}</b>${label}</span>`;
+
 function renderCompare() {
   const biz = owned();
-  if (!biz.length) { $("view").innerHTML = `<div class="emptybox"><b>No business to compare yet</b><p>Add your own website or a client with + Quick add, then its competitors.</p></div>`; return; }
-  const o = S.compare && S.sites.has(S.compare) ? S.compare : biz[0].origin;
-  const s = S.sites.get(o), rivals = competitorsOf(o), all = [s, ...rivals];
-  const kws = [...new Set([...s.keywords, ...kwpos(o).map((r) => r.q)])].slice(0, 20);
-  const posOf = (x, q) => { const r = latestPos(x.origin, q); return r ? (r.pos ? `<b class="posn ${posStatus(r.pos)}">#${r.pos}</b>` : "–") : "?"; };
-  $("view").innerHTML = `<div class="field"><label for="cmpsel">Business</label><select id="cmpsel" class="search">${biz.map((b) => `<option value="${esc(b.origin)}" ${b.origin === o ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></div>
-    ${rivals.length ? `<h2 class="sec">Scores</h2>${compareTable(s, rivals)}
-      ${all.some((x) => trend(x.origin).length > 1) ? lineChart(all.slice(0, 5).map((x, i) => ({ name: x.name, cls: ["main", "k1", "k2", "k3", "k4"][i], points: trend(x.origin).map((p) => ({ t: p.t, v: p.overall })) })), { label: "Overall score: you and competitors" }) : ""}
-      ${kws.length ? `<h2 class="sec">Search positions</h2><div class="scrollx"><table class="mini"><tr><th>Keyword</th>${all.map((x) => `<th>${esc(x.name.slice(0, 12))}</th>`).join("")}</tr>${kws.map((q) => `<tr><td>${esc(q)}</td>${all.map((x) => `<td>${posOf(x, q)}</td>`).join("")}</tr>`).join("")}</table></div>` : ""}`
-      : `<p class="lede">No competitors linked to ${esc(s.name)} yet.</p>`}
-    <div class="btns"><button id="addcomp" class="primary">Add a competitor</button></div>`;
-  $("cmpsel").onchange = () => { S.compare = $("cmpsel").value; renderCompare(); };
+  if (!biz.length) { $("view").innerHTML = `<div class="emptybox"><div class="empty-art" aria-hidden="true"><span></span><span></span><span></span></div><b>No business to compare yet</b><p>Add your own website or a client with + Quick add, then its competitors. Rankings, a map and AI answers show up here.</p></div>`; return; }
+  const o = S.compare && S.sites.has(S.compare) && owned().some((b) => b.origin === S.compare) ? S.compare : biz[0].origin;
+  const s = S.sites.get(o), group_ = [s, ...competitorsOf(o)];
+  const tab = CMP_TABS[S.ctab] ? S.ctab : "rankings";
+  const body = { rankings: cmpRankings, map: cmpMap, ai: cmpAI }[tab](s, group_);
+  $("view").innerHTML = `${biz.length > 1 ? `<div class="bizchips" role="tablist">${biz.map((b) => `<button data-biz="${esc(b.origin)}" aria-selected="${b.origin === o}">${esc(b.name)}</button>`).join("")}</div>` : `<h1 class="q">${esc(s.name)}</h1>`}
+    ${segs("data-ctab", CMP_TABS, tab)}
+    <div class="segbody">${body}</div>
+    <div class="btns stack"><button id="addcomp">Add a competitor</button></div>`;
+  document.querySelectorAll("[data-biz]").forEach((b) => (b.onclick = () => { S.compare = b.dataset.biz; render(); }));
+  document.querySelectorAll("[data-ctab]").forEach((b) => (b.onclick = () => { S.ctab = b.dataset.ctab; render(); }));
   $("addcomp").onclick = () => quickAdd({ role: "competitor", of: o });
   bindOpen();
+  if (tab === "map") bindMap(s, group_);
+  if (tab === "ai") bindAI(s, group_);
+}
+
+/** Where the business stands: its rank, who leads each score, the leaderboard, positions and history. */
+function cmpRankings(s, all) {
+  const rows = all.map((x) => ({ x, p: lastPoint(x.origin) })).sort((a, b) => (b.p?.overall ?? -1) - (a.p?.overall ?? -1));
+  const scored = rows.filter((r) => r.p), me = lastPoint(s.origin), rank = scored.findIndex((r) => r.x.origin === s.origin) + 1;
+  const kws = [...new Set([...s.keywords, ...kwpos(s.origin).map((r) => r.q)])].slice(0, 20);
+  const posOf = (x, q) => { const r = latestPos(x.origin, q); return r ? (r.pos ? `<b class="posn ${posStatus(r.pos)}">#${r.pos}</b>` : "–") : "?"; };
+  const leaders = Object.entries(METRICS).filter(([k]) => k !== "overall").map(([k, label]) => {
+    const best = scored.reduce((a, r) => ((r.p[k] ?? -1) > (a?.p[k] ?? -1) ? r : a), null);
+    const gap = best && me ? (best.p[k] ?? 0) - (me[k] ?? 0) : null;
+    return `<div class="leader ${status(me?.[k])}"><span>${label}</span><b>${best ? esc(best.x.name) : "–"}</b><small>${!best ? "no scores yet" : best.x.origin === s.origin ? "you lead" : gap > 0 ? `${gap} ahead of you` : "tied with you"}</small></div>`;
+  }).join("");
+  return `${me ? `<div class="standing"><div>${ring(me.overall, "md")}</div><div><b>${rank ? `#${rank} of ${scored.length}` : "Not ranked"}</b><small>${all.length < 2 ? "Add competitors to rank against." : `Overall, among the scanned sites.${all.length > scored.length ? ` ${all.length - scored.length} not scanned yet: open ${all.length - scored.length === 1 ? "it" : "them"} and press Scan now.` : ""}`}</small></div></div>`
+      : `<div class="emptybox"><b>${esc(s.name)} isn't scanned yet</b><p>Open it and press Scan now to see where it stands.</p></div>`}
+    ${scored.length > 1 ? `<h2 class="sec">Who leads</h2><div class="leaders">${leaders}</div>` : ""}
+    <h2 class="sec">Leaderboard <small>${all.length}</small></h2>
+    <div class="board">${rows.map(({ x, p }, i) => `<button class="brow ${x.origin === s.origin ? "me" : ""}" data-open="${esc(x.origin)}"><span class="rk">${p ? i + 1 : "–"}</span><span class="nm"><b>${esc(x.name)}</b><small>${x.origin === s.origin ? "You" : "Competitor"}${p ? ` · ${when(p.t)}` : " · not scanned"}</small></span>${ring(p?.overall)}<span class="chips">${chip(p?.seo, "SEO")}${chip(p?.aeo, "AEO")}${chip(p?.geo, "GEO")}</span></button>`).join("")}</div>
+    ${kws.length && all.length > 1 ? `<h2 class="sec">Google positions</h2><div class="scrollx"><table class="mini"><tr><th>Keyword</th>${all.map((x) => `<th>${esc(x.name.slice(0, 12))}</th>`).join("")}</tr>${kws.map((q) => `<tr><td>${esc(q)}</td>${all.map((x) => `<td>${posOf(x, q)}</td>`).join("")}</tr>`).join("")}</table></div>` : ""}
+    ${all.some((x) => trend(x.origin).length > 1) ? `<h2 class="sec">Overall score over time</h2>${lineChart(all.slice(0, 5).map((x, i) => ({ name: x.name, cls: ["main", "k1", "k2", "k3", "k4"][i], points: trend(x.origin).map((p) => ({ t: p.t, v: p.overall })) })), { label: "Overall score: you and competitors" })}` : ""}`;
+}
+
+/** The map: each site where it is, coloured by the chosen score. */
+function cmpMap(s, all) {
+  const metric = METRICS[S.metric] ? S.metric : "overall";
+  const missing = all.filter((x) => !S.data.get("geo:" + x.origin));
+  return `<div class="metrics">${Object.entries(METRICS).map(([k, l]) => `<button data-metric="${k}" aria-pressed="${k === metric}">${l}</button>`).join("")}</div>
+    <div id="map" class="map" role="region" aria-label="Map of ${esc(s.name)} and its competitors"></div>
+    <div class="legend3"><span class="s-pass"><i></i>85+</span><span class="s-part"><i></i>65–84</span><span class="s-fail"><i></i>under 65</span><span class="s-none"><i></i>not scanned</span></div>
+    ${missing.length ? `<div id="mapmissing" class="emptybox"><b>${missing.length} not on the map yet</b><p>${missing.map((x) => esc(x.name)).join(", ")}. Press Find locations to look up the addresses their sites give, or set one in a site's Settings.</p><div class="btns"><button id="locate" class="primary">Find locations</button></div></div>` : ""}`;
+}
+async function bindMap(s, all) {
+  document.querySelectorAll("[data-metric]").forEach((b) => (b.onclick = () => { S.metric = b.dataset.metric; render(); }));
+  const draw = () => {
+    const pins = all.map((x) => ({ x, g: S.data.get("geo:" + x.origin) })).filter((r) => r.g).map(({ x, g }) => ({ origin: x.origin, name: x.name, lat: g.lat, lng: g.lng, scores: lastPoint(x.origin), me: x.origin === s.origin }));
+    return drawMap($("map"), pins, METRICS[S.metric] ? S.metric : "overall", openSite).catch((e) => notice(`Couldn't draw the map: ${esc(e.message || e)}`));
+  };
+  draw();
+  const locate = async () => {
+    $("locate").disabled = true; $("locate").textContent = "Looking up addresses…";
+    let found = 0;
+    const keys = [];
+    for (const x of all.filter((y) => !S.data.get("geo:" + y.origin))) {
+      const ent = scanOf(x.origin)?.entity;
+      let g = ent?.lat != null ? { lat: ent.lat, lng: ent.lng, label: ent.address || ent.name || hostOf(x.origin) } : null;
+      if (!g && ent?.address) g = await geocode(ent.address).catch(() => null);
+      if (g) { S.data.set("geo:" + x.origin, { ...g, src: "site", t: new Date().toISOString() }); keys.push("geo:" + x.origin); found++; }
+    }
+    if (keys.length) await putData(keys);
+    toast(found ? `Placed ${found} on the map` : "None of them state an address. Set one in a site's Settings");
+    lastScreen = null; render();
+  };
+  if ($("locate")) $("locate").onclick = locate;
+  // The first time a business's map opens, look up the missing places by itself.
+  S.located = S.located || new Set();
+  if ($("locate") && !S.located.has(s.origin)) { S.located.add(s.origin); locate(); }
+}
+
+/** AI answers: who ChatGPT recommends for this business's searches. */
+const aiKey = (o) => "ai:" + o;
+const aiQuestions = (s) => s.keywords.slice(0, 5);
+function cmpAI(s, all) {
+  const rep = S.data.get(aiKey(s.origin)), qs = aiQuestions(s), rows = rep?.rows || [];
+  const share = all.map((x) => ({ x, n: rows.filter((r) => r.mentioned.some((m) => m.origin === x.origin)).length })).sort((a, b) => b.n - a.n);
+  return `<p class="lede">Ask ChatGPT this business's searches, the way a customer would, and see who it recommends. ${qs.length ? "" : "Add keywords to the business first: they're the questions asked."}</p>
+    ${S.asking?.origin === s.origin ? scanBox("Asking ChatGPT…", "askprog", S.asking.text, "Opens ChatGPT on this phone. If it asks you to sign in or verify, do that there.")
+      : qs.length ? canSearch() ? `<div class="btns stack"><button id="askai" class="primary">Ask ChatGPT ${qs.length} question${qs.length === 1 ? "" : "s"}</button></div>` : `<p class="unknowns">Asking ChatGPT needs the Android app.</p>` : ""}
+    ${rows.length ? `<h2 class="sec">Recommended most <small>${when(rep.t)}</small></h2>
+      <div class="board">${share.map(({ x, n }) => `<div class="brow ${x.origin === s.origin ? "me" : ""}"><span class="nm"><b>${esc(x.name)}</b><small>${x.origin === s.origin ? "You" : "Competitor"}</small></span><span class="share ${n === 0 ? "s-fail" : n >= rows.length / 2 ? "s-pass" : "s-part"}"><b>${n}</b> of ${rows.length}</span></div>`).join("")}</div>
+      <h2 class="sec">Each question</h2>
+      <div class="list">${rows.map((r) => { const meIn = r.mentioned.find((m) => m.origin === s.origin);
+        return `<div class="factor"><span class="dot ${meIn ? (meIn.rank <= 3 ? "s-pass" : "s-part") : "s-fail"}"></span><div><b>${esc(r.q)}</b><small>${meIn ? `You're recommended (#${meIn.rank} mentioned)` : "You're not mentioned"}${r.mentioned.filter((m) => m.origin !== s.origin).length ? ` · also: ${r.mentioned.filter((m) => m.origin !== s.origin).map((m) => esc(S.sites.get(m.origin)?.name || hostOf(m.origin))).join(", ")}` : ""}</small>${r.others?.length ? `<small>Other sites it cited: ${r.others.map(esc).join(", ")}</small>` : ""}${r.excerpt ? `<p class="excerpt">${esc(r.excerpt)}</p>` : ""}</div></div>`; }).join("")}</div>
+      <p class="unknowns">ChatGPT's answers change from one ask to the next and by location. This is what it said on ${when(rep.t)}.</p>` : ""}`;
+}
+function bindAI(s, all) {
+  if ($("askai")) $("askai").onclick = () => askAI(s, all);
+}
+async function askAI(s, all) {
+  if (S.asking) return;
+  const progress = (text) => { if (!text) return; S.asking.text = text; const el = $("askprog"); if (el) el.textContent = text; };
+  S.asking = { origin: s.origin, text: "Opening ChatGPT…" };
+  render();
+  try {
+    const got = await askChatGPT(aiQuestions(s), readChat, progress);
+    const old = new Map((S.data.get(aiKey(s.origin))?.rows || []).map((r) => [r.q, r]));
+    let done = 0;
+    for (const { q, answer } of got) {
+      if (!answer?.text) continue;
+      const text = answer.text.toLowerCase(), hosts = (answer.links || []).map(hostOf);
+      const at = (x) => { const keys = [hostOf(x.origin), x.name.toLowerCase()].filter((k) => k && k.length >= 4); const i = Math.min(...keys.map((k) => text.indexOf(k)).filter((n) => n >= 0)); return Number.isFinite(i) ? i : hosts.includes(hostOf(x.origin)) ? text.length : -1; };
+      const mentioned = all.map((x) => ({ origin: x.origin, i: at(x) })).filter((m) => m.i >= 0).sort((a, b) => a.i - b.i).map((m, k) => ({ origin: m.origin, rank: k + 1 }));
+      const ours = new Set(all.map((x) => hostOf(x.origin)));
+      old.set(q, { q, t: new Date().toISOString(), mentioned, others: [...new Set(hosts.filter((h) => h && !ours.has(h) && !/chatgpt|openai/.test(h)))].slice(0, 6), excerpt: answer.text.slice(0, 280) });
+      done++;
+    }
+    if (done) { S.data.set(aiKey(s.origin), { t: new Date().toISOString(), engine: "ChatGPT", rows: [...old.values()] }); await putData([aiKey(s.origin)]); toast(`Got ${done} answer${done === 1 ? "" : "s"} from ChatGPT`); }
+    if (done < got.length || !got.length) notice(`Couldn't read ${got.length ? got.length - done : "any"} of ChatGPT's answers. Nothing was recorded for ${got.length - done === 1 ? "it" : "them"}.`);
+  } catch (e) { fail(e); }
+  finally { S.asking = null; lastScreen = null; render(); }
 }
 
 const EXT_HOME = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE#-chrome-extension-rate-any-site-fix-it-prove-it";
@@ -578,7 +729,7 @@ function countUp(el) {
   el.textContent = 0; requestAnimationFrame(step);
 }
 function animateScreen() {
-  const v = $("view"), depth = TABS.indexOf(S.tab) * 2 + (S.open || S.pairing || S.paired ? 1 : 0), screen = S.tab + "|" + (S.open || (S.pairing ? "pair" : S.paired ? "paired" : ""));
+  const v = $("view"), depth = TABS.indexOf(S.tab) * 2 + (S.open || S.pairing || S.paired ? 1 : 0), screen = S.tab + "|" + (S.open || (S.pairing ? "pair" : S.paired ? "paired" : "")) + "|" + (S.open ? S.stab : S.tab === "compare" ? `${S.compare}|${S.ctab}|${S.metric}` : "");
   if (screen === lastScreen) return v.classList.remove("enter", "back");
   const back = lastScreen !== null && depth < lastDepth, first = lastScreen === null;
   lastScreen = screen; lastDepth = depth;
@@ -627,11 +778,26 @@ async function checkUpdate(asked = false) {
   lastCheck = Date.now();
   const u = await newerBuild();
   if (!u) return asked && toast("You have the newest version");
+  // Same native parts: download the new screens and install them inside the app, no reinstall.
+  if (canLiveUpdate && u.web && u.native && u.native === u.mineNative) {
+    if (asked) toast("Downloading the update…");
+    let id;
+    try { id = await liveDownload(u.web, u.build); } catch (e) { return asked && notice(`Couldn't download the update: ${esc(e.message || e)}`); }
+    const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
+    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Update ready</h2></div>
+      <p class="lede">Build ${esc(String(u.build))} is downloaded and installs right here, no download or reinstall.${u.notes ? ` ${esc(u.notes)}` : ""}</p>
+      <div class="btns stack"><button id="updnow" class="primary">Restart now</button><button id="updlater">Next time I open the app</button></div>`;
+    sheet.onclick = null;
+    openSheet();
+    $("updnow").onclick = () => liveApply(id, true);
+    $("updlater").onclick = () => { liveApply(id, false); closeSheet(); toast("It installs next time you open the app"); };
+    return;
+  }
   if (!asked && localStorage.getItem("sgm.skipBuild") === String(u.build)) return;
   const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
   box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Update available</h2></div>
     <p class="lede">A newer version of SEO God Mode is ready (build ${esc(String(u.build))}, you have ${esc(String(u.mine || "an older one"))}).${u.notes ? ` ${esc(u.notes)}` : ""}</p>
-    <p class="unknowns">Update now downloads it in your browser. Open the download and tap Install; your sites stay on the phone.</p>
+    <p class="unknowns">This one changes the app itself, so it's a download: open it and tap Install. Your sites stay on the phone. Smaller updates install right inside the app.</p>
     <div class="btns stack"><button id="updnow" class="primary">Update now</button><button id="updlater">Later</button></div>`;
   sheet.onclick = null;
   openSheet();
@@ -641,5 +807,6 @@ async function checkUpdate(asked = false) {
 $("quickadd").onclick = () => quickAdd();
 document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") return; checkUpdate(); if (!$("mode").hidden) pull(); });
 setInterval(paintStatus, 60000);
+liveReady();
 start();
 checkUpdate();

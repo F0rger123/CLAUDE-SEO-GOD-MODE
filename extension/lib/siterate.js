@@ -580,7 +580,20 @@ export async function rateSite(siteUrl, { maxPages = 30, psi = true, psiKey = ""
   return {
     site, host, rubric_version: RUBRIC_VERSION, pages_rated: ok.length, hit_page_limit: hitLimit, priority: tips.map((t) => t.id),
     scores: { overall, seo, aeo, geo, potential_after_top5: potential, ...Object.fromEntries(Object.entries(cats).map(([k, v]) => ["seo_" + k, v])) },
-    checks, kits, unknown,
+    checks, kits, unknown, entity: placeOf(entity),
     pages: ok.map((p) => ({ path: pathOf(p.url), title: p.title, words: p.word_count, indexable: !!p.indexable })),
   };
+}
+
+/** Where the business says it is, from its Organization/LocalBusiness schema (for maps): name, address, coordinates. */
+function placeOf(e) {
+  if (!e) return null;
+  const a = Array.isArray(e.address) ? e.address[0] : e.address;
+  const parts = a && typeof a === "object" ? [a.streetAddress, a.addressLocality, a.addressRegion, a.postalCode, typeof a.addressCountry === "object" ? a.addressCountry?.name : a.addressCountry] : [];
+  const address = typeof a === "string" ? a.trim() : parts.filter((x) => typeof x === "string" && x.trim()).join(", ");
+  const g = Array.isArray(e.geo) ? e.geo[0] : e.geo;
+  const lat = Number(g?.latitude), lng = Number(g?.longitude);
+  const ok = Number.isFinite(lat) && Number.isFinite(lng) && (lat || lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  return { name: typeof e.name === "string" ? e.name : null, address: address || null, city: (a && typeof a === "object" && typeof a.addressLocality === "string" ? a.addressLocality : null),
+    lat: ok ? lat : null, lng: ok ? lng : null };
 }
