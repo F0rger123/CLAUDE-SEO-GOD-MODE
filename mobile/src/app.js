@@ -147,11 +147,17 @@ function paintStatus() {
 
 // ------------------------------------------------------------------ pair with the extension (or another phone)
 /** Scan button (Android app) and a box to type the code. p: id prefix. */
-const pairForm = (p) => `${canScan ? `<div class="btns stack"><button id="${p}scan" class="primary">Scan QR code</button></div>` : ""}
-  <form id="${p}form" class="field"><label for="${p}code">${canScan ? "Or type the sync code" : "Sync code"}</label><input id="${p}code" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
+const typeForm = (p) => `<form id="${p}form" class="field"><label for="${p}code">Sync code (under the QR code in the extension)</label><input id="${p}code" class="search big" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX"></form>
   <div class="btns stack"><button id="${p}go">Connect</button></div>`;
 function bindPair(p) {
-  const go = async (text) => { notice(""); try { await joinCode(text); } catch (e) { notice(esc(e.message || e)); } };
+  const go = async (text) => {
+    notice("");
+    try {
+      const was = S.pairing;
+      await joinCode(text);
+      if (was) { S.pairing = false; S.paired = { at: Date.now() }; S.tab = "account"; render(); }
+    } catch (e) { notice(esc(e.message || e)); }
+  };
   $(p + "form").onsubmit = (e) => { e.preventDefault(); go($(p + "code").value); };
   $(p + "go").onclick = () => go($(p + "code").value);
   if ($(p + "scan")) $(p + "scan").onclick = async () => {
@@ -191,11 +197,13 @@ async function switchKeeping(change, done) {
   const add = mine.sites.filter((s) => !S.sites.has(s.origin));
   for (const s of add) { S.sites.set(s.origin, s); S.pending.sites[s.origin] = siteRow(s); }
   const keys = mine.data.filter(([k]) => !S.data.has(k)).map(([k, v]) => (S.data.set(k, v), k));
-  S.pending.keys = [...new Set([...S.pending.keys, ...keys])];
+  // Say hello, so the extension's pairing steps can show this phone connected.
+  S.data.set("device:phone", { at: new Date().toISOString(), sites: S.sites.size });
+  S.pending.keys = [...new Set([...S.pending.keys, ...keys, "device:phone"])];
   await saveCache();
   toast(add.length ? `${done}. Brought ${add.length} site${add.length === 1 ? "" : "s"} from this phone` : done);
-  S.tab = "sites"; S.open = null;
-  start();
+  S.tab = S.pairing ? "account" : "sites"; S.open = null;
+  await start();
 }
 
 // Optional account (username + password, no email): it only remembers the sync code. Sign in on a new phone to get the same sites.
@@ -437,8 +445,40 @@ function renderCompare() {
   bindOpen();
 }
 
+const EXT_HOME = "https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE#-chrome-extension-rate-any-site-fix-it-prove-it";
+
+/** Connect your computer, step by step: the extension shows a QR code and this phone scans it. */
+function renderPairSteps() {
+  $("view").innerHTML = `<nav class="crumb"><button class="back" id="pairback">‹ Account</button></nav>
+    <h1 class="q">Connect your computer</h1>
+    <p class="lede">3 steps, about a minute. Your sites on both stay, and changes sync both ways from then on.</p>
+    <ol class="steps">
+      <li><b>On your computer, open the SEO God Mode extension in Chrome.</b>Not installed yet? On the computer, open the link below and follow Install.
+        <div class="btns"><button id="copyext">Copy the install link</button></div></li>
+      <li><b>In the extension, open Settings and press Pair your phone.</b>It's under Sync with your phone. A QR code appears. If sync is already on there, the QR code is already showing.</li>
+      <li><b>${canScan ? "Scan that QR code." : "Type the code shown under the QR code."}</b>${canScan ? `<div class="btns stack"><button id="jscan" class="primary">Scan QR code</button></div>
+        <details class="fold"><summary>Type the code instead</summary><div class="pad">${typeForm("j")}</div></details>` : typeForm("j")}</li>
+    </ol>`;
+  $("pairback").onclick = () => { S.pairing = false; render(); };
+  $("copyext").onclick = () => copy(EXT_HOME, "Install link copied. Open it on your computer");
+  bindPair("j");
+}
+
+/** The pairing worked: what's shared now, and where to go next. */
+function renderPaired() {
+  const n = S.sites.size;
+  $("view").innerHTML = `<div class="paired"><svg class="tick" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg>
+    <h1 class="q">Connected</h1>
+    <p class="lede">Your phone and computer now share ${n} site${n === 1 ? "" : "s"}. Changes sync about once a minute while either is open. The extension shows your phone as connected.</p>
+    <div class="btns stack"><button id="pairdone" class="primary">See your sites</button></div></div>`;
+  $("pairdone").onclick = () => { S.paired = null; S.tab = "sites"; render(); };
+}
+
 async function renderAccount() {
+  if (S.pairing) return renderPairSteps();
+  if (S.paired) return renderPaired();
   const s = await cloud.current();
+  const pairCard = `<div class="paircard"><b>Use it on your computer too</b><small>Pair with the Chrome extension in 3 short steps: it shows a QR code, you scan it here.</small><button id="pairpc" class="primary">Connect your computer</button></div>`;
   const about = `<h2 class="sec">How it works</h2>
     <p class="lede">Rate any website, keep sites, compare competitors and check Google positions, all on this phone. Everything is saved here first. A computer is optional: pair with the Chrome extension to share your sites with it.</p>
     <p class="unknowns">App build ${esc(String(BUILD))}. <button class="linkish" id="checkupd">Check for updates</button></p>
@@ -447,27 +487,23 @@ async function renderAccount() {
     $("view").innerHTML = `<h2 class="sec first">Sync (optional)</h2>
       <p class="lede">Everything is saved on this phone and you don't need anything else. Turn on sync only to back it up, or to share it with a computer or another phone.</p>
       <div class="btns stack"><button id="syncnew">Turn on sync</button><button id="sacct">Sign in or create account</button></div>
-      <h2 class="sec">Connect your computer</h2>
-      <p class="lede">In the Chrome extension, open <b>Settings › Sync with your phone</b>. ${canScan ? "Scan the QR code it shows, or type its code." : "Type the code it shows."} This phone's sites come along.</p>
-      ${pairForm("j")}${about}`;
+      ${pairCard}${about}`;
     $("syncnew").onclick = () => switchKeeping(() => cloud.use(newCode()), "Sync is on").catch(fail);
     $("sacct").onclick = () => renderAccountForm();
     $("checkupd").onclick = () => checkUpdate(true);
-    return bindPair("j");
+    $("pairpc").onclick = () => { S.pairing = true; render(); };
+    return;
   }
   $("view").innerHTML = `<h2 class="sec first">Account</h2>
     <div class="upd">${s?.user ? `<p>Signed in as <b>${esc(s.user)}</b>. Sign in with it on another phone or computer to see the same sites.</p>` : ""}<p>Your sync code${S.lastSync ? ` (last synced ${ago(S.lastSync)})` : ""}:</p><p class="synccode">${esc(s?.code || "")}</p>
     <p class="unknowns">Your sites, keywords, scores, positions, keyword reports and newest scans are kept in SEO God Mode's online database under this code, and cached on this phone so the app opens offline. Anyone with the code can see and change them, so keep it private.</p>
     <div class="btns"><button id="copycode">Copy code</button>${s?.user ? "" : `<button id="acctsave">Save to an account</button>`}<button id="signout">${s?.user ? "Sign out" : "Turn off sync"}</button></div></div>
-    <h2 class="sec">Connect your computer</h2>
-    <p class="lede"><b>Extension not synced yet?</b> In it, open <b>Settings › Sync with your phone › I have a code</b> and type the code above. Its sites join yours.</p>
-    <p class="lede"><b>Extension already synced?</b> ${canScan ? "Scan the QR code it shows, or type its code." : "Type the code it shows."} This phone's sites come along.</p>
-    ${pairForm("j")}
+    ${pairCard}
     <details class="fold"><summary>Show this phone's QR code</summary><div class="pad"><div class="pair">${qrSvg(s?.code || "", "QR code of this phone's sync code")}<p>Scan it with the app on another phone to see the same sites there.</p></div></div></details>
     ${about}`;
   $("copycode").onclick = () => copy(s?.code || "", "Sync code copied");
   $("checkupd").onclick = () => checkUpdate(true);
-  bindPair("j");
+  $("pairpc").onclick = () => { S.pairing = true; render(); };
   if (!s?.user) $("acctsave").onclick = () => renderAccountForm();
   // Signing out of an account clears its sites from this phone. Turning off sync without one keeps them here.
   $("signout").onclick = async () => {
@@ -542,7 +578,7 @@ function countUp(el) {
   el.textContent = 0; requestAnimationFrame(step);
 }
 function animateScreen() {
-  const v = $("view"), depth = TABS.indexOf(S.tab) * 2 + (S.open ? 1 : 0), screen = S.tab + "|" + (S.open || "");
+  const v = $("view"), depth = TABS.indexOf(S.tab) * 2 + (S.open || S.pairing || S.paired ? 1 : 0), screen = S.tab + "|" + (S.open || (S.pairing ? "pair" : S.paired ? "paired" : ""));
   if (screen === lastScreen) return v.classList.remove("enter", "back");
   const back = lastScreen !== null && depth < lastDepth, first = lastScreen === null;
   lastScreen = screen; lastDepth = depth;
@@ -579,7 +615,7 @@ async function start() {
   poll = setInterval(() => document.visibilityState === "visible" && pull(), 20000);
 }
 
-document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; S.open = null; notice(""); render(); scrollTo(0, 0); }));
+document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; S.open = null; S.pairing = false; S.paired = null; notice(""); render(); scrollTo(0, 0); }));
 // A light tap on every button press.
 document.addEventListener("pointerdown", (e) => e.target.closest?.("button, .btn, a, select") && haptic("tap"), { passive: true });
 

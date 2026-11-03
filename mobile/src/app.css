@@ -120,3 +120,20 @@ button:active, .btn:active { transform: scale(.95); transition-duration: .06s; }
 .empty-art { height: 40px; margin-bottom: 10px; }
 .emptybox { text-align: left; }
 @media (prefers-reduced-motion: reduce) { #mode, #view.enter > *, .sheet, .sheetbox { animation: none !important; } }
+
+/* Connect your computer: numbered steps (they happen in this order) and a tick that draws itself */
+.steps { margin: 14px 0 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 18px; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr; gap: 0 12px; font-size: 13px; color: var(--muted); }
+.steps li::before { content: counter(step); grid-row: span 4; width: 34px; height: 34px; border-radius: 50%; display: grid; place-content: center; background: var(--ink); color: var(--paper); font: 800 15px/1 var(--display); }
+.steps li b { display: block; color: var(--ink); font: 700 15px/1.3 var(--display); margin-bottom: 3px; }
+.steps .btns, .steps .fold { margin-top: 10px; }
+.paircard { display: grid; gap: 4px; margin: 16px 0 4px; padding: 16px; border-radius: var(--r-lg); background: var(--wash2); border: 1px solid var(--rule); }
+.paircard b { font: 750 16px/1.3 var(--display); }
+.paircard small { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+.paired { display: grid; justify-items: center; text-align: center; padding-top: 28px; }
+.paired .btns { width: 100%; }
+.tick { width: 84px; height: 84px; }
+.tick circle { fill: none; stroke: var(--pass); stroke-width: 3; stroke-dasharray: 160; stroke-dashoffset: 160; animation: tickdraw .6s var(--ease) forwards; }
+.tick path { fill: none; stroke: var(--pass); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: tickdraw .4s var(--ease) .5s forwards; }
+@keyframes tickdraw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .tick circle, .tick path { stroke-dashoffset: 0; } }

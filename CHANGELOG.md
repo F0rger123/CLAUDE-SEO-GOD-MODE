@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.25.0 (2026-11-02): extension 1.20 and app: pairing step by step
+
+- **Extension:** **Pair your phone** shows 3 numbered steps: get the app (with a QR code to download it), open Account › Connect your computer, scan this QR code. It then watches for the phone and shows **Your phone is connected** once it pairs.
+- **App:** **Account › Connect your computer** walks through the same 3 steps, with a link to install the extension, a **Scan QR code** button and **Type the code instead**, then a **Connected** screen with how many sites are now shared.
+
 ## 2.24.1 (2026-10-31): app: new look and animations
 
 - **Bottom tab bar** with a sliding pill, in thumb reach, and a bold **Rate any website** card.

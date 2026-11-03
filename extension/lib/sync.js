@@ -113,6 +113,8 @@ export async function pull() {
       if (list.some((x) => x.id === r.value.id)) continue;
       await write(k, [r.value, ...list].sort((a, b) => String(b.id).localeCompare(String(a.id))).slice(0, 25));
     } else if (DATA.test(r.key)) await write(r.key, r.deleted_at ? null : r.value);
+    // The phone says hello when it pairs, so the pairing steps can show it worked.
+    else if (r.key === "device:phone" && r.value) await chrome.storage.local.set({ phoneSeen: r.value });
   }
   if (data.length) st.data = data[data.length - 1].updated_at;
   await chrome.storage.local.set({ syncState: st });
@@ -128,7 +130,7 @@ export async function syncNow() {
 
 /** Right after turning sync on (new code or one from another device): send everything, fetch everything, and sync every minute from then on. */
 export async function startSync() {
-  await chrome.storage.local.remove("syncState");
+  await chrome.storage.local.remove(["syncState", "phoneSeen"]);
   try { await pushAll(); } catch (e) { await status(e); return { ok: false, error: String(e.message || e) }; }
   await chrome.alarms.create("sync", { periodInMinutes: 1 });
   return syncNow();
@@ -136,5 +138,6 @@ export async function startSync() {
 
 export async function stopSync() {
   await chrome.alarms.clear("sync");
+  await chrome.storage.local.remove("phoneSeen");
   await cloud.signOut();
 }

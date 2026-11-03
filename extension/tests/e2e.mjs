@@ -513,9 +513,17 @@ assert.equal(sb.tables.sites.length, rowsBefore, "nothing sent while sync is off
 await phone.click("#untrack"); await phone.click("#unyes");
 await phone.waitForSelector("#pasteurl");
 await phone.click('#mode [data-tab="account"]');
+await phone.click("#pairpc");
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Connect your computer.*Pair your phone/s);
+await phone.waitForTimeout(700); await phone.screenshot({ path: path.join(repo, "assets", "mobile-pair.png") });
 await phone.fill("#jcode", "1234"); await phone.click("#jgo");
 await phone.waitForFunction(() => /isn't a sync code/.test(document.getElementById("notice").textContent));
 await phone.fill("#jcode", code.toLowerCase().replace(/-/g, " ")); await phone.click("#jgo");
+await phone.waitForSelector("#pairdone", { timeout: 15000 });
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Connected/);
+await phone.click("#pairdone");
+// The extension's pairing steps notice the phone.
+await xp.waitForFunction(() => /phone is connected/.test(document.getElementById("pairwait")?.textContent || ""), null, { timeout: 20000 });
 await phone.waitForSelector(`[data-open="${badBase}"]`, { timeout: 15000 });
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
 await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-sites.png") });
@@ -612,10 +620,12 @@ assert.ok(sb.tables.sites.some((r) => r.origin === "https://waiting-client.examp
 // A phone-only user connects their computer later: pairing with the extension's code keeps the phone's sites and sends them there.
 await phone.click('#mode [data-tab="account"]');
 assert.match(await phone.$eval("#view", (e) => e.textContent), /Connect your computer/);
+await phone.click("#pairpc");
 await phone.fill("#jcode", "not a code"); await phone.click("#jgo");
 await phone.waitForFunction(() => /isn't a sync code/.test(document.getElementById("notice").textContent));
 await phone.fill("#jcode", code.toLowerCase()); await phone.click("#jgo");
 await phone.waitForFunction(() => /Brought 2 sites from this phone/.test(document.getElementById("toast").textContent), null, { timeout: 15000 });
+await phone.waitForSelector("#pairdone"); await phone.click("#pairdone");
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent) && !/to send/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
 await phone.click('#mode [data-tab="sites"]');
 const paired = await phone.$eval("#view", (e) => e.textContent);
