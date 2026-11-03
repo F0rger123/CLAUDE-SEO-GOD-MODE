@@ -108,6 +108,32 @@ flowchart LR
 
 **Install it:** on your phone, tap the button above (or open the [android-app release](https://github.com/F0rger123/CLAUDE-SEO-GOD-MODE/releases/tag/android-app)), open **SEO-God-Mode.apk**, and allow your browser to install apps if Android asks. That's all you need. To add a computer later, press **Account › Connect your computer** in the app and follow its 3 steps (the extension's **Settings › Pair your phone** shows the same steps from the other side): the extension shows a QR code and the app scans it. The sites already on both come along. No account needed. An account is optional: **Sign in or create account** (a username and password, no email, in the app or the extension) remembers your code, so you sign in on a new device instead of typing it, and you can use the app on its own without a computer. Installed once, the app offers each new version itself.
 
+## 🏪 Complete business audit and Business Score
+
+Not only the website: the whole business, the way customers and AI assistants find it. Run it from the extension (**Compete › Complete business audit**), the phone (a business › **Business audit**), or ask Claude for a business audit.
+
+- **Business Score (0–100)** from five parts: Website (35), Google Business Profile (25), Listings (20), Consistent details (10), Reviews (10). A part that couldn't be checked is left out, never guessed.
+- **Google Business Profile:** found or missing, claimed, category, rating and reviews against the map pack, website, phone, hours, photos, description.
+- **Listings:** Bing Places, Apple Maps, Yelp, Facebook, BBB, Nextdoor, Yellow Pages, Manta, Hotfrog, Foursquare, LinkedIn, Alignable, and trade directories (Angi, Thumbtack, Houzz, Porch, Bark, BuildZoom, HomeGuide) for the trades they serve. Only places with a **free** listing, each with its sign-up link and step-by-step instructions.
+- **Consistent details:** the same phone number on the website, its schema, Google and every listing found; address and hours.
+- **Competitors:** found automatically from "what you do + town", rated the same way, with the services they list that you don't. Adding your business or a client offers to find its competitors for you.
+
+```mermaid
+flowchart LR
+  A["You enter name, town<br/>and what you do"] --> B["Searches Google:<br/>profile, competitors, listings"]
+  B --> C["Rates your site<br/>and theirs"]
+  C --> D["Business Score<br/>and the fixes, step by step"]
+  style A fill:#ffffff,stroke:#000000,color:#000000
+  style B fill:#f2f2f2,stroke:#000000,color:#000000
+  style C fill:#f2f2f2,stroke:#000000,color:#000000
+  style D fill:#000000,stroke:#000000,color:#ffffff
+```
+
+<p align="center">
+  <img src="assets/mobile-audit.png" alt="Android app: business audit with Business Score" width="200">
+  <img src="assets/extension-audit.png" alt="Chrome extension: complete business audit" width="260">
+</p>
+
 ## 🥊 Stays ahead of your competitors
 
 The weekly SEO loop doesn't just read your own Search Console. Once a month it finds your top local competitors for each service and town (map pack and organic, skipping directories), rates them with the same rubric, and tells you exactly where they beat you: checks they pass and you fail, pages and topics they have that you don't, customer questions they answer that you don't. It also checks what people are searching around your services (Google autocomplete phrasing, Bing search volumes and trend, your rising Search Console queries) and flags searches no page answers yet. Those feed straight into the loop's to-do list, ranked by what has actually worked on your site.

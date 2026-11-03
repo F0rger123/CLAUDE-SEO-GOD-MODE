@@ -34,7 +34,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common  # noqa: E402
 
 S = Path(__file__).resolve().parent
-RUBRIC_VERSION = "2.0"
+RUBRIC_VERSION = "2.1"
+PHONE_RE = re.compile(r"(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b")
 SEARCH_BOTS = {  # robots token -> user-agent string used for the live CDN/WAF probe
     "Googlebot": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
     "Bingbot": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
@@ -414,6 +415,18 @@ def main():
     c.add("geo", "Location/service area declared (schema)", (1.0 if has_where else 0.0) if (is_local or has_where) else None, 10,
           f"addressLocality: {loc or '-'}; areaServed: {'yes' if area else '-'}" if (is_local or has_where) else "not a local-business entity",
           "Declare address or areaServed in schema and say where you operate on the homepage.", impact="Medium")
+    # Same phone in the schema and on the page (NAP), and opening hours declared.
+    tel = (entity or {}).get("telephone")
+    tel = tel[0] if isinstance(tel, list) and tel else tel
+    tel = re.sub(r"\D", "", tel)[-10:] if isinstance(tel, str) and len(re.sub(r"\D", "", tel)) >= 10 else ""
+    shown = {re.sub(r"\D", "", m)[-10:] for m in PHONE_RE.findall(home_meta.text)}
+    c.add("geo", "Phone in business schema matches the homepage", (1.0 if tel in shown else 0.0) if tel else None, 10,
+          (f"schema {tel}; homepage shows {', '.join(sorted(shown)) or 'no phone'}" if tel else "no telephone in business schema"),
+          "Show the same phone number on the homepage as in your LocalBusiness schema, and on Google and every listing.", impact="Medium")
+    hours = bool((entity or {}).get("openingHours") or (entity or {}).get("openingHoursSpecification"))
+    c.add("geo", "Opening hours declared (schema)", (1.0 if hours else 0.0) if is_local else None, 5,
+          "openingHours in schema" if hours else ("no opening hours in schema" if is_local else "not a local-business entity"),
+          "Add openingHoursSpecification to your LocalBusiness schema, matching your Google Business Profile hours.", impact="Low")
     same_as = (entity or {}).get("sameAs") or []
     same_as = same_as if isinstance(same_as, list) else [same_as]
     c.add("geo", "Consistent identity across the web (sameAs)", min(1.0, len(same_as) / 3), 10,

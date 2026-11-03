@@ -27,6 +27,8 @@ import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
 import { askChatGPT, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle } from "./native.js";
 import { readChat } from "./readers.js";
+import { competitorsFrom, runBusinessAudit } from "./lib/business.js";
+import { auditHtml, auditPrompt } from "./lib/businessview.js";
 import { drawMap, geocode } from "./map.js";
 
 installNativeFetch([SB_URL]);
@@ -323,7 +325,7 @@ function scoreBoxes(p) {
 }
 const scanBox = (title, id, text, sub = "") => `<div class="scanbox"><span class="sweep" aria-hidden="true"></span><div><b>${title}</b><p id="${id}">${esc(text)}</p>${sub ? `<small>${sub}</small>` : ""}</div><i class="scanbar" aria-hidden="true"></i></div>`;
 
-const SITE_TABS = { overview: "Overview", keywords: "Keywords", competitors: "Competitors", settings: "Settings" };
+const SITE_TABS = { overview: "Overview", audit: "Business audit", keywords: "Keywords", competitors: "Competitors", settings: "Settings" };
 /** A row of section buttons; the chosen one is filled. */
 const segs = (attr, tabs, on) => `<div class="segs" role="tablist">${Object.entries(tabs).map(([k, l]) => `<button role="tab" ${attr}="${k}" aria-selected="${k === on}">${l}</button>`).join("")}</div>`;
 
@@ -335,7 +337,7 @@ function renderSite(o) {
   const tab = tabs[S.stab] ? S.stab : "overview";
   const h = trend(o), p = h[h.length - 1] || null;
   const of = s.competitorOf && S.sites.get(s.competitorOf);
-  const body = { overview: siteOverview, keywords: siteKeywords, competitors: siteCompetitors, settings: siteSettings }[tab](s, o);
+  const body = { overview: siteOverview, audit: siteAudit, keywords: siteKeywords, competitors: siteCompetitors, settings: siteSettings }[tab](s, o);
   $("view").innerHTML = `<nav class="crumb"><button class="back" id="back">‹ Sites</button></nav>
     <div class="hero"><div><b>${esc(s.name)}</b><small>${ROLES[s.role]}${of ? ` ${s.role === "general" ? "linked to" : "of"} <button class="linkish" data-open="${esc(of.origin)}">${esc(of.name)}</button>` : ""} · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(hostOf(o))}</a></small></div></div>
     ${scoreBoxes(p)}
@@ -376,7 +378,7 @@ function siteKeywords(s, o) {
 function siteCompetitors(s, o) {
   const rivals = competitorsOf(o), linked = linkedTo(o);
   return `${rivals.length ? compareTable(s, rivals) : `<p class="lede">No competitors linked yet. Add the businesses you compete with to see who's ahead.</p>`}
-    <div class="btns"><button id="addcomp" class="primary">Add a competitor</button>${rivals.length ? `<button id="gocompare">Rankings and map</button>` : ""}</div>
+    <div class="btns">${canSearch() ? `<button id="findcomp" class="primary">Find competitors automatically</button>` : ""}<button id="addcomp"${canSearch() ? "" : ` class="primary"`}>Add a competitor</button>${rivals.length ? `<button id="gocompare">Rankings and map</button>` : ""}</div>
     ${linked.length ? `<h2 class="sec">Linked sites <small>${linked.length}</small></h2><div class="tlist">${linked.map(card).join("")}</div>` : ""}`;
 }
 
@@ -396,6 +398,13 @@ function bindSite(s, o) {
   const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
   const scan = scanOf(o), report = S.data.get("kwreport:" + o);
   on("scannow", () => scanSite(o));
+  on("findcomp", () => findCompetitors(o));
+  if ($("baform")) {
+    $("baform").onsubmit = (e) => { e.preventDefault(); auditSite(o); };
+    on("barun", () => auditSite(o));
+    on("bacopy", () => copy(auditPrompt(S.data.get("baudit:" + o)), "Fix prompt copied"));
+    document.querySelectorAll("[data-track]").forEach((b) => (b.onclick = () => trackRival(o, b.dataset.track, b.dataset.name)));
+  }
   on("copyfix", () => copy(fixAllPrompt(scan), "Fix prompt copied"));
   on("copykw", () => copy(keywordPrompt(o, report), "Keyword fix prompt copied"));
   on("addcomp", () => quickAdd({ role: "competitor", of: o }));
@@ -426,6 +435,92 @@ function bindSite(s, o) {
     $("unno").onclick = () => ($("untrackbox").innerHTML = "");
     $("unyes").onclick = () => { S.open = null; putSite(s, true).then(() => toast(`Stopped tracking ${s.name}`)).catch(fail); };
   });
+}
+
+// ------------------------------------------------------------------ business audit and finding competitors
+/** What the business is called, where it is and what it does: saved from the last audit or search, else from its schema. */
+function bizInfo(o) {
+  const s = S.sites.get(o), saved = S.data.get("binfo:" + o) || S.data.get("baudit:" + o)?.biz || {}, ent = scanOf(o)?.entity || {};
+  return { name: saved.name || ent.name || s?.name || hostOf(o), city: saved.city || ent.city || "", category: saved.category || "", origin: o };
+}
+async function saveBizInfo(o, info) { S.data.set("binfo:" + o, { name: info.name, city: info.city, category: info.category }); await putData(["binfo:" + o]); }
+const bizFields = (b, p) => `<div class="field"><label for="${p}name">Business name</label><input id="${p}name" class="search" value="${esc(b.name)}"></div>
+  <div class="field"><label for="${p}city">Town and state</label><input id="${p}city" class="search" placeholder="York PA" value="${esc(b.city)}"></div>
+  <div class="field"><label for="${p}cat">What it does</label><input id="${p}cat" class="search" placeholder="roofing contractor" value="${esc(b.category)}"></div>`;
+const readBiz = (o, p) => ({ name: $(p + "name").value.trim(), city: $(p + "city").value.trim(), category: $(p + "cat").value.trim(), origin: o });
+
+function siteAudit(s, o) {
+  const r = S.data.get("baudit:" + o), b = bizInfo(o), running = S.auditing?.origin === o;
+  const form = `<form id="baform">${bizFields(b, "ba")}</form>
+    ${canSearch() ? `<div class="btns stack"><button id="barun" class="primary">${r ? "Run the audit again" : "Run complete business audit"}</button></div>` : `<p class="unknowns">The business audit needs the Android app (it searches Google on the phone).</p>`}`;
+  if (running) return scanBox("Auditing the business…", "baprog", S.auditing.text, "Searches Google in a window on this phone and rates competitors' websites. Takes a few minutes. If Google asks for a robot check, solve it there.");
+  if (!r) return `<p class="lede">Checks the whole business, not just the website: its Google profile, listings on Yelp, Bing, Apple Maps, BBB and more, the same phone and hours everywhere, reviews, and competitors. Each problem comes with steps to fix it.</p>${form}`;
+  return `<div class="ba-out">${auditHtml(r, { tracked: new Set(S.sites.keys()) })}</div>
+    <div class="btns stack"><button id="bacopy" class="primary">Copy fix prompt</button></div>
+    <details class="fold bafold"><summary>Run the audit again</summary><div class="pad">${form}</div></details>`;
+}
+async function auditSite(o) {
+  if (S.auditing) return;
+  const biz = readBiz(o, "ba");
+  if (!biz.name) return notice("Add the business name.");
+  await saveBizInfo(o, biz);
+  const progress = (text) => { if (!text) return; S.auditing.text = text; const el = $("baprog"); if (el) el.textContent = text; };
+  S.auditing = { origin: o, text: "Starting…" };
+  render();
+  try {
+    const r = await runBusinessAudit({ biz, scan: scanOf(o), websiteScore: lastPoint(o)?.overall ?? null,
+      search: async (qs) => { const got = await searchGoogle(qs, readGoogle, progress); return qs.map((q) => got.find((x) => x.q === q) || { q, serp: null }); },
+      rate: (x) => rateSite(x + "/", { psi: false }), onProgress: progress });
+    S.data.set("baudit:" + o, r);
+    await putData(["baudit:" + o]);
+    toast(`Business Score ${r.score ?? "–"}`);
+  } catch (e) { fail(e); }
+  finally { S.auditing = null; lastScreen = null; render(); }
+}
+async function trackRival(of, origin, name) {
+  await putSite({ origin, name: name || hostOf(origin), addedAt: new Date().toISOString(), keywords: [], role: "competitor", competitorOf: of });
+  toast(`Tracking ${name || hostOf(origin)} as a competitor`);
+}
+
+/** Find a business's competitors: search "<what it does> <town>" on Google and offer the businesses that rank. */
+function findCompetitors(o) {
+  const s = S.sites.get(o), b = bizInfo(o);
+  const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
+  const close = () => closeSheet();
+  sheet.onclick = (e) => { if (e.target === sheet) close(); };
+  const ask = () => {
+    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Find ${esc(s.name)}'s competitors?</h2><button id="fclose" class="linkish">Not now</button></div>
+      <p class="lede">Searches Google for what the business does in its town and offers the businesses that show up. You pick which to track.</p>
+      <form id="fform">${bizFields(b, "f")}<div class="btns stack"><button id="fgo" class="primary">Find competitors</button></div></form>`;
+    $("fclose").onclick = close;
+    $("fform").onsubmit = async (e) => {
+      e.preventDefault();
+      const biz = readBiz(o, "f");
+      if (!biz.category) return notice("Add what the business does, for example: roofing contractor.");
+      await saveBizInfo(o, biz);
+      box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Finding competitors…</h2></div>${scanBox("Searching Google…", "fprog", `${biz.category} ${biz.city}`)}`;
+      const [hit] = await searchGoogle([`${biz.category} ${biz.city}`.trim()], readGoogle, (t) => { const el = $("fprog"); if (el) el.textContent = t; }).catch(() => []);
+      show(competitorsFrom(hit?.serp, o, 6), biz);
+    };
+  };
+  const show = (found, biz) => {
+    const sites = found.sites.filter((x) => !S.sites.has(x.origin));
+    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">${sites.length ? `${sites.length} competitor${sites.length === 1 ? "" : "s"} found` : "No new competitors found"}</h2><button id="fclose" class="linkish">Close</button></div>
+      ${sites.length ? `<p class="lede">Ranking on Google for "${esc(`${biz.category} ${biz.city}`.trim())}". Tick the ones to track as ${esc(s.name)}'s competitors.</p>
+        <div class="ba-list">${sites.map((x, i) => `<label class="ba-row pick"><input type="checkbox" data-pick="${esc(x.origin)}" data-name="${esc(x.name)}" ${i < 3 ? "checked" : ""}><span><b>${esc(x.name)}</b><small>${esc(hostOf(x.origin))} · #${x.position} on Google</small></span></label>`).join("")}</div>
+        <div class="btns stack"><button id="fadd" class="primary">Track the ticked ones</button></div>`
+        : `<p class="lede">Google showed no competitor websites for "${esc(`${biz.category} ${biz.city}`.trim())}" that aren't tracked already. Try different words, or add one by hand.</p>`}
+      ${found.mapPack.length ? `<p class="unknowns">Map pack: ${found.mapPack.map((m) => esc(m.name)).join(", ")}.</p>` : ""}`;
+    $("fclose").onclick = close;
+    if ($("fadd")) $("fadd").onclick = async () => {
+      const picks = [...box.querySelectorAll("[data-pick]:checked")];
+      for (const p of picks) await putSite({ origin: p.dataset.pick, name: p.dataset.name || hostOf(p.dataset.pick), addedAt: new Date().toISOString(), keywords: [], role: "competitor", competitorOf: o });
+      close(); toast(`Tracking ${picks.length} competitor${picks.length === 1 ? "" : "s"}. Open each and press Scan now`);
+      S.stab = "competitors"; render();
+    };
+  };
+  ask();
+  openSheet();
 }
 
 /** Check a site's keywords on Google from the phone, record positions for every tracked site, and update its report. */
@@ -706,6 +801,7 @@ function quickAdd(pre = {}) {
         if (S.lookup?.origin === o) { await keepScan(o, S.lookup.scan); S.lookup = null; toast(`Tracking ${hostOf(o)}`); }
         else toast(`Added ${hostOf(o)}. Press Scan now to rate it`);
         openSite(o);
+        if ((w.role === "mine" || w.role === "client") && !competitorsOf(o).length && canSearch()) setTimeout(() => findCompetitors(o), 500);
       }
       catch (err) { $("qsave").disabled = false; fail(err); }
     };

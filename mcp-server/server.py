@@ -420,6 +420,23 @@ def apple_maps_check(business_name: str, near: str = "", street_address: str = "
 
 
 @mcp.tool()
+def business_directories(trade: str = "") -> str:
+    """Free places a local business can list or claim (Google, Bing Places, Apple Business Connect, Yelp, BBB,
+    Nextdoor, Facebook and directories for its trade), with sign-up links, step-by-step instructions and the Google
+    search that shows whether it's already listed. trade: what the business does, e.g. "roofing contractor"."""
+    return _run("business/business_audit.py", "directories", "--trade", trade)
+
+
+@mcp.tool()
+def business_score(findings_json: str) -> str:
+    """Business Score (0-100) and the fix list from a business audit's findings (workflows/business-audit.md):
+    website score, Google Business Profile, listings found or missing, consistent phone/address/hours, reviews.
+    Parts not checked are left out of the score, never guessed. findings_json: see scripts/business/business_audit.py."""
+    mod = _load("business/business_audit.py")
+    return _cap(mod.report(json.loads(findings_json)))
+
+
+@mcp.tool()
 def geo_citability(url: str) -> str:
     """Passage-level AI citability scores for one page (vendored geo-seo-claude scorer, MIT). Scores are INFERRED
     heuristics (it favours 134-167 word self-contained passages); not a Google rule. Needs requests/beautifulsoup4."""

@@ -30,7 +30,7 @@ Scan results (scores, check results and the page facts behind them) are saved in
 
 Nothing about you. The extension has no analytics, no advertising, and accounts are optional (for phone sync only).
 
-The Android app also has no analytics. When you open a Compare map, it sends the addresses that tracked sites publish (or one you type) to OpenStreetMap's address lookup, and loads OpenStreetMap map tiles. **Ask ChatGPT** opens chatgpt.com in a window on the phone and asks your keywords there, under ChatGPT's own terms. Updates are downloaded from this project's GitHub releases; the live-update plugin's usage reporting is turned off.
+The Android app also has no analytics. When you open a Compare map, it sends the addresses that tracked sites publish (or one you type) to OpenStreetMap's address lookup, and loads OpenStreetMap map tiles. **Ask ChatGPT** opens chatgpt.com in a window on the phone and asks your keywords there, under ChatGPT's own terms. A business audit searches Google for the business name and town, its trade and town, and the business on each listing site (in a background tab, or a window on the phone), and reads the competitor websites it finds. Updates are downloaded from this project's GitHub releases; the live-update plugin's usage reporting is turned off.
 
 ## Contact
 

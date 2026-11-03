@@ -191,3 +191,9 @@ div.brow { grid-template-columns: 1fr auto; grid-template-areas: "nm share"; }
 .leaflet-container { font: inherit; }
 .excerpt { color: var(--muted); font-size: 12px; font-style: italic; }
 .factor.idea { grid-template-columns: 1fr auto; align-items: center; }
+
+/* Business audit on the phone */
+.ba-out { margin-top: 6px; }
+.ba-row.pick { grid-template-columns: auto 1fr; cursor: pointer; }
+.ba-row.pick input { width: 20px; height: 20px; accent-color: var(--ink); }
+.ba-head { margin-top: 4px; }

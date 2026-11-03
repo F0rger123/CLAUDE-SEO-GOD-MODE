@@ -60,6 +60,7 @@ Client data never lives in this repository: `$SEO_CLIENTS_DIR` (default `~/seo-c
 | content brief | `skills/vendor/open-seo-mcp-skills/content-brief`; plan `workflows/content-strategy.md` |
 | customer journey / question mapping | `workflows/customer-journey.md` |
 | 30-day sprint on one page, daily autopilot | `workflows/sprint-and-autopilot.md` |
+| complete business audit, Business Score, listings (Yelp, Bing, Apple, BBB, Nextdoor, trade directories), NAP across sites | `workflows/business-audit.md` (`business_directories`, `business_score`) |
 | Google Business Profile, map pack, city pages, NAP | `workflows/local-seo.md` |
 | Apple Maps, Siri, Apple Business Connect | `workflows/apple-business-connect.md` (`apple_maps.py check`) |
 | paid ads (Google, Meta, LinkedIn, TikTok, Apple Search Ads…) | companion plugin **claude-ads** (`docs/ADS.md`) |

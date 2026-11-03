@@ -441,3 +441,29 @@ input[role="switch"]:disabled { opacity: .4; cursor: default; }
 .pairwait i { width: 9px; height: 9px; border-radius: 50%; background: var(--ink); animation: pairbeat 1s ease-in-out infinite; }
 .pairwait.done { background: color-mix(in srgb, var(--pass) 14%, transparent); animation: rise .3s var(--ease); }
 @keyframes pairbeat { 50% { transform: scale(1.6); opacity: .4; } }
+
+/* Business audit (lib/businessview.js): the Business Score, five parts, then what to fix step by step. */
+.ba-head { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 14px; border-radius: var(--r-lg); border: 1px solid var(--rule); background: var(--panel); }
+.ba-score { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; border: 7px solid var(--st, var(--rule-2)); text-align: center; }
+.ba-score b { font: 800 30px/1 var(--display); color: var(--st, var(--ink)); }
+.ba-score span { font-size: 10px; color: var(--muted); max-width: 64px; line-height: 1.15; }
+.ba-parts { display: grid; gap: 5px; }
+.ba-parts div { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding-bottom: 3px; border-bottom: 2px solid color-mix(in srgb, var(--st, var(--rule)) 55%, transparent); }
+.ba-parts b { color: var(--st, var(--muted)); }
+.ba-issues { display: grid; gap: 6px; }
+.ba-issue { border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--panel); }
+.ba-issue summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 10px 1fr; gap: 0 10px; padding: 10px 12px; align-items: center; }
+.ba-issue summary small { grid-column: 2; color: var(--muted); font-size: 11.5px; }
+.ba-issue .pad { padding: 0 12px 12px 32px; font-size: 12.5px; }
+.ba-issue ol { margin: 6px 0 10px; padding-left: 18px; display: grid; gap: 4px; }
+.ba-list { display: grid; border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--panel); }
+.ba-row, .ba-comp { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 12px; }
+.ba-comp { grid-template-columns: 1fr auto; }
+.ba-row + .ba-row, .ba-comp + .ba-comp { border-top: 1px solid var(--rule); }
+.ba-row b, .ba-comp b { display: block; font-size: 13px; }
+.ba-row small, .ba-comp small { display: block; color: var(--muted); font-size: 11.5px; }
+.ba-row .rk { font-weight: 800; color: var(--muted); width: 14px; text-align: center; }
+.ba-row .btn, .ba-comp button { padding: 4px 10px; font-size: 12px; }
+.ba-chips { display: flex; gap: 4px; margin: 4px 0; flex-wrap: wrap; }
+.ba-chips .chip { display: inline-flex; gap: 3px; align-items: baseline; padding: 2px 7px; border-radius: 99px; font-size: 10.5px; color: var(--muted); background: color-mix(in srgb, var(--st, var(--faint)) 14%, transparent); }
+.ba-chips .chip b { color: var(--st, var(--ink)); font-size: 12px; display: inline; }

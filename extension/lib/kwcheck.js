@@ -27,6 +27,19 @@ function loaded(tabId, timeout = 20000) {
 
 /** Search each keyword and record positions. Returns {results: [{q, pos, of, serp}], blocked}. */
 export async function searchKeywords(qs, { origin, onProgress = () => {} } = {}) {
+  const { results: got, blocked } = await googleSearch(qs, { onProgress });
+  const results = [];
+  for (const { q, serp } of got) {
+    if (!serp?.organic?.length) { results.push({ q, error: "couldn't read the results" }); continue; }
+    const mine = (await recordPositions(serp)).find((r) => r.origin === origin);
+    results.push({ q, pos: mine?.pos ?? null, of: serp.organic.length, serp });
+  }
+  return { results, blocked };
+}
+
+/** Search Google for each query in a background tab, a few seconds apart, and read each results page.
+ *  Returns {results: [{q, serp}] (serp null if unreadable), blocked}. Stops at a robot check and shows that tab. */
+export async function googleSearch(qs, { onProgress = () => {} } = {}) {
   const tab = await chrome.tabs.create({ url: "about:blank", active: false });
   const results = [];
   let blocked = false;
@@ -39,10 +52,9 @@ export async function searchKeywords(qs, { origin, onProgress = () => {} } = {})
       await wait;
       const serp = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }).catch(() => [{}]))[0]?.result;
       if (serp?.blocked) { blocked = true; break; }
-      if (serp?.kind !== "serp" || !serp.organic?.length) { results.push({ q, error: "couldn't read the results" }); continue; }
+      if (serp?.kind !== "serp") { results.push({ q, serp: null }); continue; }
       serp.query = q;
-      const mine = (await recordPositions(serp)).find((r) => r.origin === origin);
-      results.push({ q, pos: mine?.pos ?? null, of: serp.organic.length, serp });
+      results.push({ q, serp });
     }
   } finally {
     if (blocked) chrome.tabs.update(tab.id, { active: true }).catch(() => {});

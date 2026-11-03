@@ -20,6 +20,8 @@ import * as U from "./lib/update.js";
 import { cloud } from "./lib/sync.js";
 import { newCode } from "./lib/cloud.js";
 import { qrSvg } from "./lib/qr.js";
+import { runBusinessAudit } from "./lib/business.js";
+import { auditHtml, auditPrompt } from "./lib/businessview.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -70,7 +72,7 @@ async function rankings(origin) {
 }
 
 // ====================================================================== COMPETE
-const TOOLS = { rank: ["Why they rank", "Who ranks for a search, why, and what to change"], ideas: ["Keyword ideas", "How people search it and the questions to answer"], biz: ["Business profile", "Reviews, category, photos and hours on Google"] };
+const TOOLS = { audit: ["Complete business audit", "Business Score: website, Google profile, listings, details, reviews and competitors"], rank: ["Why they rank", "Who ranks for a search, why, and what to change"], ideas: ["Keyword ideas", "How people search it and the questions to answer"], biz: ["Business profile", "Reviews, category, photos and hours on Google"] };
 
 export async function renderCompete(helpers) {
   ui = helpers;
@@ -91,6 +93,7 @@ export async function renderCompete(helpers) {
   bindSubs(el);
   if (v.sub === "rank") await renderRank(onGoogle, tab);
   else if (v.sub === "ideas") await renderIdeas();
+  else if (v.sub === "audit") await renderAudit();
   else await renderBiz(onGoogle, tab);
 }
 const bindSubs = (root) => root.querySelectorAll("[data-sub]").forEach((b) => (b.onclick = () => { v.sub = b.dataset.sub; if (v.sub !== "result") v.focus = null; renderCompete(ui); window.scrollTo(0, 0); }));
@@ -352,6 +355,53 @@ ${qs.length ? `\nAdd these questions as H2/H3 headings with a 40–60 word direc
 ${buy.length ? `\nBuyer searches not covered yet (cover only what's true for us): ${buy.join(", ")}.` : ""}
 Use the keyword naturally; no stuffing. ${RULES}`;
 }
+
+/**
+ * Complete business audit for the business Compete works on: confirm its name, town and trade, then Google is
+ * searched in a background tab (profile, competitors, listings) and competitors' sites are rated. Saved per site.
+ */
+async function renderAudit() {
+  const s = $("sub"), me = await mySite();
+  if (!me) { s.innerHTML = `<p class="lede">Track your business first (Track › Track new site), then run its audit here.</p>`; return; }
+  const key = "baudit:" + me.origin;
+  const { [key]: last, ["sitescans:" + me.origin]: scans = [] } = await chrome.storage.local.get([key, "sitescans:" + me.origin]);
+  const ent = scans[0]?.entity || {}, b = last?.biz || {};
+  const val = (k, fb) => esc(b[k] || fb || "");
+  s.innerHTML = `${siteSelectNote(me)}
+    <form id="baform" class="ba-form"><div class="field"><label for="baname">Business name</label><input id="baname" class="search" value="${val("name", ent.name || me.name)}"></div>
+      <div class="row2"><div class="field"><label for="bacity">Town and state</label><input id="bacity" class="search" placeholder="York PA" value="${val("city", ent.city)}"></div>
+      <div class="field"><label for="bacat">What it does</label><input id="bacat" class="search" placeholder="roofing contractor" value="${val("category", "")}"></div></div></form>
+    <div class="btns stack"><button id="barun" class="primary run">${last ? "Run the audit again" : "Run complete business audit"}</button></div>
+    <p class="unknowns">Searches Google 6–10 times in a background tab (a few seconds apart) and rates up to 4 competitors' websites. Takes 2–4 minutes. ${scans[0] ? "" : "Rate the whole site first (Track) to include the website score."}</p>
+    <div id="baout">${last ? auditHtml(last, { tracked: new Set((await T.trackedSites()).map((x) => x.origin)) }) + `<div class="btns stack"><button id="bacopy">Copy fix prompt</button></div>` : ""}</div>`;
+  const bindOut = (r) => {
+    s.querySelectorAll("[data-track]").forEach((x) => (x.onclick = async () => { await T.trackSite(x.dataset.track, x.dataset.name, "competitor", me.origin); x.replaceWith(Object.assign(document.createElement("small"), { textContent: "Tracked" })); ui.toast(`Tracking ${x.dataset.name} as a competitor`); }));
+    const c = $("bacopy"); if (c) c.onclick = () => ui.copy(auditPrompt(r), "Fix prompt copied");
+  };
+  if (last) bindOut(last);
+  $("baform").onsubmit = (e) => { e.preventDefault(); $("barun").click(); };
+  $("barun").onclick = async () => {
+    const biz = { name: $("baname").value.trim(), city: $("bacity").value.trim(), category: $("bacat").value.trim(), origin: me.origin };
+    if (!biz.name) return ui.notice("Add the business name.");
+    if (!(await access([...GOOGLE, ...ALL_SITES], "The audit needs to read Google and competitors' websites. Press Run again and choose Allow."))) return;
+    busy(true, "Auditing…");
+    try {
+      const { psiKey = "" } = await chrome.storage.local.get("psiKey");
+      const trend = (await chrome.storage.local.get("trend:" + me.origin))["trend:" + me.origin] || [];
+      const r = await runBusinessAudit({ biz, scan: scans[0] || null, websiteScore: trend.at(-1)?.overall ?? null,
+        search: async (qs) => { const { results, blocked } = await K.googleSearch(qs, { onProgress: (t) => busy(true, t) });
+          if (blocked) ui.notice("Google asked for a robot check, so the audit stopped searching. Solve it in the tab that opened, then run it again.");
+          return qs.map((q) => results.find((x) => x.q === q) || { q, serp: null }); },
+        rate: (o) => rateSite(o + "/", { psiKey }),
+        onProgress: (t) => busy(true, t) });
+      await chrome.storage.local.set({ [key]: r });
+      ui.toast(`Business Score ${r.score ?? "–"}`);
+    } catch (e) { ui.notice(esc(e.message || e)); }
+    busy(false);
+    renderAudit();
+  };
+}
+const siteSelectNote = (me) => `<p class="lede">Auditing <b>${esc(me.name)}</b>. Change it in the Working on list on the Compete page.</p>`;
 
 async function renderBiz(onGoogle, tab) {
   const s = $("sub");

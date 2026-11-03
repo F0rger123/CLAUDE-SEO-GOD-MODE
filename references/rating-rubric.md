@@ -1,4 +1,4 @@
-# Rating rubric v2.0 (scripts/rate_site.py)
+# Rating rubric v2.1 (scripts/rate_site.py)
 
 Published so every score is explainable and repeatable. Each check earns `ratio × weight` points. A score is points earned ÷ points possible × 100, counted only over checks that could be measured. UNKNOWN checks are left out; they are never scored as a pass or a fail.
 
@@ -55,6 +55,8 @@ Published so every score is explainable and repeatable. Each check earns `ratio 
 | No CDN/WAF blocking of those user agents | 15 | live homepage fetch per user agent; 401/403/429/503 = blocked (INFERRED: some WAFs verify by IP) |
 | Business name stated in homepage text | 15 | entity name from schema or og:site_name |
 | Location/service area in schema | 10 | scored only for local-type entities, or when declared |
+| Phone in business schema matches the homepage | 10 | same 10 digits shown on the homepage; scored only when the schema has a telephone |
+| Opening hours declared (schema) | 5 | openingHours or openingHoursSpecification; scored only for local-type entities |
 | sameAs profiles | 10 | 3 or more = full |
 | About and Contact pages | 10 | URL patterns |
 | Contact details findable | 5 | tel:/mailto: link on the homepage, or schema telephone/email |
@@ -68,5 +70,6 @@ Rankings, clicks, impressions, queries, index status, backlinks, brand mentions,
 
 ## Changelog
 
+- **v2.1:** added two local-business checks to GEO: the business schema's phone matches the homepage (NAP), and opening hours are declared.
 - **v2.0:** added canonical host, soft 404, canonical tag, contact details, og:description, start-of-page heading skips, estimated performance, fix kits, and potential score. Rebalanced GEO (Bing 10→5, contact details 5).
 - **v1.0:** initial rubric.

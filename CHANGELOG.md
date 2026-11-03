@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.27.0 (2026-11-03): extension 1.22, app 1.1: complete business audit and Business Score
+
+- **Complete business audit:** in the extension (Compete › Complete business audit), the app (a business › Business audit) and the skill (`workflows/business-audit.md`).
+  - **Business Score:** 0–100, from Website, Google Business Profile, Listings, Consistent details and Reviews. Parts that couldn't be checked are left out.
+  - **What it checks:** whether the Google profile exists and how complete it is; listings on Bing, Apple Maps, Yelp, Facebook, BBB, Nextdoor and 12 more free sites, including trade directories for the trades they serve; the same phone everywhere; hours.
+  - **Competitors:** found from "what you do + town" and rated, with the services they list that you don't.
+  - **Fixes:** each problem comes with step-by-step instructions and the free sign-up link.
+- **Find competitors automatically:** adding your business or a client on the phone offers to search for its competitors, and each business's Competitors section has **Find competitors automatically**.
+- **Skill:** new MCP tools `business_directories` and `business_score`, and `scripts/business/business_audit.py`.
+  - The directory list in `extension/lib/directories.json` was checked on 2026-11-03.
+  - Only free listings are included. Paid-only sites (MapQuest via Yext, Waze, Networx) and lighting brands' paid dealer programs are left out.
+- **Rating rubric v2.1:** two new GEO checks: the phone in the business schema matches the homepage, and opening hours are declared.
+
 ## 2.26.0 (2026-11-03): extension 1.21 and app 1.0: Compare rebuilt, map, ChatGPT answers, in-app updates
 
 - **Compare, in three sections:** **Rankings** opens by itself: where the business stands (#1 of 4), who leads SEO, AEO and GEO and by how much, a leaderboard with each site's colour-coded scores, Google positions side by side and scores over time. **Map** places the business and its competitors and colours each pin green, amber or red by the score you pick (Overall, SEO, AEO, GEO). **AI answers** asks ChatGPT the business's searches in a window on the phone and shows who it recommends, how often, and which other sites it cites.

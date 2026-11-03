@@ -8,7 +8,8 @@
 import { normalizeUrl, parseJsonld, parsePage, sameSite, schemaTypes } from "./pyparse.js";
 import { parseRobots, robotsAllows } from "./site.js";
 
-export const RUBRIC_VERSION = "2.0";
+export const RUBRIC_VERSION = "2.1";
+const PHONE_RE = /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
 const CRAWL_UA = "AgencyZeroSEO";
 export const SEARCH_BOTS = {
   Googlebot: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
@@ -73,6 +74,8 @@ export const SITE_CHECKS = {
   "site-waf": { why: "A CDN or firewall can block AI crawlers even when robots.txt allows them.", goal: "Check the CDN/WAF bot settings (e.g. Cloudflare AI bot blocking) and allow the AI search crawlers that got an error status.", guide: GEOW, say: "stop your firewall blocking AI crawlers", setup: true },
   "site-name": { why: "AI answers name businesses they can identify; your name should be in the homepage text.", goal: "State the business name, what it does and for whom in the first lines of the homepage.", guide: GEOW, say: "say your business name on the homepage" },
   "site-where": { why: "Local and AI search need to know where you operate.", goal: "Declare address or areaServed in schema and say where you operate on the homepage.", guide: LOC, say: "declare your location or service area" },
+  "site-nap": { why: "Google and AI trust a business whose phone is the same everywhere; mismatches split its identity.", goal: "Show the same phone number on the homepage as in your LocalBusiness schema, and on Google and every listing.", guide: G + "workflows/business-audit.md", say: "use one phone number everywhere" },
+  "site-hours": { why: "Customers and AI assistants answer \"are they open?\" from your hours.", goal: "Add openingHoursSpecification to your LocalBusiness schema, matching your Google Business Profile hours.", guide: G + "workflows/business-audit.md", say: "add your opening hours to the schema" },
   "site-sameas": { why: "sameAs links tie your site to your profiles so AI and Google trust the identity.", goal: "List your real profiles (Google Business Profile, LinkedIn, Facebook, industry directories) in sameAs.", guide: G + "workflows/apple-business-connect.md", say: "link your profiles with sameAs", setup: true },
   "site-trust": { why: "About and Contact pages are basic trust signals for people, Google and AI.", goal: "Publish an About page (who, credentials, history) and a Contact page (how to reach you).", guide: LOC, say: "publish About and Contact pages" },
   "site-contact": { why: "A clickable phone or email makes you easy to reach and confirms who you are.", goal: "Show a clickable phone number or email on the homepage and in schema.", guide: LOC, say: "show a clickable phone or email" },
@@ -535,6 +538,18 @@ export async function rateSite(siteUrl, { maxPages = 30, psi = true, psiKey = ""
   add("site-where", "geo", "Location/service area declared (schema)", localBiz || hasWhere ? (hasWhere ? 1 : 0) : null, 10,
     localBiz || hasWhere ? `addressLocality: ${loc || "-"}; areaServed: ${area ? "yes" : "-"}` : "not a local-business entity",
     "Declare address or areaServed in schema and say where you operate on the homepage.", "OBSERVED", "Medium");
+  // Same phone in the schema and on the page (NAP), and opening hours declared.
+  let tel = entity?.telephone;
+  tel = Array.isArray(tel) ? tel[0] : tel;
+  tel = typeof tel === "string" && tel.replace(/\D/g, "").length >= 10 ? tel.replace(/\D/g, "").slice(-10) : "";
+  const shown = new Set((homeMeta.text.match(PHONE_RE) || []).map((m) => m.replace(/\D/g, "").slice(-10)));
+  add("site-nap", "geo", "Phone in business schema matches the homepage", tel ? (shown.has(tel) ? 1 : 0) : null, 10,
+    tel ? `schema ${tel}; homepage shows ${[...shown].sort().join(", ") || "no phone"}` : "no telephone in business schema",
+    "Show the same phone number on the homepage as in your LocalBusiness schema, and on Google and every listing.", "OBSERVED", "Medium");
+  const hours = !!(entity?.openingHours || entity?.openingHoursSpecification);
+  add("site-hours", "geo", "Opening hours declared (schema)", localBiz ? (hours ? 1 : 0) : null, 5,
+    hours ? "openingHours in schema" : localBiz ? "no opening hours in schema" : "not a local-business entity",
+    "Add openingHoursSpecification to your LocalBusiness schema, matching your Google Business Profile hours.", "OBSERVED", "Low");
   let sameAs = entity?.sameAs || [];
   sameAs = Array.isArray(sameAs) ? sameAs : [sameAs];
   const hostOf = (s) => { try { return new URL(s).host; } catch { return ""; } };
@@ -585,7 +600,7 @@ export async function rateSite(siteUrl, { maxPages = 30, psi = true, psiKey = ""
   };
 }
 
-/** Where the business says it is, from its Organization/LocalBusiness schema (for maps): name, address, coordinates. */
+/** What the business says about itself in its Organization/LocalBusiness schema: name, address, coordinates (for maps), phone and whether hours are given. */
 function placeOf(e) {
   if (!e) return null;
   const a = Array.isArray(e.address) ? e.address[0] : e.address;
@@ -594,6 +609,8 @@ function placeOf(e) {
   const g = Array.isArray(e.geo) ? e.geo[0] : e.geo;
   const lat = Number(g?.latitude), lng = Number(g?.longitude);
   const ok = Number.isFinite(lat) && Number.isFinite(lng) && (lat || lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  const tel = Array.isArray(e.telephone) ? e.telephone[0] : e.telephone;
   return { name: typeof e.name === "string" ? e.name : null, address: address || null, city: (a && typeof a === "object" && typeof a.addressLocality === "string" ? a.addressLocality : null),
-    lat: ok ? lat : null, lng: ok ? lng : null };
+    lat: ok ? lat : null, lng: ok ? lng : null, phone: typeof tel === "string" && tel.trim() ? tel.trim() : null,
+    hours: !!(e.openingHours || e.openingHoursSpecification), category: [].concat(e["@type"] || []).find((x) => x !== "Organization" && x !== "LocalBusiness") || null };
 }

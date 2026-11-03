@@ -44,6 +44,7 @@ Credentials: environment variables only (`docs/INTEGRATIONS.md`). Call `seo_stat
 | Bing Webmaster | `bing_report` (sites, traffic, queries, pages, crawl stats/issues, sitemaps, quota), `bing_url_info`, `bing_keyword`, `bing_submit`* |
 | IndexNow | `indexnow_submit`* |
 | Apple Maps / GEO | `apple_maps_check` (official Maps Server API, read-only), `geo_citability` (vendored scorer) |
+| Business audit | `business_directories` (free listings for the business's trade, with sign-up links and steps), `business_score` (Business Score and fix list from the audit's findings; `workflows/business-audit.md`) |
 | Setup | `seo_status` |
 
 \* **Write tools** are off by default. They run only when the server has `SEO_GODMODE_ALLOW_WRITES=1` **and** the call passes `confirm=true` after the user approved that specific action.
