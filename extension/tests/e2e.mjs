@@ -337,7 +337,8 @@ assert.match(await cp.$eval('[data-list="services"]', (e) => e.textContent), /gu
 await cp.click('[data-list="services"] [data-rm="skylights"]');
 assert.doesNotMatch(await cp.$eval('[data-list="services"]', (e) => e.textContent), /skylights/);
 await cp.click("#barun");
-await cp.waitForSelector(".ba-head", { timeout: 420000 }).catch(async (e) => { console.log("audit notice:", await cp.$eval("#notice", (n) => n.textContent).catch(() => "?"), "| sub:", (await cp.$eval("#sub", (n) => n.textContent).catch(() => "?")).slice(0, 300)); throw e; });
+await cp.waitForSelector(".ba-head", { timeout: 420000 }).catch(async (e) => { console.log("audit run label:", await cp.evaluate(() => [document.querySelector("#view .run")?.textContent, document.body.className, document.getElementById("baname")?.value]).catch(() => "?"));
+    console.log("audit notice:", await cp.$eval("#notice", (n) => n.textContent).catch(() => "?"), "| sub:", (await cp.$eval("#sub", (n) => n.textContent).catch(() => "?")).slice(0, 300)); throw e; });
 const auditText = await cp.$eval("#sub", (e) => e.textContent);
 assert.match(auditText, /Business Score/); assert.match(auditText, /Not listed on Yelp/); assert.match(auditText, /Summit Ridge Roofing/);
 assert.match(auditText, /Profile is claimed by the owner/); assert.match(auditText, /Check Bing Places/);
@@ -671,7 +672,7 @@ await phone.click("#pairpc");
 await phone.fill("#jcode", "not a code"); await phone.click("#jgo");
 await phone.waitForFunction(() => /isn't a sync code/.test(document.getElementById("notice").textContent));
 await phone.fill("#jcode", code.toLowerCase()); await phone.click("#jgo");
-await phone.waitForFunction(() => /Brought 2 sites from this phone/.test(document.getElementById("toast").textContent), null, { timeout: 15000 });
+await phone.waitForFunction(() => /Brought 2 new sites from this phone; its details replace/.test(document.getElementById("toast").textContent), null, { timeout: 15000 });
 await phone.waitForSelector("#pairdone"); await phone.click("#pairdone");
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent) && !/to send/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
 await phone.click('#mode [data-tab="sites"]');
@@ -736,7 +737,7 @@ assert.match(pAudit, /Business Score/); assert.match(pAudit, /Not listed on BBB/
 assert.match(pAudit, /\(717\) 555-0199/, "a listing's different phone is shown"); assert.match(pAudit, /Summit Ridge Roofing/);
 assert.match(pAudit, /Get more Google reviews/); assert.match(pAudit, /Use one phone number everywhere/);
 await phone.click('[data-batab="listings"]');
-assert.match(await phone.$eval('[data-pane="listings"]', (e) => e.textContent), /Listed · important/);
+assert.match(await phone.$eval('[data-pane="listings"]', (e) => e.textContent), /Found on Google · view · important/); assert.match(await phone.$eval('[data-pane="listings"]', (e) => e.textContent), /Linked from your website/);
 await phone.click('[data-batab="details"]');
 assert.match(await phone.$eval('[data-pane="details"]', (e) => e.textContent), /Opening hours set/);
 await phone.click('[data-batab="map"]');

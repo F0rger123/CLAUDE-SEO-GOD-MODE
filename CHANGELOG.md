@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.31.0 (2026-11-04): extension 1.26, app 2.1: accurate business audits, back gesture, phone wins when pairing
+
+- **Accurate listings and profile:**
+  - The audit reads the profiles your own website links to (schema `sameAs` and `hasMap`, and homepage links), opens each one to confirm it's there and names the business, and searches Google only for the rest.
+  - Your Google profile is read from your own Google Maps link, so your rating and reviews come from your real profile.
+  - Every name the business goes by counts (`alternateName`).
+  - Checked against masondixonled.com on an Android emulator: the Google profile, Yelp, BBB and Facebook were all found, and it ranks #2 in the map pack and #1 for "govee installation".
+- **Rankings count the map pack:** "Where you compete" shows your map pack position as well as your result position.
+- **New fact cards** under the Business Score: rating and reviews, best map pack position, and listings found.
+- **Your own businesses aren't competitors:** your other businesses and clients are left out, and the same business listed twice counts once.
+- **Listings:** found ones come first, each saying how it was found ("Your Google Maps link · profile read", "Linked from your website · page checked", "Found on Google").
+- **Layout:** the Business Score always fits its ring. The map centres on you, with a "You" label and the competitors near you. Phone-width layouts stack.
+- **Business names:** a new business takes its real name from its website instead of the web address.
+- **Back gesture (phone):** swiping back closes a sheet, goes from a section to Overview, from a site to the list, and from another tab to Sites. Only then does the app go to the background. Uses Capacitor's App plugin.
+- **Pairing:** when the phone scans the computer's QR code, the phone's sites, details and audits replace the computer's for the same sites.
+
 ## 2.30.0 (2026-11-04): extension 1.25, app 2.0: audits run in the background, set themselves up, double-check themselves
 
 - **The Google window works out of sight:** audits, position checks and ChatGPT questions run in a hidden window behind the app's own progress screen. It shows the steps ticking off and what's being searched right now. The window only appears, with a black bar, when Google wants a robot check or ChatGPT wants you to sign in, and it hides again once that's done.

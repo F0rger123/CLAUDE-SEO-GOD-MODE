@@ -162,7 +162,8 @@ export async function searchMaps(q, read, onProgress, onReveal) {
   if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("maps", [q]))[0]?.value || null;
   // Maps fills the place in after the page loads: read again for up to 10 seconds until it's there.
   const waitRead = new Function(`return async function () { for (let i = 0; i < 20; i++) { const r = (${read})(); if (r.business || i === 19) return r; await new Promise((s) => setTimeout(s, 500)); } }`)();
-  const got = await browse([{ q, url: "https://www.google.com/maps/search/" + encodeURIComponent(q), label: `Finding “${q}” on Google Maps…` }], waitRead,
+  const url = /^https?:/.test(q) ? q : "https://www.google.com/maps/search/" + encodeURIComponent(q);
+  const got = await browse([{ q, url, label: /^https?:/.test(q) ? "Opening your Google profile…" : `Finding “${q}” on Google Maps…` }], waitRead,
     { title: "Google Maps: solve the check, then this hides again", onProgress, onReveal, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
       accept: (v) => (v.blocked ? "blocked" : v.kind === "maps" ? "done" : "wait") });
   return got[0]?.value || null;
@@ -204,3 +205,10 @@ export async function keepRunning(title, body) {
 // No updating the running notification: the plugin's update restarts the service without the call Android requires
 // within seconds, and Android then closes the app. The notification stays as started; another says when it's done.
 export const stopKeepRunning = () => canKeepRunning && cap.nativePromise("ForegroundService", "stopForegroundService").catch(() => {});
+
+// ---------------------------------------------------------------- the back gesture
+/** Android's back swipe or button: handler() returns true if it went back inside the app; otherwise the app goes to the background. */
+export function onBack(handler) {
+  if (!has("App")) return;
+  cap.addListener("App", "backButton", () => { if (!handler()) cap.nativePromise("App", "minimizeApp").catch(() => {}); });
+}

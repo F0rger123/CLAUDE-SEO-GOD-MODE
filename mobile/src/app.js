@@ -25,7 +25,7 @@ import { addReading } from "./lib/track.js";
 import { OFF_PAGE } from "./lib/breakdown.js";
 import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
-import { askChatGPT, canKeepRunning, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, keepRunning, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle, searchMaps, stopKeepRunning } from "./native.js";
+import { askChatGPT, canKeepRunning, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, keepRunning, liveApply, onBack, liveDownload, liveReady, newerBuild, scanQR, searchGoogle, searchMaps, stopKeepRunning } from "./native.js";
 import { readChat } from "./readers.js";
 import { competitorsFrom, detectBusiness, locationsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
 import { auditHtml, auditPrompt, bindAudit, bindBizEditor, bizEditor } from "./lib/businessview.js";
@@ -207,14 +207,15 @@ async function switchKeeping(change, done) {
     notice(`Couldn't connect (${esc(why)}), so this phone stays as it was. Try again when you're online.`);
     return start();
   }
+  // This phone's sites, details and audits win: they replace what the other side has for the same site, and are sent.
   const add = mine.sites.filter((s) => !S.sites.has(s.origin));
-  for (const s of add) { S.sites.set(s.origin, s); S.pending.sites[s.origin] = siteRow(s); }
-  const keys = mine.data.filter(([k]) => !S.data.has(k)).map(([k, v]) => (S.data.set(k, v), k));
+  for (const s of mine.sites) { S.sites.set(s.origin, s); S.pending.sites[s.origin] = siteRow(s); }
+  const keys = mine.data.filter(([k]) => k !== "device:phone").map(([k, v]) => (S.data.set(k, v), k));
   // Say hello, so the extension's pairing steps can show this phone connected.
   S.data.set("device:phone", { at: new Date().toISOString(), sites: S.sites.size });
   S.pending.keys = [...new Set([...S.pending.keys, ...keys, "device:phone"])];
   await saveCache();
-  toast(add.length ? `${done}. Brought ${add.length} site${add.length === 1 ? "" : "s"} from this phone` : done);
+  toast(mine.sites.length ? `${done}. Brought ${add.length} new site${add.length === 1 ? "" : "s"} from this phone; its details replace the computer's` : done);
   S.tab = S.pairing ? "account" : "sites"; S.open = null;
   await start();
 }
@@ -488,7 +489,13 @@ async function autoDetect(o) {
   if (S.data.get("binfo:" + o) || S.detecting || S.detected?.has(o)) return;
   (S.detected = S.detected || new Set()).add(o);
   S.detecting = o; render();
-  try { await saveBizInfo(o, mergeBiz(bizInfo(o), await detectBusiness(o))); } catch {}
+  try {
+    const found = await detectBusiness(o);
+    await saveBizInfo(o, mergeBiz(bizInfo(o), found));
+    // A site still named by its web address takes the business's own name.
+    const s = S.sites.get(o);
+    if (s && found.name && (s.name === hostOf(o) || !s.name)) await putSite({ ...s, name: found.name });
+  } catch {}
   S.detecting = null; if (S.open === o && S.stab === "audit") { lastScreen = null; render(); }
 }
 let editor = null;
@@ -528,7 +535,8 @@ async function auditSite(o, { auto = false } = {}) {
     const r = await runBusinessAudit({ biz, scan: scanOf(o), websiteScore: lastPoint(o)?.overall ?? null,
       search: async (qs) => { const got = await searchGoogle(qs, readGoogle, progress, reveal); return qs.map((q) => got.find((x) => x.q === q) || { q, serp: null }); },
       searchProfile: (q) => searchMaps(q, readGoogle, progress, reveal),
-      rate: (x) => rateSite(x + "/", { psi: false }), onProgress: progress });
+      rate: (x) => rateSite(x + "/", { psi: false }), onProgress: progress,
+      ownBusinesses: owned().filter((x) => x.origin !== o).map((x) => ({ origin: x.origin, name: S.data.get("binfo:" + x.origin)?.name || x.name })) });
     S.data.set("baudit:" + o, r);
     await putData(["baudit:" + o]);
     toast(`Business Score ${r.score ?? "–"}`);
@@ -981,6 +989,15 @@ async function checkUpdate(asked = false) {
 $("quickadd").onclick = () => quickAdd();
 document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") return; if (!S.auditing) stopKeepRunning(); checkUpdate(); if (!$("mode").hidden) pull(); });
 setInterval(paintStatus, 60000);
+// The back swipe goes back inside the app: a sheet closes, a section or site goes back to its list, other tabs to Sites.
+onBack(() => {
+  if (!$("sheet").hidden) { closeSheet(); return true; }
+  if (S.pairing || S.paired) { S.pairing = false; S.paired = null; render(); return true; }
+  if (S.open && S.stab && S.stab !== "overview") { S.stab = "overview"; render(); return true; }
+  if (S.open) { S.open = null; render(); scrollTo(0, 0); return true; }
+  if (S.tab !== "sites") { S.tab = "sites"; render(); scrollTo(0, 0); return true; }
+  return false;
+});
 liveReady();
 start();
 checkUpdate();

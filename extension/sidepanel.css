@@ -559,3 +559,16 @@ input[role="switch"]:disabled { opacity: .4; cursor: default; }
 
 .ba-verified { display: grid; gap: 2px; margin: 4px 0 2px; padding: 9px 12px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--pass) 9%, transparent); font-size: 12px; color: var(--muted); }
 .ba-verified b { color: var(--pass); font-size: 12px; }
+
+/* Business audit, third look: the score always fits its ring, and the key facts sit right under it */
+.ba-ring { width: 124px; height: 124px; }
+.ba-ring b { font-size: 32px; transform: translateY(-6px); }
+.ba-ring small { bottom: 30px; width: 70px; font-size: 9.5px; text-align: center; }
+.ba-head { grid-template-columns: 124px 1fr; }
+@media (max-width: 360px) { .ba-head { grid-template-columns: 1fr; justify-items: center; } .ba-parts { width: 100%; } }
+.ba-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0 4px; }
+.ba-facts span { display: grid; gap: 1px; padding: 9px 10px; border-radius: var(--r-sm); background: var(--wash2); border: 1px solid var(--rule); font-size: 11px; color: var(--muted); line-height: 1.25; animation: rise .35s var(--ease) both; }
+.ba-facts span:nth-child(2) { animation-delay: 60ms; } .ba-facts span:nth-child(3) { animation-delay: 120ms; }
+.ba-facts b { font: 800 18px/1.1 var(--display); color: var(--ink); }
+@media (max-width: 380px) { .ba-facts { grid-template-columns: 1fr; } .ba-facts span { grid-template-columns: auto 1fr; align-items: baseline; gap: 8px; } }
+.pin-you { position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%); padding: 1px 6px; border-radius: 99px; background: #000; color: #fff; font: 700 10px/1.4 system-ui, sans-serif; white-space: nowrap; }

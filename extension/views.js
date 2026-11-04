@@ -407,6 +407,8 @@ async function renderAudit() {
         search: async (qs) => { const { results, blocked } = await K.googleSearch(qs, { onProgress: (t) => busy(true, t) });
           if (blocked) ui.notice("Google asked for a robot check, so the audit stopped searching. Solve it in the tab that opened, then run it again.");
           return qs.map((q) => results.find((x) => x.q === q) || { q, serp: null }); },
+        ownBusinesses: (await T.trackedSites()).filter((x) => T.isOwned(x) && x.origin !== me.origin).map((x) => ({ origin: x.origin, name: x.name })),
+        searchProfile: async (q) => (await K.googleSearch([q], { onProgress: (t) => busy(true, t) })).results[0]?.serp || null,
         rate: (o) => rateSite(o + "/", { psiKey }),
         onProgress: (t) => busy(true, t) });
       await chrome.storage.local.set({ [key]: r });

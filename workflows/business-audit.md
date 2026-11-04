@@ -19,7 +19,7 @@ Start from the website when there is one: read its LocalBusiness schema and page
 3. **Google Business Profile.** Search "<name> <town>".
    - No business panel: the profile is missing (`"found": false`).
    - Panel found: check it as `workflows/local-seo.md` describes, covering claimed, primary category, rating, review count against the map pack, website link, phone, hours, photos, description, posts and Q&A.
-4. **Listings.** Run `business_directories` with the trade. For each directory that has a domain, search `"<name>" <town> site:<domain>`. A result naming the business means `listed`; none means `missing`.
+4. **Listings.** First open every profile the website links to (schema `sameAs`/`hasMap`, footer links) and confirm each names the business: those are listed. Use the `hasMap` Google Maps link to read the Google profile directly. Then run `business_directories` with the trade for the rest. For each directory that has a domain, search `"<name>" <town> site:<domain>`. A result naming the business means `listed`; none means `missing`.
    - For Apple Maps, run `apple_maps_check` if it's configured. Otherwise mark it `unknown` and give the check steps.
    - Bing Places: search bing.com/maps for the business, or mark it `unknown`.
 5. **Consistent details.** Compare the phone and address on the website, its LocalBusiness schema (`seo_schema_check`), the Google profile and any listing snippets. Check that hours are set on Google and in the site's schema.

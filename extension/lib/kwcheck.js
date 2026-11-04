@@ -48,11 +48,17 @@ export async function googleSearch(qs, { onProgress = () => {} } = {}) {
       if (i) await sleep(2500 + Math.random() * 1500);
       onProgress(`Searching Google for “${q}” (${i + 1} of ${qs.length})…`);
       const wait = loaded(tab.id);
-      await chrome.tabs.update(tab.id, { url: "https://www.google.com/search?q=" + encodeURIComponent(q) });
+      // A link (a Google Maps profile) opens as is; anything else is searched.
+      await chrome.tabs.update(tab.id, { url: /^https?:/.test(q) ? q : "https://www.google.com/search?q=" + encodeURIComponent(q) });
       await wait;
-      const serp = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }).catch(() => [{}]))[0]?.result;
+      let serp = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }).catch(() => [{}]))[0]?.result;
+      // Maps fills a place in after the page loads.
+      for (let k = 0; k < 6 && serp?.kind === "maps" && !serp.business; k++) {
+        await sleep(1500);
+        serp = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }).catch(() => [{}]))[0]?.result;
+      }
       if (serp?.blocked) { blocked = true; break; }
-      if (serp?.kind !== "serp") { results.push({ q, serp: null }); continue; }
+      if (serp?.kind !== "serp" && serp?.kind !== "maps") { results.push({ q, serp: null }); continue; }
       serp.query = q;
       results.push({ q, serp });
     }

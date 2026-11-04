@@ -41,7 +41,7 @@ export function auditHtml(r, { tracked = new Set() } = {}) {
     <p class="unknowns">Colour is each site's Overall score; a bigger pin means more Google reviews. ${r.me?.place?.approx ? "Your pin is at your town's centre: add your address to the site's schema, or set it in Settings, to place it exactly. " : ""}${placed < people.length ? `${people.length - placed} not placed: ${people.filter((p, i) => !(i ? r.competitors[i - 1].place : r.me?.place)).map((p) => esc(p.name)).join(", ")} (no address on their site).` : ""}</p>`;
 
   const where = (r.searches || []).length ? `<h2 class="sec">Where you compete <small>${r.searches.length} searches</small></h2>
-    <div class="ba-where">${r.searches.map((s, i) => `<div class="wh" style="--i:${i}"><div class="wh-q"><b>${esc(s.q)}</b><span class="wh-me ${s.mine ? (s.mine <= 3 ? "s-pass" : "s-part") : "s-fail"}">${!s.read ? "not read" : s.mine ? `you #${s.mine}` : "you: not in top 10"}</span></div>
+    <div class="ba-where">${r.searches.map((s, i) => `<div class="wh" style="--i:${i}"><div class="wh-q"><b>${esc(s.q)}</b><span class="wh-me ${s.minePack ? "s-pass" : s.mine ? (s.mine <= 3 ? "s-pass" : "s-part") : "s-fail"}">${!s.read ? "not read" : [s.minePack ? `map pack #${s.minePack}` : "", s.mine ? `results #${s.mine}` : ""].filter(Boolean).join(" · ") || "you: not in top 10"}</span></div>
       <small>${s.top.length ? s.top.map((x) => `#${x.position} ${esc(x.name)}`).join(" · ") : s.read ? "No competitor websites in the results." : ""}${s.pack.length ? `<br>Map pack: ${s.pack.map(esc).join(", ")}` : ""}</small></div>`).join("")}</div>` : "";
   const chips = (xs, cls, rivals) => xs.length ? `<div class="ba-svc">${xs.map((x, i) => `<span class="svc ${cls}" style="--i:${Math.min(i, 14)}"><b>${esc(x.name)}</b>${rivals ? `<small>${x.rivals.map(who).join(", ")}</small>` : ""}</span>`).join("")}</div>` : "";
   const services = where + (r.competitors.length || r.me?.services?.length ? `
@@ -61,7 +61,7 @@ export function auditHtml(r, { tracked = new Set() } = {}) {
     ${r.mapPack.length ? `<h2 class="sec">Google map pack <small>${r.searches?.length > 1 ? "all searches" : `"${esc(`${r.biz.category} ${locationsOf(r.biz)[0] || ""}`.trim())}"`}</small></h2>
       <div class="ba-list">${r.mapPack.map((x, i) => `<div class="ba-row"><span class="rk">${i + 1}</span><span><b>${esc(x.name)}</b><small>${x.rating ?? "–"}★${x.category ? ` · ${esc(x.category)}` : ""}</small></span><span class="pack">${bar(x.reviews, maxReviews)}<small>${x.reviews ?? "–"} reviews</small></span></div>`).join("")}</div>` : ""}`;
 
-  const listingsTab = `<div class="ba-list">${r.listings.map((l) => { const [cls, label] = STATUS[l.status]; return `<div class="ba-row"><span class="dot ${cls}"></span><span><b>${esc(l.name)}</b><small>${label}${l.url ? ` · <a href="${esc(l.url)}" target="_blank" rel="noopener">view</a>` : ""}${l.core ? " · important" : ""}</small></span>${l.status !== "listed" && (l.signup || l.check) ? `<a class="btn" href="${esc(l.status === "unknown" ? l.check || l.signup : l.signup)}" target="_blank" rel="noopener">${l.status === "unknown" ? "Check" : "Add free"}</a>` : ""}</div>`; }).join("")}</div>
+  const listingsTab = `<div class="ba-list">${r.listings.map((l) => { const [cls, label] = STATUS[l.status]; return `<div class="ba-row"><span class="dot ${cls}"></span><span><b>${esc(l.name)}</b><small>${l.status === "listed" && l.source ? esc(l.source) : label}${l.url ? ` · <a href="${esc(l.url)}" target="_blank" rel="noopener">view</a>` : ""}${l.core ? " · important" : ""}</small></span>${l.status !== "listed" && (l.signup || l.check) ? `<a class="btn" href="${esc(l.status === "unknown" ? l.check || l.signup : l.signup)}" target="_blank" rel="noopener">${l.status === "unknown" ? "Check" : "Add free"}</a>` : ""}</div>`; }).join("")}</div>
     <p class="unknowns">Found by searching Google for the business on each site. "Not found" means Google didn't show a listing for it, which usually means there isn't one. Every site here has a free listing.</p>`;
 
   const details = `<h2 class="sec">Consistent details</h2>
@@ -69,8 +69,14 @@ export function auditHtml(r, { tracked = new Set() } = {}) {
     ${r.profile ? `<h2 class="sec">Google Business Profile <small>${r.profile.score ?? "–"}/100</small></h2>
       <div class="ba-list">${r.profile.checks.map((c) => `<div class="ba-row">${dot(c.ok)}<span><b>${esc(c.label)}</b><small>${esc(c.detail)}</small></span></div>`).join("")}</div>` : `<p class="lede">No Google Business Profile was found for "${esc(r.profileQuery)}".</p>`}`;
 
+  const facts = [
+    r.me?.rating != null ? `<span><b>${r.me.rating}★</b>${r.me.reviews ?? "–"} Google reviews</span>` : `<span><b>–</b>no Google reviews found</span>`,
+    r.me?.bestPack ? `<span><b>#${r.me.bestPack.minePack}</b>in the map pack for "${esc(r.me.bestPack.q)}"</span>` : r.me?.bestOrganic ? `<span><b>#${r.me.bestOrganic.mine}</b>on Google for "${esc(r.me.bestOrganic.q)}"</span>` : `<span><b>–</b>not in the top results searched</span>`,
+    `<span><b>${listed}/${checked}</b>listings found</span>`,
+  ];
   return `<div class="ba-head ${st(r.score)}">${ring(r.score)}
       <div class="ba-parts">${Object.entries(PARTS).map(([k, p], i) => `<div class="${st(r.parts[k])}" style="--i:${i}"><span>${p.label}</span><b>${r.parts[k] ?? "–"}</b><i style="--w:${r.parts[k] ?? 0}%"></i></div>`).join("")}</div></div>
+    <div class="ba-facts">${facts.join("")}</div>
     <p class="unknowns">${esc(r.biz.name)}${locationsOf(r.biz).length ? `, ${locationsOf(r.biz).map(esc).join(" · ")}` : ""} · ${day(r.t)}. ${r.unread ? `${r.unread} of ${r.searched} Google searches couldn't be read, so some parts are missing. ` : ""}Parts that couldn't be checked are left out of the score.</p>
     ${r.verified ? `<div class="ba-verified"><b>Double-checked</b><span>${[
       r.verified.profileFrom ? `Google profile read from ${esc(r.verified.profileFrom)}` : "No Google profile found",
@@ -121,7 +127,7 @@ async function drawAuditMap(root, r, onOpenSite) {
     ...r.competitors.filter((c) => c.place).map((c) => ({ origin: c.origin, name: c.name, lat: c.place.lat, lng: c.place.lng, scores: c.scores, size: (c.pack?.reviews || 0) / maxReviews, note: c.pack?.reviews != null ? `${c.pack.reviews} reviews` : "" })),
   ].filter(Boolean);
   const { drawMap } = await import("./map.js");
-  drawMap(el, pins, "overall", (o) => o && (onOpenSite ? onOpenSite(o) : window.open(o, "_blank", "noopener")));
+  drawMap(el, pins, "overall", (o) => o && (onOpenSite ? onOpenSite(o) : window.open(o, "_blank", "noopener")), { focusKm: 60 });
 }
 
 /** A prompt for an AI assistant with everything to fix, in order. */

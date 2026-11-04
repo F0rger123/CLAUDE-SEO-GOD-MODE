@@ -75,7 +75,7 @@ export function auditSearches(biz, dirs) {
 /** Listing results from one Google search: listed (with the page and any phone in its snippet) or not found. */
 export function readListings(serp, group, biz) {
   return group.map((d) => {
-    const hit = (serp?.organic || []).find((o) => (hostOf(o.url) === d.domain || hostOf(o.url).endsWith("." + d.domain)) && namesBusiness(`${o.title} ${o.snippet}`, biz.name));
+    const hit = (serp?.organic || []).find((o) => (hostOf(o.url) === d.domain || hostOf(o.url).endsWith("." + d.domain)) && namesMe(`${o.title} ${o.snippet}`, biz));
     return { id: d.id, status: serp ? (hit ? "listed" : "missing") : "unknown", url: hit?.url || null, phones: hit ? phonesIn(hit.snippet) : [] };
   });
 }
@@ -142,6 +142,48 @@ export function businessScore(parts) {
   return Math.round(known.reduce((a, [k, v]) => a + v * PARTS[k].weight, 0) / w);
 }
 
+/**
+ * The profiles a business's own website links to (schema sameAs and hasMap, and links on the homepage), and every
+ * name it goes by (schema name and alternateName). These are checked directly: the most reliable evidence there is.
+ */
+export async function siteProfiles(origin) {
+  const home = await fetchPage(origin + "/");
+  if (home.status !== 200) return { links: [], maps: null, names: [] };
+  const p = parsePage(home.html), items = parseJsonld(p.jsonld).items;
+  const links = new Set(), names = new Set();
+  let maps = null;
+  for (const i of items) {
+    for (const u of [].concat(i.sameAs || [], i.hasMap || [], i.url || [])) if (typeof u === "string" && /^https?:/.test(u)) links.add(u);
+    if (typeof i.hasMap === "string") maps = i.hasMap;
+    for (const n of [].concat(i.name || [], i.alternateName || [])) if (typeof n === "string" && n.trim() && schemaTypes(i).some((t) => !["WebSite", "WebPage", "FAQPage", "Question", "Answer", "ImageObject", "BreadcrumbList"].includes(t))) names.add(n.trim());
+  }
+  for (const m of home.html.matchAll(/href=["'](https?:\/\/[^"'#]+)["']/gi)) if (/(yelp|bbb|facebook|nextdoor|instagram|linkedin|houzz|angi|thumbtack|porch|bark|buildzoom|homeguide|yellowpages|manta|hotfrog|foursquare|alignable|maps\.google|google\.[a-z.]+\/maps|g\.page|maps\.app\.goo\.gl|bing\.com\/maps|maps\.apple)/i.test(m[1])) links.add(m[1]);
+  if (!maps) maps = [...links].find((u) => /maps\.google|google\.[a-z.]+\/maps|g\.page|maps\.app\.goo\.gl/i.test(u)) || null;
+  return { links: [...links], maps, names: [...names] };
+}
+/** Whether text names this business, under any of its names. */
+/** "York's Jolly Light Installers" and yorksjollylights.com: the same business, by a long shared start of letters. */
+const squash = (s) => String(s || "").toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/\.[a-z.]+$/, "").replace(/[^a-z0-9]/g, "");
+export function sameBusiness(a, b) {
+  const x = squash(a), y = squash(b);
+  if (!x || !y) return false;
+  let n = 0; while (n < x.length && x[n] === y[n]) n++;
+  return n >= 10 || (Math.min(x.length, y.length) >= 6 && (x.includes(y) || y.includes(x)));
+}
+export const namesMe = (text, biz) => [biz.name, ...(biz.altNames || [])].filter(Boolean).some((n) => namesBusiness(text, n));
+
+/** Open a profile page and confirm it's up and names the business (some sites block apps: then it's "linked"). */
+async function verifyProfile(url, biz) {
+  try {
+    const r = await withTimeout(fetch(url, { signal: AbortSignal.timeout(12000) }), 14000);
+    if (!r) return "linked";
+    if (r.status === 404 || r.status === 410) return "broken";
+    if (!r.ok) return "linked";
+    const html = await r.text();
+    return namesMe(html.slice(0, 400000), biz) ? "verified" : "linked";
+  } catch { return "linked"; }
+}
+
 // ---------------------------------------------------------------- the audit
 /**
  * Run a business audit.
@@ -149,21 +191,33 @@ export function businessScore(parts) {
  *  search(queries): [{ q, serp }] in the same order (null serp if a page couldn't be read).
  *  rate(origin): a rateSite result for a competitor's website (or null to skip rating competitors).
  */
-export async function runBusinessAudit({ biz, scan, websiteScore = null, search, searchProfile = null, rate, onProgress = () => {} }) {
+export async function runBusinessAudit({ biz, scan, websiteScore = null, search, searchProfile = null, rate, ownBusinesses = [], onProgress = () => {} }) {
+  // Your other businesses and clients aren't this one's competitors.
+  const isOwn = (name, origin) => ownBusinesses.some((o) => (origin && o.origin && sameDomain(origin, o.origin)) || [o.name, o.origin].some((x) => x && (namesBusiness(name, x) || sameBusiness(name, x))));
   // The Google profile first (on Google Maps when the caller can, where the full profile shows): it also tells
   // what the business does when that wasn't filled in.
   biz = { ...biz };
+  onProgress("Reading the profiles your website links to…");
+  const own = await siteProfiles(biz.origin).catch(() => ({ links: [], maps: null, names: [] }));
+  // The site's other names count as yours only when they resemble the name given or the web address.
+  biz.altNames = [...new Set([...(biz.altNames || []), ...own.names])].filter((n) => n !== biz.name && (namesBusiness(n, biz.name) || namesBusiness(biz.name, n) || sameBusiness(n, biz.name) || sameBusiness(n, biz.origin)));
   const profileQ = auditSearches(biz, [])[0].q;
   onProgress(`Looking up ${biz.name} on Google…`);
-  const profileSerp = searchProfile ? await searchProfile(profileQ).catch(() => null) : (await search([profileQ]))[0]?.serp || null;
-  const packMe = (profileSerp?.local || []).find((m) => namesBusiness(m.name, biz.name));
-  const foundPanel = profileSerp?.business && namesBusiness(profileSerp.business.name, biz.name) ? profileSerp.business : null;
+  // Your own Google Maps link opens exactly your profile; a name search can land on someone else's.
+  let profileSerp = own.maps && searchProfile ? await searchProfile(own.maps).catch(() => null) : null;
+  if (!profileSerp?.business || !namesMe(profileSerp.business.name, biz))
+    profileSerp = searchProfile ? await searchProfile(profileQ).catch(() => null) : (await search([profileQ]))[0]?.serp || null;
+  const packMe = (profileSerp?.local || []).find((m) => namesMe(m.name, biz));
+  const foundPanel = profileSerp?.business && namesMe(profileSerp.business.name, biz) ? profileSerp.business : null;
   // No full panel, but the business is in the map pack: that's its profile, with what the map pack shows.
   const panel = foundPanel || (packMe ? { name: packMe.name, rating: packMe.rating, reviews: packMe.reviews, category: packMe.category, address: packMe.address, website: null, claimed: null, hasHours: null } : null);
   if (!biz.category && panel?.category) biz.category = panel.category.toLowerCase();
 
   const dirs = directoriesFor(await loadDirectories(), biz.category);
-  const plan = auditSearches(biz, dirs).filter((p) => p.kind !== "profile");
+  // Listings your website links to are opened and checked directly; Google is searched only for the rest.
+  const linked = new Map();
+  for (const u of own.links) { const h = hostOf(u); const d = dirs.find((x) => x.domain && (h === x.domain || h.endsWith("." + x.domain))); if (d && !linked.has(d.id)) linked.set(d.id, u); }
+  const plan = auditSearches(biz, dirs.filter((d) => !linked.has(d.id))).filter((p) => p.kind !== "profile");
   onProgress(`Searching Google ${plan.length} more times: competitors and listings…`);
   const got = await search(plan.map((p) => p.q));
   plan.unshift({ kind: "profile", q: profileQ }); got.unshift({ q: profileQ, serp: profileSerp });
@@ -175,10 +229,17 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   // Listings
   const listings = [];
   plan.forEach((p, i) => { if (p.kind === "listings") listings.push(...readListings(got[i]?.serp, p.ids.map((id) => dirs.find((d) => d.id === id)), biz)); });
+  for (const [id, url] of linked) {
+    onProgress(`Checking your ${dirs.find((d) => d.id === id).name} page…`);
+    const v = await verifyProfile(url, biz);
+    listings.push({ id, status: v === "broken" ? "missing" : "listed", url, phones: [], source: v === "verified" ? "Linked from your website · page checked" : v === "broken" ? "Your website links to it, but the page is gone" : "Linked from your website" });
+  }
+  for (const l of listings) if (l.status === "listed" && !l.source) l.source = "Found on Google";
   for (const d of dirs.filter((x) => !x.domain)) listings.push({ id: d.id, status: "unknown", url: null, phones: [] });
   const q = encodeURIComponent(`${biz.name} ${locationsOf(biz)[0] || ""}`.trim());
   for (const l of listings) Object.assign(l, (({ name, signup, check, steps, core, why, note }) => ({ name, signup, check: check?.replace("{q}", q) || null, steps, core: !!core, why, note }))(dirs.find((d) => d.id === l.id)));
-  if (panel) listings.unshift({ id: "google", name: "Google Business Profile", core: true, status: "listed", url: null, phones: panel.phone ? phonesIn(panel.phone) : [] });
+  if (panel || own.maps) listings.unshift({ id: "google", name: "Google Business Profile", core: true, status: "listed", url: own.maps || null, phones: panel?.phone ? phonesIn(panel.phone) : [],
+    source: foundPanel ? (own.maps ? "Your Google Maps link · profile read" : "Found on Google") : own.maps ? "Linked from your website" : "In the map pack" });
 
   // Consistency, from the site's own schema and what was found
   const ent = scan?.entity || {};
@@ -192,14 +253,18 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   const words = [...new Set([biz.category, ...(biz.services || [])].flatMap((x) => terms(x || "")))];
   for (const { p, serp } of rivalRuns) {
     const f = competitorsFrom(serp, biz.origin, 6, words);
+    f.sites = f.sites.filter((s) => !namesMe(s.name, biz) && !isOwn(s.name, s.origin));
+    // The same business listed twice ("… Installers" and "… Installers LLC") counts once.
+    f.mapPack = f.mapPack.filter((m, i, all) => !isOwn(m.name) && all.findIndex((x) => namesBusiness(x.name, m.name) || sameBusiness(x.name, m.name)) === i);
     for (const s of f.sites) { const c = by.get(s.origin) || { ...s, seenIn: [] }; c.seenIn.push({ q: p.q, label: p.label, position: s.position }); c.position = Math.min(c.position, s.position); by.set(s.origin, c); }
-    for (const m of f.mapPack) if (!mapPack.some((x) => x.name === m.name)) mapPack.push(m);
+    for (const m of f.mapPack) if (!mapPack.some((x) => x.name === m.name || namesBusiness(x.name, m.name) || sameBusiness(x.name, m.name))) mapPack.push(m);
     const me = (serp?.organic || []).find((o) => sameDomain(o.url, biz.origin));
-    searches.push({ q: p.q, label: p.label, read: !!serp, mine: me ? me.position : null, top: f.sites.slice(0, 5).map((s) => ({ origin: s.origin, name: s.name, position: s.position })), pack: f.mapPack.map((m) => m.name) });
+    const packAt = (serp?.local || []).findIndex((m) => namesMe(m.name, biz)) + 1;
+    searches.push({ q: p.q, label: p.label, read: !!serp, mine: me ? me.position : null, minePack: packAt || null, top: f.sites.slice(0, 5).map((s) => ({ origin: s.origin, name: s.name, position: s.position })), pack: f.mapPack.map((m) => m.name) });
   }
   // The map pack's businesses are the most direct competitors: add them first, by their real website.
   const packSites = [];
-  for (const m of mapPack.filter((x) => !namesBusiness(x.name, biz.name)).slice(0, 4)) {
+  for (const m of mapPack.filter((x) => !namesMe(x.name, biz)).slice(0, 4)) {
     // No website or address shown in the map pack: look the business up by name (Google Maps on the phone).
     if ((!m.website || !m.address) && packSites.length < 3) {
       onProgress(`Looking up ${m.name}…`);
@@ -243,7 +308,7 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   onProgress("Placing everyone on the map…");
   const locate = async (e) => (e?.lat != null ? { lat: e.lat, lng: e.lng } : e?.address ? await geocode(e.address).catch(() => null) : null);
   const firstLoc = locationsOf(biz)[0];
-  const myPack = mapPack.find((x) => namesBusiness(x.name, biz.name));
+  const myPack = mapPack.find((x) => namesMe(x.name, biz));
   const place = (await locate(ent)) || (panel?.address ? await geocode(panel.address).catch(() => null) : null) || (myPack?.address ? await geocode(myPack.address).catch(() => null) : null)
     || (firstLoc ? { ...(await geocode(firstLoc).catch(() => null)), approx: true } : null);
   for (const c of competitors) c.place = (await locate(c.entity)) || (c.packAddress ? await geocode(c.packAddress).catch(() => null) : null);
@@ -277,11 +342,16 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
     consistency: ratio(consistency.map((c) => c.ok)) == null ? null : Math.round(100 * ratio(consistency.map((c) => c.ok))),
     reviews: rv && ratio(rv) != null ? Math.round(100 * ratio(rv)) : null,
   };
+  // Found first, then the important ones still missing, then the rest.
+  const rank = (l) => (l.status === "listed" ? 0 : l.status === "missing" ? (l.core ? 1 : 2) : 3);
+  listings.sort((a, b) => rank(a) - rank(b) || (b.core ? 1 : 0) - (a.core ? 1 : 0));
   const report = { t: new Date().toISOString(), biz, parts, score: businessScore(parts), profile, profileQuery: plan[0].q, listings, consistency, competitors,
     mapPack: found.mapPack, searches, searched: plan.length + recheck.length, unread: got.filter((g) => !g.serp).length,
     verified: { listingsRechecked: recheck.length, foundOnSecondLook: recheck.filter((l) => l.foundOnSecondLook).length, dropped, profileFrom: foundPanel ? (searchProfile ? "Google Maps" : "Google's business panel") : panel ? "the map pack" : null },
     me: { services: myPhrases, place: place?.lat != null ? place : null, scores: scan?.scores ? { overall: websiteScore ?? scan.scores.overall, seo: scan.scores.seo, aeo: scan.scores.aeo, geo: scan.scores.geo } : null,
-      rating: panel?.rating ?? null, reviews: panel?.reviews ?? null, pages: scan?.pagesRated ?? null } };
+      rating: panel?.rating ?? packMe?.rating ?? null, reviews: panel?.reviews ?? packMe?.reviews ?? null, pages: scan?.pagesRated ?? null,
+      bestPack: searches.filter((s) => s.minePack).sort((a, b) => a.minePack - b.minePack)[0] || null,
+      bestOrganic: searches.filter((s) => s.mine).sort((a, b) => a.mine - b.mine)[0] || null } };
   report.issues = issuesFrom(report);
   report.levers = levers(report);
   return report;
@@ -337,7 +407,7 @@ export function serviceMatrix(r) {
 export function levers(r) {
   const out = [];
   const add = (id, impact, title, detail, steps, link = null) => out.push({ id, impact, title, detail, steps, link });
-  const peers = (r.mapPack || []).filter((m) => !namesBusiness(m.name, r.biz.name) && m.reviews != null);
+  const peers = (r.mapPack || []).filter((m) => !namesMe(m.name, r.biz) && m.reviews != null);
   const peerReviews = median(peers.map((m) => m.reviews)), most = peers.reduce((a, m) => Math.max(a, m.reviews), 0);
   const myReviews = r.me?.reviews;
   if (!r.profile && r.parts.profile === 0) add("profile", 3, "Get on Google Maps", "Google showed no business profile for you, so you can't appear in the map pack at all. This comes before everything else.",

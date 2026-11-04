@@ -26,7 +26,7 @@ const colour = (n) => (n == null ? "s-none" : n >= 85 ? "s-pass" : n >= 65 ? "s-
  * Draw the map in `el`. pins: [{ origin, name, lat, lng, scores, me }]. metric: "overall" | "seo" | "aeo" | "geo".
  * size: 0–1, optional (pin grows with it, e.g. by review count). onOpen(origin): a pin's popup button was pressed.
  */
-export async function drawMap(el, pins, metric, onOpen) {
+export async function drawMap(el, pins, metric, onOpen, { focusKm = 0 } = {}) {
   // The screen can redraw while the map code loads: only the newest call draws, into the map box on screen now.
   const mine = ++drawing;
   L = L || (await import("./vendor/leaflet/leaflet-src.esm.js"));
@@ -41,7 +41,7 @@ export async function drawMap(el, pins, metric, onOpen) {
   for (const p of pins) {
     const n = p.scores?.[metric] ?? null;
     const icon = L.divIcon({ className: "", iconSize: [38, 38], iconAnchor: [19, 19],
-      html: `<span class="pin ${colour(n)} ${p.me ? "me" : ""}" data-pin="${p.origin}" style="--sz:${p.size == null ? 1 : (0.8 + 0.7 * p.size).toFixed(2)}">${n ?? "–"}</span>` });
+      html: `${p.me ? `<span class="pin-you">You</span>` : ""}<span class="pin ${colour(n)} ${p.me ? "me" : ""}" data-pin="${p.origin}" style="--sz:${p.size == null ? 1 : (0.8 + 0.7 * p.size).toFixed(2)}">${n ?? "–"}</span>` });
     const m = L.marker([p.lat, p.lng], { icon, title: p.name }).addTo(map);
     const box = document.createElement("div");
     box.className = "pinpop";
@@ -52,7 +52,12 @@ export async function drawMap(el, pins, metric, onOpen) {
     m.bindPopup(box);
     layer.push([p.lat, p.lng]);
   }
-  if (layer.length === 1) map.setView(layer[0], 13);
+  // With focusKm: centred on you, showing the others within that distance.
+  const me = pins.find((p) => p.me);
+  if (me && focusKm) {
+    const near = pins.filter((p) => !p.me && Math.hypot((p.lat - me.lat) * 111, (p.lng - me.lng) * 85) <= focusKm).map((p) => [p.lat, p.lng]);
+    if (near.length) map.fitBounds([[me.lat, me.lng], ...near], { padding: [40, 40], maxZoom: 13 }); else map.setView([me.lat, me.lng], 11);
+  } else if (layer.length === 1) map.setView(layer[0], 13);
   else if (layer.length) map.fitBounds(layer, { padding: [36, 36], maxZoom: 14 });
   else map.setView([39.8, -98.6], 3);
 }
