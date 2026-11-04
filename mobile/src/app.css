@@ -186,3 +186,28 @@ div.brow { grid-template-columns: 1fr auto; grid-template-areas: "nm share"; }
 .ba-row.pick { grid-template-columns: auto 1fr; cursor: pointer; }
 .ba-row.pick input { width: 20px; height: 20px; accent-color: var(--ink); }
 .ba-head { margin-top: 4px; }
+
+/* The mark, as on the app icon; it settles in once when the app opens */
+.brand .logo { width: 22px; height: 22px; flex: none; animation: logoin .7s cubic-bezier(.2, 1.25, .35, 1) both; }
+@keyframes logoin { from { transform: rotate(-90deg) scale(.4); opacity: 0; } }
+body { animation: appin .35s ease-out both; }
+@keyframes appin { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .brand .logo, body { animation: none; } }
+
+/* A running audit: what it's doing, step by step, in the app's own look (the Google window stays hidden) */
+.auditrun { display: grid; gap: 12px; padding: 18px 16px; border-radius: 20px; background: var(--ink); color: var(--paper); animation: rise .35s var(--ease) both; }
+.ar-head { display: flex; gap: 14px; align-items: center; }
+.ar-head b { display: block; font: 800 18px/1.2 var(--display); }
+.ar-head small { color: color-mix(in srgb, var(--paper) 65%, transparent); font-size: 12px; }
+.auditrun .sweep { border-color: color-mix(in srgb, var(--paper) 22%, transparent); border-top-color: var(--paper); }
+.ar-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.ar-steps li { display: flex; gap: 10px; align-items: center; font-size: 13.5px; color: color-mix(in srgb, var(--paper) 45%, transparent); transition: color .3s; }
+.ar-steps li i { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 2px solid currentColor; position: relative; }
+.ar-steps li.now { color: var(--paper); font-weight: 650; }
+.ar-steps li.now i { border-color: var(--paper); border-top-color: transparent; animation: spin .8s linear infinite; }
+.ar-steps li.done { color: color-mix(in srgb, var(--paper) 80%, transparent); }
+.ar-steps li.done i { background: var(--pass); border-color: var(--pass); animation: ba-pop .35s cubic-bezier(.2, 1.25, .35, 1) both; }
+.ar-steps li.done i::after { content: ""; position: absolute; left: 5px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.ar-now { margin: 0; padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--paper) 10%, transparent); font-size: 12.5px; overflow-wrap: anywhere; }
+.ar-alert { margin: 0; padding: 9px 12px; border-radius: 12px; background: #facc15; color: #000; font-size: 12.5px; font-weight: 650; animation: shake .4s ease; }
+.auditrun .unknowns { color: color-mix(in srgb, var(--paper) 60%, transparent); margin: 0; }

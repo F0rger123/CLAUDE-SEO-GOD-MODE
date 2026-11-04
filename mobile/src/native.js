@@ -97,10 +97,10 @@ export const canSearch = () => !!globalThis.sgmTestBrowse || has("InAppBrowser")
  * load) or "blocked" (a robot check or sign-in: you deal with it in the window). It never tries to get past one.
  * Returns [{ q, value }] for the jobs done; value is null if that page couldn't be read. Closing the window stops it.
  */
-async function browse(jobs, read, { title, accept, blockedText, headers, onProgress = () => {}, timeout = 120000 }) {
+async function browse(jobs, read, { title, accept, blockedText, headers, revealAfter = 0, onProgress = () => {}, onReveal = () => {}, timeout = 120000 }) {
   // The app has no bundler, so there's no registerPlugin(): call the plugin through the native bridge directly.
   const call = (method) => (opts = {}) => cap.nativePromise("InAppBrowser", method, opts);
-  const browser = { openWebView: call("openWebView"), setUrl: call("setUrl"), executeScript: call("executeScript"), close: call("close"),
+  const browser = { openWebView: call("openWebView"), setUrl: call("setUrl"), executeScript: call("executeScript"), close: call("close"), show: call("show"), hide: call("hide"),
     addListener: (event, fn) => cap.addListener("InAppBrowser", event, fn) };
   let wake = null, closed = false;
   const code = `Promise.resolve((${read})()).then((v) => window.mobileApp.postMessage({ detail: { value: v } }))`;
@@ -109,16 +109,23 @@ async function browse(jobs, read, { title, accept, blockedText, headers, onProgr
     browser.addListener("messageFromWebview", (e) => wake?.(e.detail?.value)),
     browser.addListener("closeEvent", () => { closed = true; wake?.(null); }),
   ]);
+  // The window works hidden behind the app's own progress screen. It only shows when it needs you: a robot check,
+  // or (revealAfter) a page that's taking long, like ChatGPT asking you to sign in. It hides again once read.
+  let shown = false;
+  const reveal = (why) => { if (shown || closed) return; shown = true; browser.show().catch(() => {}); onReveal(why); };
+  const conceal = () => { if (!shown) return; shown = false; browser.hide().catch(() => {}); onReveal(null); };
   const one = (url, first) => new Promise((resolve) => {
-    const done = (v) => { clearTimeout(timer); wake = null; resolve(v); };
+    const done = (v) => { clearTimeout(timer); clearTimeout(slow); wake = null; conceal(); resolve(v); };
     const timer = setTimeout(() => done(null), timeout);
+    const slow = revealAfter ? setTimeout(() => reveal(blockedText), revealAfter) : null;
     wake = (v) => {
       if (closed || !v) return done(null);
       const a = accept(v);
-      if (a === "blocked") onProgress(blockedText);
+      if (a === "blocked") { onProgress(blockedText); reveal(blockedText); }
       else if (a === "done") done(v);
     };
-    (first ? browser.openWebView({ url, title, isPresentAfterPageLoad: false, ...(headers ? { headers } : {}) }) : browser.setUrl({ url })).catch(() => done(null));
+    (first ? browser.openWebView({ url, title, isPresentAfterPageLoad: false, hidden: true, invisibilityMode: "FAKE_VISIBLE", toolbarType: "compact",
+      toolbarColor: "#000000", toolbarTextColor: "#FFFFFF", ...(headers ? { headers } : {}) }) : browser.setUrl({ url })).catch(() => done(null));
   });
   const out = [];
   try {
@@ -140,32 +147,33 @@ async function browse(jobs, read, { title, accept, blockedText, headers, onProgr
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36";
 
 /** Google each keyword. Returns [{ q, serp }]. */
-export async function searchGoogle(qs, read, onProgress) {
+export async function searchGoogle(qs, read, onProgress, onReveal) {
   if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("google", qs)).map(({ q, value }) => ({ q, serp: value }));
   const jobs = qs.map((q, i) => ({ q, url: "https://www.google.com/search?q=" + encodeURIComponent(q), label: `Searching Google for “${q}” (${i + 1} of ${qs.length})…` }));
   // Google's phone pages hide each result's address behind an encrypted redirect; its desktop page links them
   // directly, the same page the Chrome extension reads.
-  const got = await browse(jobs, read, { title: "Google", onProgress, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
+  const got = await browse(jobs, read, { title: "Google: solve the check, then this hides again", onProgress, onReveal, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
     accept: (v) => (v.blocked ? "blocked" : v.kind === "serp" ? "done" : "wait") });
   return got.map(({ q, value }) => ({ q, serp: value }));
 }
 
 /** A business on Google Maps (the full profile: hours, photos, claim status). read: readGoogle. Returns its page read. */
-export async function searchMaps(q, read, onProgress) {
+export async function searchMaps(q, read, onProgress, onReveal) {
   if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("maps", [q]))[0]?.value || null;
   // Maps fills the place in after the page loads: read again for up to 10 seconds until it's there.
   const waitRead = new Function(`return async function () { for (let i = 0; i < 20; i++) { const r = (${read})(); if (r.business || i === 19) return r; await new Promise((s) => setTimeout(s, 500)); } }`)();
   const got = await browse([{ q, url: "https://www.google.com/maps/search/" + encodeURIComponent(q), label: `Finding “${q}” on Google Maps…` }], waitRead,
-    { title: "Google Maps", onProgress, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
+    { title: "Google Maps: solve the check, then this hides again", onProgress, onReveal, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",
       accept: (v) => (v.blocked ? "blocked" : v.kind === "maps" ? "done" : "wait") });
   return got[0]?.value || null;
 }
 
 /** Ask ChatGPT each question in a window on the phone (no account needed; sign in there if it asks). Returns [{ q, answer }]. */
-export async function askChatGPT(qs, read, onProgress) {
+export async function askChatGPT(qs, read, onProgress, onReveal) {
   if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("chatgpt", qs)).map(({ q, value }) => ({ q, answer: value }));
   const jobs = qs.map((q, i) => ({ q, url: "https://chatgpt.com/?q=" + encodeURIComponent(q), label: `Asking ChatGPT “${q}” (${i + 1} of ${qs.length})…` }));
-  const got = await browse(jobs, read, { title: "ChatGPT", onProgress, timeout: 180000, blockedText: "",
+  const got = await browse(jobs, read, { title: "ChatGPT: sign in or verify if asked, then this hides again", onProgress, onReveal, timeout: 180000, revealAfter: 25000,
+    blockedText: "ChatGPT is taking a while: it may be asking you to sign in or verify. Do that in the window.",
     accept: (v) => (v.kind === "chat" && v.text ? "done" : "wait") });
   return got.map(({ q, value }) => ({ q, answer: value }));
 }
@@ -177,3 +185,22 @@ export const liveReady = () => canLiveUpdate && cap.nativePromise("CapacitorUpda
 export const liveDownload = async (url, version, checksum) => (await cap.nativePromise("CapacitorUpdater", "download", { url, version: String(version), checksum })).id;
 /** Switch to a downloaded bundle: now (reloads the app) or the next time it opens. */
 export const liveApply = (id, now) => cap.nativePromise("CapacitorUpdater", now ? "set" : "next", { id });
+
+// ---------------------------------------------------------------- long jobs keep running in the background
+/** Whether Android can keep a job running with the app in the background (a foreground service, with a notification). */
+export const canKeepRunning = has("ForegroundService");
+const FG = 4711;
+// Android 14+ needs the service's type on every start: data sync (ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC).
+const DATA_SYNC = 1;
+/** Start keeping the app running, with a notification saying what it's doing. Asks for notification permission once. */
+export async function keepRunning(title, body) {
+  if (!canKeepRunning) return;
+  try {
+    const p = await cap.nativePromise("ForegroundService", "checkPermissions");
+    if (p?.display !== "granted") await cap.nativePromise("ForegroundService", "requestPermissions");
+    await cap.nativePromise("ForegroundService", "startForegroundService", { id: FG, title, body, smallIcon: "ic_stat_sgm", silent: true, serviceType: DATA_SYNC });
+  } catch {}
+}
+// No updating the running notification: the plugin's update restarts the service without the call Android requires
+// within seconds, and Android then closes the app. The notification stays as started; another says when it's done.
+export const stopKeepRunning = () => canKeepRunning && cap.nativePromise("ForegroundService", "stopForegroundService").catch(() => {});

@@ -337,7 +337,7 @@ assert.match(await cp.$eval('[data-list="services"]', (e) => e.textContent), /gu
 await cp.click('[data-list="services"] [data-rm="skylights"]');
 assert.doesNotMatch(await cp.$eval('[data-list="services"]', (e) => e.textContent), /skylights/);
 await cp.click("#barun");
-await cp.waitForSelector(".ba-head", { timeout: 240000 });
+await cp.waitForSelector(".ba-head", { timeout: 420000 }).catch(async (e) => { console.log("audit notice:", await cp.$eval("#notice", (n) => n.textContent).catch(() => "?"), "| sub:", (await cp.$eval("#sub", (n) => n.textContent).catch(() => "?")).slice(0, 300)); throw e; });
 const auditText = await cp.$eval("#sub", (e) => e.textContent);
 assert.match(auditText, /Business Score/); assert.match(auditText, /Not listed on Yelp/); assert.match(auditText, /Summit Ridge Roofing/);
 assert.match(auditText, /Profile is claimed by the owner/); assert.match(auditText, /Check Bing Places/);
@@ -526,6 +526,8 @@ for (const b of [badBase, goodBase, lookBase, rival]) await phone.route(b + "/**
 });
 // Stands in for the browser window the Android app searches Google in.
 // Stands in for the browser window the Android app opens Google and ChatGPT in.
+// New businesses set themselves up (scan + business audit); most steps here test other things, so that waits until the end.
+await phone.addInitScript(() => { window.sgmTestNoAutoSetup = true; });
 await phone.addInitScript(({ mine, rival }) => { const serp = (q, rest) => ({ kind: "serp", query: q, readAt: new Date().toISOString(), paa: [], related: [], local: [], ...rest });
   const google = (q) => /site:/.test(q) ? serp(q, { organic: [{ position: 1, url: "https://www.yelp.com/biz/hi-roofing-york", title: "Hi Roofing - York, PA - Yelp", snippet: "Roofing. Call (717) 555-0199." }] })
     : /^Hi Roofing/.test(q) ? serp(q, { organic: [], business: { name: "Hi Roofing", category: "Roofing contractor", rating: 3.9, reviews: 14, phone: "(717) 555-0100", hasHours: false, claimed: false, photos: 0 },
@@ -643,7 +645,6 @@ const looked = await phone.$eval("#view", (e) => e.textContent);
 assert.match(looked, /SEO snapshot/); assert.match(looked, /Overall/);
 await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-rate.png") });
 await phone.click("#track"); await phone.click('[data-qa="mine"]'); await phone.click("#qsave");
-await phone.waitForSelector("#fclose"); assert.match(await phone.$eval("#sheet", (e) => e.textContent), /Find .*competitors\?/); await phone.click("#fclose");
 await phone.waitForSelector("#scannow");
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent), null, { timeout: 20000 });
 await phone.waitForFunction(() => /Synced/.test(document.getElementById("status").textContent) && !/to send/.test(document.getElementById("status").textContent));
@@ -655,7 +656,6 @@ sb.flags.notReady = true;
 await phone.click('#mode [data-tab="sites"]');
 await phone.click("#quickadd"); await phone.click('[data-qa="client"]');
 await phone.fill("#qurl", "waiting-client.example"); await phone.click("#qsave");
-await phone.waitForSelector("#fclose"); await phone.click("#fclose");
 await phone.waitForFunction(() => /sync server is set up/.test(document.getElementById("status").textContent), null, { timeout: 15000 });
 assert.doesNotMatch(await phone.$eval("#notice", (e) => (e.hidden ? "" : e.textContent)), /schema cache/);
 await phone.click('#mode [data-tab="sites"]');
@@ -752,6 +752,19 @@ await phone.click('[data-batab="compare"]');
 await phone.click(`[data-track="${rival}"]`);
 await phone.waitForFunction(() => /Tracking Summit Ridge Roofing/.test(document.getElementById("toast").textContent));
 assert.ok(sb.tables.data.some((r) => r.key === "baudit:" + badBase && r.value?.score != null), "audit synced");
+// Adding a business sets it up by itself: website rating, details, then the full business audit, with its progress screen.
+await phone.evaluate(() => { window.sgmTestNoAutoSetup = false; });
+await phone.click('#mode [data-tab="sites"]');
+await phone.click("#quickadd"); await phone.click('[data-qa="client"]');
+await phone.fill("#qurl", goodBase); await phone.click("#qsave");
+await phone.waitForFunction(() => /Rating your website.*Double-checking/s.test(document.querySelector(".auditrun")?.textContent || ""), null, { timeout: 20000 });
+await phone.waitForTimeout(700); await phone.screenshot({ path: path.join(repo, "assets", "mobile-audit-running.png") });
+await phone.waitForFunction(() => /Business Score \d+/.test(document.getElementById("toast").textContent), null, { timeout: 240000 });
+for (let i = 0; i < 50 && !sb.tables.data.some((r) => r.key === "baudit:" + goodBase); i++) await phone.waitForTimeout(200);
+assert.ok(sb.tables.data.some((r) => r.key === "baudit:" + goodBase), "new business audited by itself");
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Double-checked/);
+await phone.click(`[data-open="${badBase}"]`).catch(() => {});
+await phone.click('#mode [data-tab="sites"]'); await phone.click(`[data-open="${badBase}"]`);
 // Find competitors automatically from a business's Competitors section.
 await phone.click('[data-stab="competitors"]');
 await phone.click("#findcomp");

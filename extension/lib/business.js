@@ -103,6 +103,12 @@ export async function resolveLink(url) {
   if (!url || !/google\.[a-z.]+\/(goto|url)/.test(url)) return url || null;
   try { const r = await fetch(url, { signal: AbortSignal.timeout(12000) }); return /google\./.test(hostOf(r.url)) ? null : r.url; } catch { return null; }
 }
+/** Straight-line distance between two places, in km. */
+export function distanceKm(a, b) {
+  const R = 6371, rad = (x) => (x * Math.PI) / 180, dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 const withTimeout = (p, ms) => Promise.race([p, new Promise((res) => setTimeout(() => res(null), ms))]);
 
 // ---------------------------------------------------------------- scoring
@@ -215,7 +221,7 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   const mine = await detectTargets(biz.origin + "/").catch(() => null);
   const myPhrases = [...new Set([...(biz.services || []), ...(mine?.services || []).map((s) => s.phrase)])].slice(0, 16);
   const myServices = new Set(myPhrases.flatMap((ph) => terms(ph)));
-  const competitors = [];
+  const competitors = [], dropped = [];
   for (const c of found.sites) {
     onProgress(`Rating ${c.origin ? hostOf(c.origin) : c.name}…`);
     // A slow or huge site shouldn't hold up the audit: each gets a few minutes at most.
@@ -223,9 +229,14 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
     const t = c.origin ? await withTimeout(detectTargets(c.origin + "/").catch(() => null), 45000) : null;
     const services = (t?.services || []).map((s) => s.phrase).slice(0, 14);
     const offers = services.filter((ph) => terms(ph).some((w) => !myServices.has(w))).slice(0, 6);
+    const pack = found.mapPack.find((m) => namesBusiness(m.name, c.name) || namesBusiness(c.name, m.name)) || null;
+    // Double-check it's a business like this one: in the map pack, or its site states an address, a phone or services.
+    if (c.origin && !c.fromPack && !pack && !r?.entity?.address && !r?.entity?.phone && services.length < 2) {
+      dropped.push({ name: c.name, origin: c.origin, why: t?.error || r == null ? "its website couldn't be read" : "its website doesn't look like a local business (no address, phone or services)" });
+      continue;
+    }
     competitors.push({ ...c, scores: r?.scores ? { overall: r.scores.overall, seo: r.scores.seo, aeo: r.scores.aeo, geo: r.scores.geo } : null, offers, services,
-      pages: r?.pages_rated ?? null, entity: r?.entity || null,
-      pack: found.mapPack.find((m) => namesBusiness(m.name, c.name) || namesBusiness(c.name, m.name)) || null });
+      pages: r?.pages_rated ?? null, entity: r?.entity || null, pack });
   }
 
   // Where everyone is, for the map: coordinates from each site's schema, else its address looked up on OpenStreetMap.
@@ -236,6 +247,23 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   const place = (await locate(ent)) || (panel?.address ? await geocode(panel.address).catch(() => null) : null) || (myPack?.address ? await geocode(myPack.address).catch(() => null) : null)
     || (firstLoc ? { ...(await geocode(firstLoc).catch(() => null)), approx: true } : null);
   for (const c of competitors) c.place = (await locate(c.entity)) || (c.packAddress ? await geocode(c.packAddress).catch(() => null) : null);
+  if (place && !place.approx) for (const c of [...competitors]) {
+    const km = c.place ? distanceKm(place, c.place) : null;
+    if (km != null && km > 120 && !c.fromPack) { competitors.splice(competitors.indexOf(c), 1); dropped.push({ name: c.name, origin: c.origin, why: `it's ${Math.round(km)} km away` }); }
+    else c.km = km == null ? null : Math.round(km);
+  }
+
+  // Double-check listings Google didn't show: search each important one again, a different way (no quotes or town).
+  const recheck = listings.filter((l) => l.status === "missing" && l.core).slice(0, 4);
+  if (recheck.length) {
+    onProgress(`Double-checking ${recheck.length} listing${recheck.length === 1 ? "" : "s"}…`);
+    const again = await search(recheck.map((l) => `${biz.name} site:${dirs.find((d) => d.id === l.id).domain}`)).catch(() => []);
+    recheck.forEach((l, i) => {
+      const [res] = readListings(again[i]?.serp, [dirs.find((d) => d.id === l.id)], biz);
+      l.checked = 2;
+      if (res.status === "listed") Object.assign(l, { status: "listed", url: res.url, phones: res.phones, foundOnSecondLook: true });
+    });
+  }
 
   // Parts and score
   const core = listings.filter((l) => l.status !== "unknown");
@@ -250,7 +278,8 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
     reviews: rv && ratio(rv) != null ? Math.round(100 * ratio(rv)) : null,
   };
   const report = { t: new Date().toISOString(), biz, parts, score: businessScore(parts), profile, profileQuery: plan[0].q, listings, consistency, competitors,
-    mapPack: found.mapPack, searches, searched: plan.length, unread: got.filter((g) => !g.serp).length,
+    mapPack: found.mapPack, searches, searched: plan.length + recheck.length, unread: got.filter((g) => !g.serp).length,
+    verified: { listingsRechecked: recheck.length, foundOnSecondLook: recheck.filter((l) => l.foundOnSecondLook).length, dropped, profileFrom: foundPanel ? (searchProfile ? "Google Maps" : "Google's business panel") : panel ? "the map pack" : null },
     me: { services: myPhrases, place: place?.lat != null ? place : null, scores: scan?.scores ? { overall: websiteScore ?? scan.scores.overall, seo: scan.scores.seo, aeo: scan.scores.aeo, geo: scan.scores.geo } : null,
       rating: panel?.rating ?? null, reviews: panel?.reviews ?? null, pages: scan?.pagesRated ?? null } };
   report.issues = issuesFrom(report);

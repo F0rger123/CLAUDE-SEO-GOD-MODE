@@ -11,7 +11,8 @@ let L = null, map = null, lastLookup = 0, drawing = 0;
 /** Coordinates for an address, or null. At most one lookup a second, as OpenStreetMap asks. */
 export async function geocode(address) {
   const wait = lastLookup + 1100 - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  // Android pauses timers while the app is in the background, so there a short wait is counted out instead.
+  if (wait > 0) { if (typeof document !== "undefined" && document.hidden) { const end = Date.now() + wait; while (Date.now() < end); } else await new Promise((r) => setTimeout(r, wait)); }
   lastLookup = Date.now();
   const res = await fetch(NOMINATIM + encodeURIComponent(address), { headers: { "Accept-Language": "en", "User-Agent": "SEOGodMode/1.0 (theagencyzero.com)" } });
   if (!res.ok) throw new Error(`Address lookup failed (${res.status})`);

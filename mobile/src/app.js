@@ -25,7 +25,7 @@ import { addReading } from "./lib/track.js";
 import { OFF_PAGE } from "./lib/breakdown.js";
 import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
-import { askChatGPT, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle, searchMaps } from "./native.js";
+import { askChatGPT, canKeepRunning, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, keepRunning, liveApply, liveDownload, liveReady, newerBuild, scanQR, searchGoogle, searchMaps, stopKeepRunning } from "./native.js";
 import { readChat } from "./readers.js";
 import { competitorsFrom, detectBusiness, locationsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
 import { auditHtml, auditPrompt, bindAudit, bindBizEditor, bizEditor } from "./lib/businessview.js";
@@ -63,7 +63,16 @@ const S = { sites: new Map(), data: new Map(), cursor: { sites: EPOCH, data: EPO
 const trend = (o) => S.data.get("trend:" + o) || [];
 const kwpos = (o) => S.data.get("kwpos:" + o) || [];
 const scanOf = (o) => S.data.get("scan:" + o) || null;
-const lastPoint = (o) => { const h = trend(o); return h[h.length - 1] || null; };
+// Competitors a business audit found (not tracked): their scores and places, so Compare can rank them too.
+const AUTO = new Map();
+const lastPoint = (o) => { const h = trend(o); return h[h.length - 1] || AUTO.get(o)?.point || null; };
+function autoRivals(o) {
+  const r = S.data.get("baudit:" + o);
+  return (r?.competitors || []).filter((c) => c.origin && !S.sites.has(c.origin)).map((c) => {
+    AUTO.set(c.origin, { point: c.scores ? { ...c.scores, t: r.t } : null, place: c.place || null });
+    return { origin: c.origin, name: c.name, auto: true, keywords: [] };
+  });
+}
 const latestPos = (o, q) => [...kwpos(o)].reverse().find((r) => r.q === q) || null;
 
 async function loadCache() {
@@ -256,7 +265,10 @@ async function keepScan(origin, scan) {
 async function scanSite(origin) {
   if (S.scanning) return notice("A scan is already running. Wait for it to finish.");
   S.scanning = { origin, text: "Starting…" };
-  const show = () => { const el = $("scanprog"); if (el) el.textContent = S.scanning ? `${hostOf(origin)}: ${S.scanning.text}` : ""; };
+  const show = () => {
+    const el = $("scanprog"); if (el) el.textContent = S.scanning ? `${hostOf(origin)}: ${S.scanning.text}` : "";
+    const box = $("bastatus"); if (box && S.setup === origin && S.scanning) box.outerHTML = auditProgress(origin);
+  };
   render();
   try {
     const r = await rateSite(origin + "/", { psi: isNative, onProgress: (text) => { S.scanning.text = text; show(); } });
@@ -401,6 +413,7 @@ function bindSite(s, o) {
   on("findcomp", () => findCompetitors(o));
   if ($("baform")) {
     $("baform").onsubmit = (e) => { e.preventDefault(); auditSite(o); };
+    editorFor = o;
     editor = bindBizEditor($("baform"), "ba", bizInfo(o), {
       onDetect: async (cur) => { const merged = mergeBiz(cur, await detectBusiness(o)); await saveBizInfo(o, merged); return { merged, note: "Filled in from your website. Check it, and add anything missing." }; },
       onGoogle: async (cur) => { if (!cur.name) throw new Error("Add the business name first."); const g = await lookupOnGoogle(cur, async (qs) => [{ q: qs[0], serp: await searchMaps(qs[0], readGoogle) }]);
@@ -464,7 +477,7 @@ function siteAudit(s, o) {
   const r = S.data.get("baudit:" + o), b = bizInfo(o), running = S.auditing?.origin === o;
   const form = `<form id="baform">${bizEditor(b, "ba", { canLookup: canSearch() })}</form>
     ${canSearch() ? `<div class="btns stack"><button id="barun" class="primary">${r ? "Run the audit again" : "Run complete business audit"}</button></div>` : `<p class="unknowns">The business audit needs the Android app (it searches Google on the phone).</p>`}`;
-  if (running) return scanBox("Auditing the business…", "baprog", S.auditing.text, "Searches Google in a window on this phone and rates competitors' websites. Takes a few minutes. If Google asks for a robot check, solve it there.");
+  if (running || S.scanning?.origin === o && S.setup === o) return auditProgress(o);
   if (!r) return `${S.detecting === o ? `<p class="unknowns">Reading your website to fill this in…</p>` : ""}<p class="lede">Checks the whole business, not just the website: its Google profile, listings on Yelp, Bing, Apple Maps, BBB and more, the same phone and hours everywhere, reviews, and competitors. Each problem comes with steps to fix it.</p>${form}`;
   return `<div class="ba-out">${auditHtml(r, { tracked: new Set(S.sites.keys()) })}</div>
     <div class="btns stack"><button id="bacopy" class="primary">Copy fix prompt</button></div>
@@ -479,24 +492,60 @@ async function autoDetect(o) {
   S.detecting = null; if (S.open === o && S.stab === "audit") { lastScreen = null; render(); }
 }
 let editor = null;
-async function auditSite(o) {
+// The steps of a full setup, in order, and the progress text that marks each one.
+const AUDIT_STEPS = [["site", "Rating your website", /^Rating the whole site|^Crawl|^Reading|^Check|^Scor|^Fetch|^Pagespeed/i], ["profile", "Finding your Google profile", /^Looking up .* on Google|^Finding .* on Google Maps/],
+  ["search", "Searching for competitors and listings", /^Searching Google/], ["rate", "Rating competitors' websites", /^Rating |^Looking up /], ["map", "Placing everyone on the map", /^Placing/], ["check", "Double-checking", /^Double-checking/]];
+function auditProgress(o) {
+  const a = S.auditing?.origin === o ? S.auditing : { text: S.scanning?.text || "Starting…", step: 0, t0: S.setupT0 || Date.now() };
+  const now = a.step ?? 0, secs = Math.round((Date.now() - (a.t0 || Date.now())) / 1000);
+  return `<div class="auditrun" id="bastatus">
+    <div class="ar-head"><span class="sweep" aria-hidden="true"></span><div><b>${S.setup === o ? "Setting up your business" : "Auditing your business"}</b><small>${secs ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")} so far · ` : ""}usually 2–4 minutes</small></div></div>
+    <ol class="ar-steps">${AUDIT_STEPS.map(([, label], i) => `<li class="${i < now ? "done" : i === now ? "now" : ""}"><i></i><span>${label}</span></li>`).join("")}</ol>
+    <p class="ar-now" id="baprog">${esc(a.text)}</p>
+    ${a.reveal ? `<p class="ar-alert">${esc(a.reveal)}</p>` : ""}
+    <p class="unknowns">${canKeepRunning ? "You can leave the app: it keeps going, with a notification while it works. The results are here when you're back." : "Keep the app open until it finishes."}</p></div>`;
+}
+let editorFor = null;
+async function auditSite(o, { auto = false } = {}) {
   if (S.auditing) return;
-  const biz = { ...(editor ? editor.get() : readBiz(o, "ba")), origin: o };
+  const biz = { ...(!auto && editor && editorFor === o && $("baform") ? editor.get() : bizInfo(o)), origin: o };
   if (!biz.name) return notice("Add the business name.");
   await saveBizInfo(o, biz);
-  const progress = (text) => { if (!text) return; S.auditing.text = text; const el = $("baprog"); if (el) el.textContent = text; };
-  S.auditing = { origin: o, text: "Starting…" };
+  const progress = (text) => {
+    if (!text) return;
+    const a = S.auditing;
+    a.text = text;
+    const i = AUDIT_STEPS.findIndex(([, , re], k) => k >= (a.step ?? 0) && re.test(text));
+    if (i > a.step) a.step = i;
+    const box = $("bastatus");
+    if (box && S.open === o) box.outerHTML = auditProgress(o);
+  };
+  const reveal = (why) => { S.auditing.reveal = why; progress(S.auditing.text); if (why) haptic("warn"); };
+  S.auditing = { origin: o, text: "Starting…", step: 1, t0: S.setupT0 || Date.now() };
+  keepRunning(`Auditing ${biz.name}`, "Keeps going in the background. This goes away when it's done.");
   render();
   try {
     const r = await runBusinessAudit({ biz, scan: scanOf(o), websiteScore: lastPoint(o)?.overall ?? null,
-      search: async (qs) => { const got = await searchGoogle(qs, readGoogle, progress); return qs.map((q) => got.find((x) => x.q === q) || { q, serp: null }); },
-      searchProfile: (q) => searchMaps(q, readGoogle, progress),
+      search: async (qs) => { const got = await searchGoogle(qs, readGoogle, progress, reveal); return qs.map((q) => got.find((x) => x.q === q) || { q, serp: null }); },
+      searchProfile: (q) => searchMaps(q, readGoogle, progress, reveal),
       rate: (x) => rateSite(x + "/", { psi: false }), onProgress: progress });
     S.data.set("baudit:" + o, r);
     await putData(["baudit:" + o]);
     toast(`Business Score ${r.score ?? "–"}`);
   } catch (e) { fail(e); }
-  finally { S.auditing = null; lastScreen = null; render(); }
+  finally { stopKeepRunning(); S.auditing = null; S.setup = null; lastScreen = null; render(); }
+}
+
+/** A new business: rate its website, fill in its details, then run the full business audit, all by itself. */
+async function autoSetup(o) {
+  if (globalThis.sgmTestNoAutoSetup || S.auditing || S.scanning) return;
+  S.setup = o; S.setupT0 = Date.now(); S.open = o; S.tab = "sites"; S.stab = "audit"; lastScreen = null; render();
+  try {
+    if (!scanOf(o)) await scanSite(o);
+    S.detected?.delete(o);
+    await autoDetect(o);
+    if (canSearch()) await auditSite(o, { auto: true });
+  } finally { S.setup = null; S.setupT0 = null; render(); }
 }
 async function trackRival(of, origin, name) {
   await putSite({ origin, name: name || hostOf(origin), addedAt: new Date().toISOString(), keywords: [], role: "competitor", competitorOf: of });
@@ -598,7 +647,7 @@ function renderCompare() {
   const biz = owned();
   if (!biz.length) { $("view").innerHTML = `<div class="emptybox"><div class="empty-art" aria-hidden="true"><span></span><span></span><span></span></div><b>No business to compare yet</b><p>Add your own website or a client with + Quick add, then its competitors. Rankings, a map and AI answers show up here.</p></div>`; return; }
   const o = S.compare && S.sites.has(S.compare) && owned().some((b) => b.origin === S.compare) ? S.compare : biz[0].origin;
-  const s = S.sites.get(o), group_ = [s, ...competitorsOf(o)];
+  const s = S.sites.get(o), group_ = [s, ...competitorsOf(o), ...autoRivals(o)];
   const tab = CMP_TABS[S.ctab] ? S.ctab : "rankings";
   const body = { rankings: cmpRankings, map: cmpMap, ai: cmpAI }[tab](s, group_);
   $("view").innerHTML = `${biz.length > 1 ? `<div class="bizchips" role="tablist">${biz.map((b) => `<button data-biz="${esc(b.origin)}" aria-selected="${b.origin === o}">${esc(b.name)}</button>`).join("")}</div>` : `<h1 class="q">${esc(s.name)}</h1>`}
@@ -607,6 +656,8 @@ function renderCompare() {
     <div class="btns stack"><button id="addcomp">Add a competitor</button></div>`;
   document.querySelectorAll("[data-biz]").forEach((b) => (b.onclick = () => { S.compare = b.dataset.biz; render(); }));
   document.querySelectorAll("[data-ctab]").forEach((b) => (b.onclick = () => { S.ctab = b.dataset.ctab; render(); }));
+  document.querySelectorAll("[data-trackauto]").forEach((b) => (b.onclick = () => trackRival(o, b.dataset.trackauto, b.dataset.name).then(render)));
+  if ($("cmpaudit")) $("cmpaudit").onclick = () => { S.open = o; S.tab = "sites"; S.stab = "audit"; render(); auditSite(o); };
   $("addcomp").onclick = () => quickAdd({ role: "competitor", of: o });
   bindOpen();
   if (tab === "map") bindMap(s, group_);
@@ -624,11 +675,13 @@ function cmpRankings(s, all) {
     const gap = best && me ? (best.p[k] ?? 0) - (me[k] ?? 0) : null;
     return `<div class="leader ${status(me?.[k])}"><span>${label}</span><b>${best ? esc(best.x.name) : "–"}</b><small>${!best ? "no scores yet" : best.x.origin === s.origin ? "you lead" : gap > 0 ? `${gap} ahead of you` : "tied with you"}</small></div>`;
   }).join("");
-  return `${me ? `<div class="standing"><div>${ring(me.overall, "md")}</div><div><b>${rank ? `#${rank} of ${scored.length}` : "Not ranked"}</b><small>${all.length < 2 ? "Add competitors to rank against." : `Overall, among the scanned sites.${all.length > scored.length ? ` ${all.length - scored.length} not scanned yet: open ${all.length - scored.length === 1 ? "it" : "them"} and press Scan now.` : ""}`}</small></div></div>`
+  const noRivals = all.length < 2 && !S.data.get("baudit:" + s.origin);
+  return `${noRivals ? `<div class="emptybox"><b>Find ${esc(s.name)}'s competitors</b><p>The business audit searches Google for what you do in your area and adds the businesses that show up here, rated the same way.</p>${canSearch() ? `<div class="btns"><button id="cmpaudit" class="primary">Run the business audit</button></div>` : ""}</div>` : ""}
+    ${me ? `<div class="standing"><div>${ring(me.overall, "md")}</div><div><b>${rank ? `#${rank} of ${scored.length}` : "Not ranked"}</b><small>${all.length < 2 ? "Add competitors to rank against." : `Overall, among the scanned sites.${all.length > scored.length ? ` ${all.length - scored.length} not scanned yet: open ${all.length - scored.length === 1 ? "it" : "them"} and press Scan now.` : ""}`}</small></div></div>`
       : `<div class="emptybox"><b>${esc(s.name)} isn't scanned yet</b><p>Open it and press Scan now to see where it stands.</p></div>`}
     ${scored.length > 1 ? `<h2 class="sec">Who leads</h2><div class="leaders">${leaders}</div>` : ""}
     <h2 class="sec">Leaderboard <small>${all.length}</small></h2>
-    <div class="board">${rows.map(({ x, p }, i) => `<button class="brow ${x.origin === s.origin ? "me" : ""}" data-open="${esc(x.origin)}"><span class="rk">${p ? i + 1 : "–"}</span><span class="nm"><b>${esc(x.name)}</b><small>${x.origin === s.origin ? "You" : "Competitor"}${p ? ` · ${when(p.t)}` : " · not scanned"}</small></span>${ring(p?.overall)}<span class="chips">${chip(p?.seo, "SEO")}${chip(p?.aeo, "AEO")}${chip(p?.geo, "GEO")}</span></button>`).join("")}</div>
+    <div class="board">${rows.map(({ x, p }, i) => `<button class="brow ${x.origin === s.origin ? "me" : ""}" ${x.auto ? `data-trackauto="${esc(x.origin)}" data-name="${esc(x.name)}"` : `data-open="${esc(x.origin)}"`}><span class="rk">${p ? i + 1 : "–"}</span><span class="nm"><b>${esc(x.name)}</b><small>${x.origin === s.origin ? "You" : x.auto ? "Found by the business audit · tap to track" : "Competitor"}${p ? ` · ${when(p.t)}` : " · not scanned"}</small></span>${ring(p?.overall)}<span class="chips">${chip(p?.seo, "SEO")}${chip(p?.aeo, "AEO")}${chip(p?.geo, "GEO")}</span></button>`).join("")}</div>
     ${kws.length && all.length > 1 ? `<h2 class="sec">Google positions</h2><div class="scrollx"><table class="mini"><tr><th>Keyword</th>${all.map((x) => `<th>${esc(x.name.slice(0, 12))}</th>`).join("")}</tr>${kws.map((q) => `<tr><td>${esc(q)}</td>${all.map((x) => `<td>${posOf(x, q)}</td>`).join("")}</tr>`).join("")}</table></div>` : ""}
     ${all.some((x) => trend(x.origin).length > 1) ? `<h2 class="sec">Overall score over time</h2>${lineChart(all.slice(0, 5).map((x, i) => ({ name: x.name, cls: ["main", "k1", "k2", "k3", "k4"][i], points: trend(x.origin).map((p) => ({ t: p.t, v: p.overall })) })), { label: "Overall score: you and competitors" })}` : ""}`;
 }
@@ -636,7 +689,7 @@ function cmpRankings(s, all) {
 /** The map: each site where it is, coloured by the chosen score. */
 function cmpMap(s, all) {
   const metric = METRICS[S.metric] ? S.metric : "overall";
-  const missing = all.filter((x) => !S.data.get("geo:" + x.origin));
+  const missing = all.filter((x) => !S.data.get("geo:" + x.origin) && !AUTO.get(x.origin)?.place);
   return `<div class="metrics">${Object.entries(METRICS).map(([k, l]) => `<button data-metric="${k}" aria-pressed="${k === metric}">${l}</button>`).join("")}</div>
     <div id="map" class="map" role="region" aria-label="Map of ${esc(s.name)} and its competitors"></div>
     <div class="legend3"><span class="s-pass"><i></i>85+</span><span class="s-part"><i></i>65–84</span><span class="s-fail"><i></i>under 65</span><span class="s-none"><i></i>not scanned</span></div>
@@ -645,7 +698,7 @@ function cmpMap(s, all) {
 async function bindMap(s, all) {
   document.querySelectorAll("[data-metric]").forEach((b) => (b.onclick = () => { S.metric = b.dataset.metric; render(); }));
   const draw = () => {
-    const pins = all.map((x) => ({ x, g: S.data.get("geo:" + x.origin) })).filter((r) => r.g).map(({ x, g }) => ({ origin: x.origin, name: x.name, lat: g.lat, lng: g.lng, scores: lastPoint(x.origin), me: x.origin === s.origin }));
+    const pins = all.map((x) => ({ x, g: S.data.get("geo:" + x.origin) || AUTO.get(x.origin)?.place })).filter((r) => r.g).map(({ x, g }) => ({ origin: x.origin, name: x.name, lat: g.lat, lng: g.lng, scores: lastPoint(x.origin), me: x.origin === s.origin }));
     return drawMap($("map"), pins, METRICS[S.metric] ? S.metric : "overall", openSite).catch((e) => notice(`Couldn't draw the map: ${esc(e.message || e)}`));
   };
   draw();
@@ -822,7 +875,7 @@ function quickAdd(pre = {}) {
         if (S.lookup?.origin === o) { await keepScan(o, S.lookup.scan); S.lookup = null; toast(`Tracking ${hostOf(o)}`); }
         else toast(`Added ${hostOf(o)}. Press Scan now to rate it`);
         openSite(o);
-        if ((w.role === "mine" || w.role === "client") && !competitorsOf(o).length && canSearch()) setTimeout(() => findCompetitors(o), 500);
+        if (w.role === "mine" || w.role === "client") autoSetup(o);
       }
       catch (err) { $("qsave").disabled = false; fail(err); }
     };
@@ -841,6 +894,7 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const TABS = ["sites", "compare", "account"];
 let lastScreen = null, lastDepth = 0;
 function countUp(el) {
+  if (document.hidden) return; // drawn while the app is in the background: keep the final number
   const to = +el.dataset.n, t0 = performance.now(), dur = 950;
   const step = (t) => { if (!el.isConnected) return; const k = Math.min(1, (t - t0) / dur); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
   el.textContent = 0; requestAnimationFrame(step);
@@ -925,7 +979,7 @@ async function checkUpdate(asked = false) {
   $("updlater").onclick = () => { localStorage.setItem("sgm.skipBuild", String(u.build)); closeSheet(); };
 }
 $("quickadd").onclick = () => quickAdd();
-document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") return; checkUpdate(); if (!$("mode").hidden) pull(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") return; if (!S.auditing) stopKeepRunning(); checkUpdate(); if (!$("mode").hidden) pull(); });
 setInterval(paintStatus, 60000);
 liveReady();
 start();

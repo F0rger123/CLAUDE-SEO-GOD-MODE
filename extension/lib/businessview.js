@@ -24,7 +24,7 @@ export function auditHtml(r, { tracked = new Set() } = {}) {
   const placed = [r.me?.place, ...r.competitors.map((c) => c.place)].filter(Boolean).length;
   const who = (o) => esc(r.competitors.find((c) => c.origin === o)?.name || host(o));
   const people = [{ me: true, name: r.biz.name, origin: r.biz.origin, scores: r.me?.scores, reviews: r.me?.reviews, rating: r.me?.rating, pages: r.me?.pages, services: r.me?.services?.length },
-    ...r.competitors.map((c) => ({ name: c.name, origin: c.origin, scores: c.scores, reviews: c.pack?.reviews ?? null, rating: c.pack?.rating ?? null, pages: c.pages, services: c.services?.length, position: c.position }))];
+    ...r.competitors.map((c) => ({ km: c.km ?? null, name: c.name, origin: c.origin, scores: c.scores, reviews: c.pack?.reviews ?? null, rating: c.pack?.rating ?? null, pages: c.pages, services: c.services?.length, position: c.position }))];
   const maxReviews = Math.max(1, ...people.map((p) => p.reviews || 0), ...(r.mapPack || []).map((x) => x.reviews || 0));
   const counts = { plan: lv.length || issues.length, map: placed, services: m.gaps.length + m.only.length, compare: r.competitors.length, listings: `${listed}/${checked}`, details: r.consistency.filter((c) => c.ok === false).length };
 
@@ -52,7 +52,7 @@ export function auditHtml(r, { tracked = new Set() } = {}) {
 
   const bar = (n, max) => `<span class="ba-bar"><i style="--w:${max ? Math.round((100 * (n || 0)) / max) : 0}%"></i></span>`;
   const compare = `<div class="ba-cmp">${people.map((p, i) => `<div class="cmp-card ${p.me ? "me" : ""}" style="--i:${i}">
-      <div class="cmp-head"><b>${esc(p.name)}</b><small>${p.me ? "You" : p.position ? `#${p.position} on Google` : "In the map pack"}${p.origin ? ` · ${esc(host(p.origin))}` : " · no website found"}</small></div>
+      <div class="cmp-head"><b>${esc(p.name)}</b><small>${p.me ? "You" : p.position ? `#${p.position} on Google` : "In the map pack"}${p.origin ? ` · ${esc(host(p.origin))}` : " · no website found"}${p.km != null ? ` · ${p.km} km away` : ""}</small></div>
       <div class="cmp-scores">${["overall", "seo", "aeo", "geo"].map((k) => `<span class="chip ${st(p.scores?.[k])}"><b>${p.scores?.[k] ?? "–"}</b>${k === "overall" ? "All" : k.toUpperCase()}</span>`).join("")}</div>
       <div class="cmp-row"><span>Reviews</span>${bar(p.reviews, maxReviews)}<b>${p.reviews ?? "–"}${p.rating != null ? ` · ${p.rating}★` : ""}</b></div>
       <div class="cmp-row"><span>Pages</span>${bar(p.pages, Math.max(1, ...people.map((x) => x.pages || 0)))}<b>${p.pages ?? "–"}</b></div>
@@ -72,6 +72,11 @@ export function auditHtml(r, { tracked = new Set() } = {}) {
   return `<div class="ba-head ${st(r.score)}">${ring(r.score)}
       <div class="ba-parts">${Object.entries(PARTS).map(([k, p], i) => `<div class="${st(r.parts[k])}" style="--i:${i}"><span>${p.label}</span><b>${r.parts[k] ?? "–"}</b><i style="--w:${r.parts[k] ?? 0}%"></i></div>`).join("")}</div></div>
     <p class="unknowns">${esc(r.biz.name)}${locationsOf(r.biz).length ? `, ${locationsOf(r.biz).map(esc).join(" · ")}` : ""} · ${day(r.t)}. ${r.unread ? `${r.unread} of ${r.searched} Google searches couldn't be read, so some parts are missing. ` : ""}Parts that couldn't be checked are left out of the score.</p>
+    ${r.verified ? `<div class="ba-verified"><b>Double-checked</b><span>${[
+      r.verified.profileFrom ? `Google profile read from ${esc(r.verified.profileFrom)}` : "No Google profile found",
+      r.verified.listingsRechecked ? `${r.verified.listingsRechecked} missing listing${r.verified.listingsRechecked === 1 ? "" : "s"} searched again${r.verified.foundOnSecondLook ? ` (${r.verified.foundOnSecondLook} found)` : ", still not found"}` : "",
+      r.verified.dropped?.length ? `${r.verified.dropped.length} result${r.verified.dropped.length === 1 ? "" : "s"} left out: ${r.verified.dropped.map((d) => `${esc(d.name)} (${esc(d.why)})`).join("; ")}` : "Every competitor's website checked",
+    ].filter(Boolean).join(" · ")}</span></div>` : ""}
     <div class="segs ba-tabs" role="tablist">${Object.entries(TABS).map(([k, l], i) => `<button role="tab" data-batab="${k}" aria-selected="${i === 0}">${l}<small>${counts[k]}</small></button>`).join("")}</div>
     ${Object.entries({ plan, map, services, compare, listings: listingsTab, details }).map(([k, html], i) => `<section class="ba-pane" data-pane="${k}" ${i ? "hidden" : ""}>${html}</section>`).join("")}`;
 }
@@ -80,7 +85,7 @@ export function auditHtml(r, { tracked = new Set() } = {}) {
 export function bindAudit(root, r, { onTrack, onOpenSite } = {}) {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const count = (el) => {
-    const to = +el.dataset.count; if (reduced) return;
+    const to = +el.dataset.count; if (reduced || document.hidden) return;
     const t0 = performance.now(); el.textContent = 0;
     const step = (t) => { if (!el.isConnected) return; const k = Math.min(1, (t - t0) / 900); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.30.0 (2026-11-04): extension 1.25, app 2.0: audits run in the background, set themselves up, double-check themselves
+
+- **The Google window works out of sight:** audits, position checks and ChatGPT questions run in a hidden window behind the app's own progress screen. It shows the steps ticking off and what's being searched right now. The window only appears, with a black bar, when Google wants a robot check or ChatGPT wants you to sign in, and it hides again once that's done.
+- **Runs in the background:** leave the app and an audit keeps going (Android foreground service, "data sync" type), with a notification while it works. The notification goes away when it's done; the results are there when you're back. Tested on an Android emulator: a full audit finished in the background with no crash.
+- **Double-checks itself:**
+  - Important listings Google didn't show are searched again a second way.
+  - Competitors must look like local businesses (in the map pack, or with an address, phone or services on their site).
+  - Ones over 120 km away are left out.
+  - The report says what was double-checked and what was left out, and why.
+- **Adding your business or a client sets it up by itself:** it rates the website, fills in the details, then runs the full business audit.
+- **Compare uses the competitors the audit found**, rated and on the map, instead of "#1 of 1", until you track your own. With no audit yet, it offers to run one.
+- **New app icon and launch screen:** a centred mark on black, the same on the launch screen, the home screen and the header, which animates in once.
+- This build changes the app's native parts, so it installs from the APK; updates after it install inside the app again.
+- **Dropped:** the plugin's notification update. It restarted the service without the call Android requires, and Android then closed the app.
+
 ## 2.29.0 (2026-11-03): extension 1.24, app 1.3: details filled in for you, many locations and services; phone searches fixed
 
 - **Fixed on the phone:** "cap.registerPlugin is not a function". The Google and ChatGPT window now works. The app has no bundler, so it calls the plugin through Capacitor's native bridge. It broke the business audit, Google position checks and Ask ChatGPT, and it's now tested on an Android emulator against live Google.
