@@ -532,8 +532,8 @@ await phone.addInitScript(() => { window.sgmTestNoAutoSetup = true; });
 await phone.addInitScript(({ mine, rival }) => { const serp = (q, rest) => ({ kind: "serp", query: q, readAt: new Date().toISOString(), paa: [], related: [], local: [], ...rest });
   const google = (q) => /site:/.test(q) ? serp(q, { organic: [{ position: 1, url: "https://www.yelp.com/biz/hi-roofing-york", title: "Hi Roofing - York, PA - Yelp", snippet: "Roofing. Call (717) 555-0199." }] })
     : /^Hi Roofing/.test(q) ? serp(q, { organic: [], business: { name: "Hi Roofing", category: "Roofing contractor", rating: 3.9, reviews: 14, phone: "(717) 555-0100", hasHours: false, claimed: false, photos: 0 },
-        local: [{ name: "Summit Ridge Roofing", rating: 4.9, reviews: 212 }, { name: "Keystone Roofers", rating: 4.6, reviews: 87 }] })
-    : /^roofing contractor/.test(q) ? serp(q, { organic: [{ position: 1, url: rival + "/", title: "Summit Ridge Roofing: Roof Repair & Replacement, York PA", snippet: "" }], local: [{ name: "Summit Ridge Roofing", rating: 4.9, reviews: 212 }] })
+        local: [{ name: "Keystone Ridge Roofing", rating: 4.9, reviews: 212 }, { name: "Keystone Roofers", rating: 4.6, reviews: 87 }] })
+    : /^roofing contractor/.test(q) ? serp(q, { organic: [{ position: 1, url: rival + "/", title: "Keystone Ridge Roofing: Roof Repair & Replacement, York PA", snippet: "" }], local: [{ name: "Keystone Ridge Roofing", rating: 4.9, reviews: 212 }] })
     : serp(q, { organic: [{ position: 1, url: "https://top-rival.example/", title: "Top", snippet: "" }, { position: 2, url: mine + "/", title: "Mine", snippet: "" }], paa: ["roof repair cost"] });
   window.sgmTestBrowse = async (kind, qs) => qs.map((q) => ({ q, value: kind === "maps" ? { ...google(q), kind: "maps" } : kind === "google" ? google(q)
   : { kind: "chat", text: "For " + q + ", homeowners often recommend Rival Roofing (rival-roofing.example) and Acme Roofs.", links: ["https://rival-roofing.example/", "https://acme-roofs.example/"] } })); }, { mine: lookBase, rival });
@@ -734,7 +734,7 @@ await phone.waitForFunction(() => /Business Score \d+/.test(document.getElementB
 await phone.waitForSelector(".ba-head");
 const pAudit = await phone.$eval("#view", (e) => e.textContent);
 assert.match(pAudit, /Business Score/); assert.match(pAudit, /Not listed on BBB/); assert.match(pAudit, /Same phone number everywhere/);
-assert.match(pAudit, /\(717\) 555-0199/, "a listing's different phone is shown"); assert.match(pAudit, /Summit Ridge Roofing/);
+assert.match(pAudit, /\(717\) 555-0199/, "a listing's different phone is shown"); assert.match(pAudit, /Keystone Ridge Roofing/);
 assert.match(pAudit, /Get more Google reviews/); assert.match(pAudit, /Use one phone number everywhere/);
 await phone.click('[data-batab="listings"]');
 assert.match(await phone.$eval('[data-pane="listings"]', (e) => e.textContent), /Found on Google · view · important/); assert.match(await phone.$eval('[data-pane="listings"]', (e) => e.textContent), /Linked from your website/);
@@ -751,7 +751,7 @@ await phone.click('[data-batab="plan"]');
 await phone.waitForTimeout(1300); await phone.screenshot({ path: path.join(repo, "assets", "mobile-audit.png") });
 await phone.click('[data-batab="compare"]');
 await phone.click(`[data-track="${rival}"]`);
-await phone.waitForFunction(() => /Tracking Summit Ridge Roofing/.test(document.getElementById("toast").textContent));
+await phone.waitForFunction(() => /Tracking Keystone Ridge Roofing/.test(document.getElementById("toast").textContent));
 assert.ok(sb.tables.data.some((r) => r.key === "baudit:" + badBase && r.value?.score != null), "audit synced");
 // Adding a business sets it up by itself: website rating, details, then the full business audit, with its progress screen.
 await phone.evaluate(() => { window.sgmTestNoAutoSetup = false; });

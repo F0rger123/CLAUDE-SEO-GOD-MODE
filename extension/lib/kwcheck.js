@@ -47,13 +47,15 @@ export async function googleSearch(qs, { onProgress = () => {} } = {}) {
     for (const [i, q] of qs.entries()) {
       if (i) await sleep(2500 + Math.random() * 1500);
       onProgress(`Searching Google for “${q}” (${i + 1} of ${qs.length})…`);
-      const wait = loaded(tab.id);
+      // One search gets 45 seconds at most, so a page that never settles can't hold up an audit.
+      const deadline = Date.now() + 45000;
+      const wait = Promise.race([loaded(tab.id), sleep(45000)]);
       // A link (a Google Maps profile) opens as is; anything else is searched.
       await chrome.tabs.update(tab.id, { url: /^https?:/.test(q) ? q : "https://www.google.com/search?q=" + encodeURIComponent(q) });
       await wait;
-      let serp = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }).catch(() => [{}]))[0]?.result;
+      let serp = (await Promise.race([chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }).catch(() => [{}]), sleep(15000).then(() => [{}])]))[0]?.result;
       // Maps fills a place in after the page loads.
-      for (let k = 0; k < 6 && serp?.kind === "maps" && !serp.business; k++) {
+      for (let k = 0; k < 6 && serp?.kind === "maps" && !serp.business && Date.now() < deadline; k++) {
         await sleep(1500);
         serp = (await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readGoogle }).catch(() => [{}]))[0]?.result;
       }

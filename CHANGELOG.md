@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.32.0 (2026-11-04): extension 1.27, app 2.2: careful competitor finding, details filled in when adding a site
+
+- **Competitors, found carefully:** one finder now does it for both the business audit and **Find competitors automatically**.
+  - **Searches:** what you do in your base town and the towns you serve (up to 4), plus your main services in your main market.
+  - **Map pack first:** each map pack business is looked up on Google Maps for its website, address and reviews.
+  - **Website check:** every website must mention your trade and give a phone or address.
+  - **Left out, with the reason shown:**
+    - your own businesses
+    - brand sites (govee.com for a Govee installer)
+    - tips and guide pages, product pages and directories
+    - anything over 80 km away (using the address, or the town or county a result's title names)
+  - **Ranked** by map pack position, how often and how high each shows up, and reviews, with the reasons listed for each. It takes a few minutes and keeps going in the background.
+  - Checked live against masondixonled.com on an Android emulator.
+- **Name matching ignores trade words:** "Keystone Ridge Roofing" no longer matches "Summit Ridge Roofing". Only the distinctive words in a name count.
+- **Adding your business or a client on the phone:** as soon as the web address is in, the app reads the site and fills in the name, what it does (from its schema or the service its homepage title leads with), locations, services and the areas it serves, all editable. It also suggests searches to track in your main market.
+- **The extension's Google searches** each get a 45-second limit, so a page that never settles can't stall an audit.
+- **New test:** fails if a stray control character (a regex `` written as a backspace) gets into the code.
+
 ## 2.31.0 (2026-11-04): extension 1.26, app 2.1: accurate business audits, back gesture, phone wins when pairing
 
 - **Accurate listings and profile:**

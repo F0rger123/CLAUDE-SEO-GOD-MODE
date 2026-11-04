@@ -27,7 +27,7 @@ import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
 import { askChatGPT, canKeepRunning, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, keepRunning, liveApply, onBack, liveDownload, liveReady, newerBuild, scanQR, searchGoogle, searchMaps, stopKeepRunning } from "./native.js";
 import { readChat } from "./readers.js";
-import { competitorsFrom, detectBusiness, locationsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
+import { detectBusiness, findCompetitors as findRivals, locationsOf, marketsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
 import { auditHtml, auditPrompt, bindAudit, bindBizEditor, bizEditor } from "./lib/businessview.js";
 import { drawMap, geocode } from "./lib/map.js";
 
@@ -574,21 +574,30 @@ function findCompetitors(o) {
     $("fform").onsubmit = async (e) => {
       e.preventDefault();
       const biz = readBiz(o, "f");
-      if (!biz.category) return notice("Add what the business does, for example: roofing contractor.");
+
       await saveBizInfo(o, biz);
-      box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Finding competitors…</h2></div>${scanBox("Searching Google…", "fprog", `${biz.category} ${biz.city}`)}`;
-      const [hit] = await searchGoogle([`${biz.category} ${biz.city}`.trim()], readGoogle, (t) => { const el = $("fprog"); if (el) el.textContent = t; }).catch(() => []);
-      show(competitorsFrom(hit?.serp, o, 6), biz);
+      box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Finding competitors…</h2></div>${scanBox("Searching carefully", "fprog", "Starting…", "Searches each place and service, looks up the map pack businesses and checks every website. Takes a few minutes; you can leave the app.")}`;
+      const progress = (t) => { const el = $("fprog"); if (el) el.textContent = t; };
+      keepRunning(`Finding competitors for ${biz.name}`, "Keeps going in the background. This goes away when it's done.");
+      try {
+        const full = { ...bizInfo(o), ...biz, locations: [biz.locations[0], ...bizInfo(o).locations.slice(1)].filter(Boolean) };
+        const res = await findRivals({ biz: full, onProgress: progress,
+          search: async (qs) => { const got = await searchGoogle(qs, readGoogle, progress); return qs.map((q) => got.find((x) => x.q === q) || { q, serp: null }); },
+          searchProfile: (q) => searchMaps(q, readGoogle, progress),
+          ownBusinesses: owned().filter((x) => x.origin !== o).map((x) => ({ origin: x.origin, name: S.data.get("binfo:" + x.origin)?.name || x.name })) });
+        show(res, full);
+      } finally { stopKeepRunning(); }
     };
   };
-  const show = (found, biz) => {
-    const sites = found.sites.filter((x) => !S.sites.has(x.origin));
-    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">${sites.length ? `${sites.length} competitor${sites.length === 1 ? "" : "s"} found` : "No new competitors found"}</h2><button id="fclose" class="linkish">Close</button></div>
-      ${sites.length ? `<p class="lede">Ranking on Google for "${esc(`${biz.category} ${biz.city}`.trim())}". Tick the ones to track as ${esc(s.name)}'s competitors.</p>
-        <div class="ba-list">${sites.map((x, i) => `<label class="ba-row pick"><input type="checkbox" data-pick="${esc(x.origin)}" data-name="${esc(x.name)}" ${i < 3 ? "checked" : ""}><span><b>${esc(x.name)}</b><small>${esc(hostOf(x.origin))} · #${x.position} on Google</small></span></label>`).join("")}</div>
+  const show = (res, biz) => {
+    const sites = res.list.filter((x) => x.origin && !S.sites.has(x.origin)), noSite = res.list.filter((x) => !x.origin);
+    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">${res.error ? "Can't search yet" : sites.length ? `${sites.length} competitor${sites.length === 1 ? "" : "s"} found` : "No new competitors found"}</h2><button id="fclose" class="linkish">Close</button></div>
+      ${res.error ? `<p class="lede">${esc(res.error)}</p>` : sites.length ? `<p class="lede">Ranked by how often and how high they show up for ${res.searches.length} searches${res.category ? ` for “${esc(res.category)}”` : ""}, map pack first. Every website was checked. Tick the ones to track.</p>
+        <div class="ba-list">${sites.map((x, i) => `<label class="ba-row pick"><input type="checkbox" data-pick="${esc(x.origin)}" data-name="${esc(x.name)}" ${i < 4 ? "checked" : ""}><span><b>${esc(x.name)}</b><small>${esc(hostOf(x.origin))}</small>${x.why.map((y) => `<small>${esc(y)}</small>`).join("")}</span></label>`).join("")}</div>
         <div class="btns stack"><button id="fadd" class="primary">Track the ticked ones</button></div>`
-        : `<p class="lede">Google showed no competitor websites for "${esc(`${biz.category} ${biz.city}`.trim())}" that aren't tracked already. Try different words, or add one by hand.</p>`}
-      ${found.mapPack.length ? `<p class="unknowns">Map pack: ${found.mapPack.map((m) => esc(m.name)).join(", ")}.</p>` : ""}`;
+        : `<p class="lede">Nothing new for those searches. Check what it does and where it works, then try again, or add one by hand.</p>`}
+      ${noSite.length ? `<p class="unknowns">Also in the map pack, without a website found: ${noSite.map((m) => esc(m.name)).join(", ")}.</p>` : ""}
+      ${res.dropped?.length ? `<details class="fold"><summary>Left out (${res.dropped.length})</summary><div class="pad">${res.dropped.map((d) => `<p class="unknowns"><b>${esc(d.name)}</b>: ${esc(d.why)}</p>`).join("")}</div></details>` : ""}`;
     $("fclose").onclick = close;
     if ($("fadd")) $("fadd").onclick = async () => {
       const picks = [...box.querySelectorAll("[data-pick]:checked")];
@@ -862,24 +871,57 @@ function quickAdd(pre = {}) {
       : `<form id="qform"><div class="field"><label for="qurl">Website address</label><input id="qurl" class="search big" inputmode="url" autocomplete="off" placeholder="example.com" value="${esc(w.url)}"></div>
         ${w.role === "general" && biz.length ? `<div class="field"><label>Link it to one of your businesses? (optional)</label><div class="tiles">${biz.map((b) => tile("data-of", b.origin, esc(b.name), b.role === "client" ? "Client" : "Your business", w.of === b.origin)).join("")}${tile("data-of", "", "No link", "Keep it on its own.", !w.of)}</div></div>` : ""}
         ${w.role === "competitor" ? `<div class="field"><label>Whose competitor is it?</label><div class="tiles">${biz.map((b) => tile("data-of", b.origin, esc(b.name), b.role === "client" ? "Client" : "Your business", w.of === b.origin)).join("")}${tile("data-of", "", "Not linked", "Track it on its own.", w.of === "")}</div></div>` : ""}
-        <div class="field"><label for="qkw">Searches it should rank for (optional, comma separated)</label><input id="qkw" class="search" placeholder="roof repair york pa, metal roofing"></div>
+        ${w.role === "mine" || w.role === "client" ? `<div id="qdetect" class="qdetect">${w.found ? "" : `<p class="unknowns">Enter the website and its details fill in here: what it does, where, its services.</p>`}</div>` : ""}
+        <div class="field"><label for="qkw">Searches it should rank for (optional, comma separated)</label><input id="qkw" class="search" placeholder="roof repair york pa, metal roofing" value="${esc(w.kw || "")}"></div>
         <div class="btns stack"><button class="primary" id="qsave" ${w.role === "competitor" && biz.length && w.of == null ? "disabled" : ""}>Add</button>${w.fixed ? "" : `<button type="button" id="qback">Back</button>`}</div></form>`}`;
     $("qclose").onclick = close;
     box.querySelectorAll("[data-qa]").forEach((b) => (b.onclick = () => { w.role = b.dataset.qa; draw(); }));
     box.querySelectorAll("[data-of]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); w.url = $("qurl").value; w.of = b.dataset.of; draw(); }));
     if ($("qback")) $("qback").onclick = () => { w.role = null; draw(); };
     const form = $("qform");
+    // Your business or a client: read the website as soon as its address is in, and fill in what it finds.
+    let qeditor = null, detectT = null;
+    const showFound = () => {
+      const box = $("qdetect"); if (!box || !w.found) return;
+      box.innerHTML = `<p class="qd-note">${esc(w.foundNote || "Found on the website. Change anything that's wrong.")}</p>${bizEditor(w.found, "qd", { canLookup: false })}`;
+      qeditor = bindBizEditor(box, "qd", w.found, {});
+      box.querySelector("#qddetect")?.remove();
+    };
+    const detect = async () => {
+      let o; try { o = originOf($("qurl").value); } catch { return; }
+      if (w.foundFor === o) return;
+      w.foundFor = o; w.url = $("qurl").value;
+      const box = $("qdetect"); if (box) box.innerHTML = `<p class="qd-note"><span class="sweep mini"></span>Reading ${esc(hostOf(o))}…</p>`;
+      try {
+        const f = await detectBusiness(o);
+        if (w.foundFor !== o) return;
+        w.found = { name: f.name || "", category: f.category || "", locations: f.locations, services: f.services, areas: f.areas, phone: f.phone };
+        w.foundNote = `Found on ${hostOf(o)}${f.category ? "" : ". Add what it does (for example: roofing contractor)"}. Change anything that's wrong.`;
+        // Searches to track: the main services in the main town, unless you've typed your own.
+        // The main market: the first town served, else the base.
+        const town = (marketsOf({ areas: f.areas, locations: f.locations })[0] || f.locations[0] || "").split(",")[0].toLowerCase();
+        if (!$("qkw").value.trim()) $("qkw").value = w.kw = f.services.slice(0, 3).map((s) => `${s} ${town}`.trim()).join(", ");
+        showFound();
+      } catch { if (box) box.innerHTML = `<p class="unknowns">Couldn't read that website. You can fill the details in later in its Business audit.</p>`; }
+    };
+    if ($("qdetect")) {
+      $("qurl").addEventListener("input", () => { clearTimeout(detectT); detectT = setTimeout(detect, 900); });
+      $("qurl").addEventListener("change", detect);
+      if (w.found) showFound(); else if (w.url) detect();
+    }
     if (form) form.onsubmit = async (e) => {
       e.preventDefault();
       let o; try { o = originOf($("qurl").value); } catch { return notice("That doesn't look like a website address. Try something like example.com."); }
       notice("");
       const kws = $("qkw").value.split(",").map((k) => k.trim().toLowerCase()).filter(Boolean);
       const old = S.sites.get(o);
-      const site = { origin: o, name: old?.name || hostOf(o), addedAt: old?.addedAt || new Date().toISOString(), keywords: [...new Set([...(old?.keywords || []), ...kws])],
+      const details = qeditor && w.foundFor === o ? qeditor.get() : null;
+      const site = { origin: o, name: old?.name || details?.name || hostOf(o), addedAt: old?.addedAt || new Date().toISOString(), keywords: [...new Set([...(old?.keywords || []), ...kws])],
         role: w.role, competitorOf: canLink(w.role) ? w.of || null : null };
       $("qsave").disabled = true;
       try {
         await putSite(site); close();
+        if (details) await saveBizInfo(o, details);
         if (S.lookup?.origin === o) { await keepScan(o, S.lookup.scan); S.lookup = null; toast(`Tracking ${hostOf(o)}`); }
         else toast(`Added ${hostOf(o)}. Press Scan now to rate it`);
         openSite(o);

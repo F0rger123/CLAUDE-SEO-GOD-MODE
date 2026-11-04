@@ -211,3 +211,9 @@ body { animation: appin .35s ease-out both; }
 .ar-now { margin: 0; padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--paper) 10%, transparent); font-size: 12.5px; overflow-wrap: anywhere; }
 .ar-alert { margin: 0; padding: 9px 12px; border-radius: 12px; background: #facc15; color: #000; font-size: 12.5px; font-weight: 650; animation: shake .4s ease; }
 .auditrun .unknowns { color: color-mix(in srgb, var(--paper) 60%, transparent); margin: 0; }
+
+/* Quick add: details read from the website */
+.qdetect { margin: 4px 0 10px; }
+.qd-note { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 12.5px; color: var(--muted); }
+.sweep.mini { width: 16px; height: 16px; border-width: 2px; }
+.ba-row.pick small + small { margin-top: 1px; }

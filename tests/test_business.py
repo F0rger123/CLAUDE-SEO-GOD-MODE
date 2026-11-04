@@ -50,5 +50,16 @@ class BusinessAudit(unittest.TestCase):
         self.assertIn("never pay for listings", r)
 
 
+    def test_no_stray_control_characters_in_code(self):
+        # A regex  written through a script can land as a backspace (0x08) and silently break matching.
+        bad = []
+        for base in ("extension", "mobile/src", "scripts"):
+            for f in (ROOT / base).rglob("*"):
+                if f.suffix in (".js", ".mjs", ".py", ".css", ".html") and "vendor" not in f.parts and "node_modules" not in f.parts and "__pycache__" not in f.parts:
+                    if "" in f.read_text(encoding="utf-8", errors="replace"):
+                        bad.append(str(f.relative_to(ROOT)))
+        self.assertEqual(bad, [])
+
+
 if __name__ == "__main__":
     unittest.main()
