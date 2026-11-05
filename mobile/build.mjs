@@ -14,7 +14,9 @@ cpSync(join(ext, "lib"), join(www, "lib"), { recursive: true });
 cpSync(join(ext, "sidepanel.css"), join(www, "lib", "sidepanel.css"));
 // This build's number (the GitHub run number, also the Android versionCode), so the app can tell when a newer one is out.
 const pkg = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
-// The native parts (plugins and app settings): a live update only installs over a build with the same ones.
-const native = createHash("sha256").update(JSON.stringify([pkg.dependencies, readFileSync(join(here, "capacitor.config.json"), "utf8")])).digest("hex").slice(0, 16);
+// The native parts (plugins, app settings, Android extras such as the launch screen, icons): a live update only installs
+// over a build with the same ones.
+const nativeFiles = ["capacitor.config.json", "android-extras.mjs", "assets/icon-only.png", "assets/icon-foreground.png", "assets/icon-background.png"];
+const native = createHash("sha256").update(JSON.stringify(pkg.dependencies)).update(Buffer.concat(nativeFiles.map((f) => readFileSync(join(here, f))))).digest("hex").slice(0, 16);
 writeFileSync(join(www, "build.json"), JSON.stringify({ build: Number(process.env.GITHUB_RUN_NUMBER || 0), version: pkg.version, native }));
 console.log("built", www);
