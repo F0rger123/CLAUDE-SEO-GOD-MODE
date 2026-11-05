@@ -975,6 +975,26 @@ function render() {
   animateScreen();
 }
 
+// The opening: the launch screen's mark (same size, same place) gives a beat, turns and flies into the header logo
+// while the black lifts off the app. Starts only once the app is drawn, so it's always seen.
+function intro() {
+  const box = $("intro");
+  const end = () => { box?.remove(); document.body.classList.remove("opening"); };
+  if (!box || reduced || !box.animate) return end();
+  const mark = box.querySelector(".intromark"), logo = document.querySelector(".brand .logo");
+  const a = mark.getBoundingClientRect(), b = logo.getBoundingClientRect();
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2), s = b.width / a.width;
+  mark.querySelector(".core").animate([{ transform: "scale(1)" }, { transform: "scale(1.22)", offset: .45 }, { transform: "scale(1)" }], { duration: 460, easing: "ease-in-out" });
+  const fly = mark.animate([{ transform: "none" }, { transform: `translate(${dx}px, ${dy}px) rotate(90deg) scale(${s})` }],
+    { duration: 760, delay: 380, easing: "cubic-bezier(.65, 0, .25, 1)", fill: "forwards" });
+  box.animate([{ backgroundColor: "#000" }, { backgroundColor: "rgba(0, 0, 0, 0)" }], { duration: 520, delay: 640, easing: "ease-out", fill: "forwards" });
+  setTimeout(() => {
+    lastScreen = null; animateScreen();
+    $("mode").animate([{ transform: "translateY(110px)" }, { transform: "none" }], { duration: 560, easing: "cubic-bezier(.2, 1.25, .35, 1)" });
+  }, 700);
+  fly.finished.then(end, end);
+}
+
 let poll;
 async function start() {
   clearInterval(poll);
@@ -982,6 +1002,7 @@ async function start() {
   await loadCache();
   S.local = !(await cloud.current());
   render(); paintStatus();
+  requestAnimationFrame(() => requestAnimationFrame(intro));
   await pull({ quiet: false });
   // While the app is open: every 20 seconds, and whenever it comes back to the front.
   poll = setInterval(() => document.visibilityState === "visible" && pull(), 20000);

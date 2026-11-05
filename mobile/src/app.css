@@ -102,8 +102,9 @@ button:active, .btn:active { transform: scale(.95); transition-duration: .06s; }
 .scanbox small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--faint); }
 .sweep { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--rule); border-top-color: var(--ink); animation: spin .85s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.scanbar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--wash); }
-.scanbar::after { content: ""; position: absolute; inset: 0; width: 34%; background: var(--ink); animation: slide 1.15s var(--ease) infinite; }
+.scanbar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--wash); overflow: hidden; }
+.scanbar::after { content: ""; position: absolute; inset: 0; width: 34%; background: var(--ink); transform: translateX(-100%); animation: scan 1.3s cubic-bezier(.45, 0, .55, 1) infinite; will-change: transform; }
+@keyframes scan { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 
 /* Chart draws itself */
 .chart .ln.main { stroke-dasharray: 1; }
@@ -187,12 +188,13 @@ div.brow { grid-template-columns: 1fr auto; grid-template-areas: "nm share"; }
 .ba-row.pick input { width: 20px; height: 20px; accent-color: var(--ink); }
 .ba-head { margin-top: 4px; }
 
-/* The mark, as on the app icon; it settles in once when the app opens */
-.brand .logo { width: 22px; height: 22px; flex: none; animation: logoin .7s cubic-bezier(.2, 1.25, .35, 1) both; }
-@keyframes logoin { from { transform: rotate(-90deg) scale(.4); opacity: 0; } }
-body { animation: appin .35s ease-out both; }
-@keyframes appin { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .brand .logo, body { animation: none; } }
+/* The mark, as on the app icon. The opening: the launch screen's mark settles, then flies into this spot (app.js intro). */
+.brand .logo { width: 22px; height: 22px; flex: none; }
+body.opening .brand .logo { opacity: 0; }
+#intro { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: #000; color: #fff; pointer-events: none; animation: introsafe 0s 8s forwards; }
+#intro .intromark { width: 164px; height: 164px; will-change: transform; }
+#intro .core { transform-box: fill-box; transform-origin: center; }
+@keyframes introsafe { to { visibility: hidden; } }
 
 /* A running audit: what it's doing, step by step, in the app's own look (the Google window stays hidden) */
 .auditrun { display: grid; gap: 12px; padding: 18px 16px; border-radius: 20px; background: var(--ink); color: var(--paper); animation: rise .35s var(--ease) both; }
