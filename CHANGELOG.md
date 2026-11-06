@@ -8,6 +8,7 @@
   - Now reads a Google Maps list of results as well as a single place.
   - Only takes a business with this name whose website is this site, so a same-named business in another town isn't used.
   - When nothing matches, it says why.
+- **Smoother app opening:** every part of the logo animation now only moves or fades, so the phone's graphics chip draws it even while the app is still starting up. The black background fades instead of changing colour, and the centre's pulse is its own layer. Refreshing your sites now waits until the opening is over, so a redraw can't interrupt it.
 - **Google's category replaces a guess:** pressing Fill in from my website again also refreshes what it does and the services.
 
 ## 2.32.0 (2026-11-04): extension 1.27, app 2.2: careful competitor finding, details filled in when adding a site
