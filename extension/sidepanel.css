@@ -572,3 +572,14 @@ input[role="switch"]:disabled { opacity: .4; cursor: default; }
 .ba-facts b { font: 800 18px/1.1 var(--display); color: var(--ink); }
 @media (max-width: 380px) { .ba-facts { grid-template-columns: 1fr; } .ba-facts span { grid-template-columns: auto 1fr; align-items: baseline; gap: 8px; } }
 .pin-you { position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%); padding: 1px 6px; border-radius: 99px; background: #000; color: #fff; font: 700 10px/1.4 system-ui, sans-serif; white-space: nowrap; }
+/* Area scan: a town's rank badge, and its label on the heat map */
+.rankb { padding: 2px 9px; border-radius: 99px; font: 800 12px/1.5 var(--display); background: var(--st, #8a8a8a); color: #fff; white-space: nowrap; }
+.rankb.s-part { color: #000; } .rankb.s-none { --st: #8a8a8a; }
+.ba-row.town { grid-template-columns: 1fr auto; }
+.ba-row.pick.comp { grid-template-columns: auto 1fr auto; }
+.ba-row.comp .chips { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.heatlbl { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; pointer-events: none; }
+.heatlbl b { min-width: 26px; padding: 3px 5px; border-radius: 99px; background: var(--hc); color: #fff; font: 800 11.5px/1 system-ui, sans-serif; text-align: center; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+.heatlbl i { font: 600 9.5px/1 system-ui, sans-serif; font-style: normal; color: #222; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; white-space: nowrap; }
+.map.tall { height: 420px; }
+.legend3.heat b { color: var(--ink); font-weight: 650; }

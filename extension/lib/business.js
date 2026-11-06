@@ -326,7 +326,7 @@ export async function runBusinessAudit({ biz, scan, websiteScore = null, search,
   const rank = (l) => (l.status === "listed" ? 0 : l.status === "missing" ? (l.core ? 1 : 2) : 3);
   listings.sort((a, b) => rank(a) - rank(b) || (b.core ? 1 : 0) - (a.core ? 1 : 0));
   const report = { t: new Date().toISOString(), biz, parts, score: businessScore(parts), profile, profileQuery: plan[0].q, listings, consistency, competitors,
-    mapPack: found.mapPack, searches, searched: plan.length + recheck.length, unread: got.filter((g) => !g.serp).length,
+    mapPack: found.mapPack, searches, searched: plan.length + recheck.length, unread: got.filter((g) => !g.serp || g.serp.blocked).length,
     verified: { listingsRechecked: recheck.length, foundOnSecondLook: recheck.filter((l) => l.foundOnSecondLook).length, dropped, profileFrom: foundPanel ? (searchProfile ? "Google Maps" : "Google's business panel") : panel ? "the map pack" : null },
     me: { services: myPhrases, place: place?.lat != null ? place : null, scores: scan?.scores ? { overall: websiteScore ?? scan.scores.overall, seo: scan.scores.seo, aeo: scan.scores.aeo, geo: scan.scores.geo } : null,
       rating: panel?.rating ?? packMe?.rating ?? null, reviews: panel?.reviews ?? packMe?.reviews ?? null, pages: scan?.pagesRated ?? null,
@@ -635,7 +635,7 @@ export async function findCompetitors({ biz, search, searchProfile = null, ownBu
     f.sites.forEach((s) => add(s.name, s.origin, { q: p.q, where: "results", pos: s.position }, { titleTown: (s.title || s.name).match(/\bin\s+([A-Z][A-Za-z .'-]+,\s*[A-Z]{2})\b/)?.[1] || countyOf(s.title) }));
     const me = (serp?.organic || []).find((o) => sameDomain(o.url, biz.origin));
     const packAt = (serp?.local || []).findIndex((m) => namesMe(m.name, biz)) + 1;
-    searches.push({ q: p.q, label: p.label, read: !!serp, mine: me ? me.position : null, minePack: packAt || null,
+    searches.push({ q: p.q, label: p.label, read: !!serp && !serp.blocked, mine: me ? me.position : null, minePack: packAt || null,
       top: f.sites.filter((s) => !isOwn(s.name, s.origin)).slice(0, 5).map((s) => ({ origin: s.origin, name: s.name, position: s.position })),
       pack: (serp?.local || []).map((m) => m.name).filter((n) => !namesMe(n, biz) && !isOwn(n)) });
   });

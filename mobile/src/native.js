@@ -158,10 +158,14 @@ export async function searchGoogle(qs, read, onProgress, onReveal) {
 }
 
 /** A business on Google Maps (the full profile: hours, photos, claim status). read: readGoogle. Returns its page read. */
-export async function searchMaps(q, read, onProgress, onReveal) {
+export async function searchMaps(q, read, onProgress, onReveal, { list = false } = {}) {
   if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("maps", [q]))[0]?.value || null;
-  // Maps fills the place in after the page loads: read again for up to 10 seconds until it's there.
-  const waitRead = new Function(`return async function () { for (let i = 0; i < 20; i++) { const r = (${read})(); if (r.business || r.places?.length || i === 19) return r; await new Promise((s) => setTimeout(s, 500)); } }`)();
+  // Maps fills the place in after the page loads: read again for up to 10 seconds until it's there. With list, a
+  // list of results is scrolled until it holds 20 (Maps loads more as it scrolls), or stops growing.
+  const waitRead = new Function(`return async function () { let n = -1; for (let i = 0; i < 26; i++) { const r = (${read})();
+    if (r.blocked || r.business || i === 25) return r;
+    if (r.places?.length) { if (!${list} || r.places.length >= 20 || r.places.length === n) return r; n = r.places.length; const f = document.querySelector('[role="feed"]'); if (f) f.scrollTop = f.scrollHeight; await new Promise((s) => setTimeout(s, 1300)); continue; }
+    await new Promise((s) => setTimeout(s, 500)); } }`)();
   const url = /^https?:/.test(q) ? q : "https://www.google.com/maps/search/" + encodeURIComponent(q);
   const got = await browse([{ q, url, label: /^https?:/.test(q) ? "Opening your Google profile…" : `Finding “${q}” on Google Maps…` }], waitRead,
     { title: "Google Maps: solve the check, then this hides again", onProgress, onReveal, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",

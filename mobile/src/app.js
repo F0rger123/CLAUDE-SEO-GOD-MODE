@@ -27,9 +27,10 @@ import { rateSite } from "./lib/siterate.js";
 import { SB_URL } from "./lib/cloud.js";
 import { askChatGPT, canKeepRunning, canLiveUpdate, canScan, canSearch, haptic, installNativeFetch, isNative, keepRunning, liveApply, onBack, liveDownload, liveReady, newerBuild, scanQR, searchGoogle, searchMaps, stopKeepRunning } from "./native.js";
 import { readChat } from "./readers.js";
-import { detectBusiness, findCompetitors as findRivals, locationsOf, marketsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
+import { detectBusiness, locationsOf, marketsOf, lookupOnGoogle, mergeBiz, runBusinessAudit } from "./lib/business.js";
 import { auditHtml, auditPrompt, bindAudit, bindBizEditor, bizEditor } from "./lib/businessview.js";
 import { drawMap, geocode } from "./lib/map.js";
+import { areaSummary, scanArea } from "./lib/localscan.js";
 
 installNativeFetch([SB_URL]);
 
@@ -67,11 +68,18 @@ const scanOf = (o) => S.data.get("scan:" + o) || null;
 const AUTO = new Map();
 const lastPoint = (o) => { const h = trend(o); return h[h.length - 1] || AUTO.get(o)?.point || null; };
 function autoRivals(o) {
-  const r = S.data.get("baudit:" + o);
-  return (r?.competitors || []).filter((c) => c.origin && !S.sites.has(c.origin)).map((c) => {
+  const r = S.data.get("baudit:" + o), a = S.data.get("area:" + o), out = new Map();
+  // The business audit's competitors, then the area scan's (newer ratings, and it knows where each one is).
+  for (const c of (r?.competitors || []).filter((c) => c.origin && !S.sites.has(c.origin))) {
     AUTO.set(c.origin, { point: c.scores ? { ...c.scores, t: r.t } : null, place: c.place || null });
-    return { origin: c.origin, name: c.name, auto: true, keywords: [] };
-  });
+    out.set(c.origin, { origin: c.origin, name: c.name, auto: true, keywords: [] });
+  }
+  for (const c of (a?.competitors || []).filter((c) => c.origin && !S.sites.has(c.origin))) {
+    const was = AUTO.get(c.origin);
+    AUTO.set(c.origin, { point: c.scores ? { ...c.scores, t: a.t } : was?.point || null, place: c.lat != null ? { lat: c.lat, lng: c.lng } : was?.place || null });
+    out.set(c.origin, { origin: c.origin, name: c.name, auto: true, keywords: [] });
+  }
+  return [...out.values()];
 }
 const latestPos = (o, q) => [...kwpos(o)].reverse().find((r) => r.q === q) || null;
 
@@ -561,50 +569,82 @@ async function trackRival(of, origin, name) {
   toast(`Tracking ${name || hostOf(origin)} as a competitor`);
 }
 
-/** Find a business's competitors: search "<what it does> <town>" on Google and offer the businesses that rank. */
+/** A town's rank on Google Maps, as a badge: #1–3 green, #4–10 amber, lower or not in the top 20 red. */
+const rankBadge = (t) => !t.read ? `<span class="rankb s-none">not read</span>` : t.rank ? `<span class="rankb ${t.rank <= 3 ? "s-pass" : t.rank <= 10 ? "s-part" : "s-fail"}">#${t.rank}</span>` : `<span class="rankb s-fail">not in top ${t.count || 20}</span>`;
+const townTag = (t) => t.home ? "your town" : t.otherState ? `${t.state}, another state` : t.otherCounty && t.county ? t.county : t.km ? `${t.km} km` : "";
+/** Where a business shows up, town by town, with the ones across a county or state line marked. */
+function areaTowns(a) {
+  const sum = areaSummary(a);
+  return `<p class="lede"><b>${esc(sum.headline)}</b> for “${esc(a.keyword)}” on Google Maps.${sum.far.length ? ` Also outside your area: ${sum.far.map(esc).join(", ")}.` : ""}</p>
+    <div class="ba-list">${[...a.towns].sort((x, y) => (x.rank || 99) - (y.rank || 99) || x.km - y.km).map((t) => `<div class="ba-row town"><span class="nm"><b>${esc(t.label)}</b><small>${esc(townTag(t))}${t.above?.length ? ` · ${t.rank ? "above you" : "top"}: ${t.above.map(esc).join(", ")}` : ""}</small></span>${rankBadge(t)}</div>`).join("")}</div>`;
+}
+
+/**
+ * Find a business's competitors: search Google Maps for what it does in each town around it, record where it shows
+ * up, take the businesses in the same line of work that rank there, and rate the top ones' websites.
+ */
 function findCompetitors(o) {
   const s = S.sites.get(o), b = bizInfo(o);
   const sheet = $("sheet"), box = sheet.querySelector(".sheetbox");
   const close = () => closeSheet();
   sheet.onclick = (e) => { if (e.target === sheet) close(); };
   const ask = () => {
-    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Find ${esc(s.name)}'s competitors?</h2><button id="fclose" class="linkish">Not now</button></div>
-      <p class="lede">Searches Google for what the business does in its town and offers the businesses that show up. You pick which to track.</p>
-      <form id="fform">${bizFields(b, "f")}<div class="btns stack"><button id="fgo" class="primary">Find competitors</button></div></form>`;
+    const prev = S.data.get("area:" + o);
+    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Scan ${esc(s.name)}'s area?</h2><button id="fclose" class="linkish">Not now</button></div>
+      <p class="lede">Searches Google Maps in about 10 towns around you, including across county and state lines, the way customers there search. Shows where you rank in each, and rates the competitors that show up.</p>
+      <form id="fform">${bizFields(b, "f")}<div class="field"><label for="fkw">Search for</label><input id="fkw" class="search" placeholder="roofing contractor" value="${esc(prev?.keyword || b.category || "")}"></div>
+      <div class="btns stack"><button id="fgo" class="primary">Scan the area</button></div></form>`;
     $("fclose").onclick = close;
     $("fform").onsubmit = async (e) => {
       e.preventDefault();
-      const biz = readBiz(o, "f");
-
+      const biz = readBiz(o, "f"), keyword = $("fkw").value.trim() || biz.category;
       await saveBizInfo(o, biz);
-      box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Finding competitors…</h2></div>${scanBox("Searching carefully", "fprog", "Starting…", "Searches each place and service, looks up the map pack businesses and checks every website. Takes a few minutes; you can leave the app.")}`;
+      box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Scanning the area…</h2></div>${scanBox("Searching Google Maps town by town", "fprog", "Starting…", "About 10 searches, then rates the top competitors' websites. Takes a few minutes; you can leave the app.")}`;
       const progress = (t) => { const el = $("fprog"); if (el) el.textContent = t; };
-      keepRunning(`Finding competitors for ${biz.name}`, "Keeps going in the background. This goes away when it's done.");
+      keepRunning(`Scanning ${biz.name}'s area`, "Keeps going in the background. This goes away when it's done.");
       try {
-        const full = { ...bizInfo(o), ...biz, locations: [biz.locations[0], ...bizInfo(o).locations.slice(1)].filter(Boolean) };
-        const res = await findRivals({ biz: full, onProgress: progress,
-          search: async (qs) => { const got = await searchGoogle(qs, readGoogle, progress); return qs.map((q) => got.find((x) => x.q === q) || { q, serp: null }); },
-          searchProfile: (q) => searchMaps(q, readGoogle, progress),
-          ownBusinesses: owned().filter((x) => x.origin !== o).map((x) => ({ origin: x.origin, name: S.data.get("binfo:" + x.origin)?.name || x.name })) });
-        show(res, full);
-      } finally { stopKeepRunning(); }
+        const full = { ...bizInfo(o), ...biz };
+        const res = await scanArea({ biz: full, keyword, onProgress: progress,
+          searchMaps: (q) => searchMaps(q, readGoogle, progress, null, { list: true }),
+          rate: (x) => rateSite(x + "/", { psi: false }) });
+        // The ratings' full scans stay on the phone until a competitor is tracked; the saved scan keeps the scores.
+        S.areaScans = new Map(res.competitors.filter((c) => c.rated).map((c) => [c.origin, c.rated]));
+        res.competitors.forEach((c) => delete c.rated);
+        S.data.set("area:" + o, res);
+        await putData(["area:" + o]);
+        show(res);
+      } catch (err) {
+        box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">Couldn't scan the area</h2><button id="fclose" class="linkish">Close</button></div><p class="lede">${esc(err.message || err)}</p>`;
+        $("fclose").onclick = close;
+      } finally { stopKeepRunning(); lastScreen = null; render(); }
     };
   };
-  const show = (res, biz) => {
-    const sites = res.list.filter((x) => x.origin && !S.sites.has(x.origin)), noSite = res.list.filter((x) => !x.origin);
-    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">${res.error ? "Can't search yet" : sites.length ? `${sites.length} competitor${sites.length === 1 ? "" : "s"} found` : "No new competitors found"}</h2><button id="fclose" class="linkish">Close</button></div>
-      ${res.error ? `<p class="lede">${esc(res.error)}</p>` : sites.length ? `<p class="lede">Ranked by how often and how high they show up for ${res.searches.length} searches${res.category ? ` for “${esc(res.category)}”` : ""}, map pack first. Every website was checked. Tick the ones to track.</p>
-        <div class="ba-list">${sites.map((x, i) => `<label class="ba-row pick"><input type="checkbox" data-pick="${esc(x.origin)}" data-name="${esc(x.name)}" ${i < 4 ? "checked" : ""}><span><b>${esc(x.name)}</b><small>${esc(hostOf(x.origin))}</small>${x.why.map((y) => `<small>${esc(y)}</small>`).join("")}</span></label>`).join("")}</div>
-        <div class="btns stack"><button id="fadd" class="primary">Track the ticked ones</button></div>`
-        : `<p class="lede">Nothing new for those searches. Check what it does and where it works, then try again, or add one by hand.</p>`}
-      ${noSite.length ? `<p class="unknowns">Also in the map pack, without a website found: ${noSite.map((m) => esc(m.name)).join(", ")}.</p>` : ""}
+  const show = (res) => {
+    const list = res.competitors.filter((c) => !c.origin || !S.sites.has(c.origin));
+    box.innerHTML = `<div class="sheethead"><h2 id="sheettitle" class="q">${list.length ? `${list.length} competitor${list.length === 1 ? "" : "s"} around you` : "No competitors found"}</h2><button id="fclose" class="linkish">Close</button></div>
+      ${areaTowns(res)}
+      ${list.length ? `<h2 class="sec">Competitors <small>by how often and how high they rank</small></h2>
+        <div class="ba-list">${list.map((c, i) => `<label class="ba-row pick comp">${c.origin ? `<input type="checkbox" data-pick="${esc(c.origin)}" data-name="${esc(c.name)}" ${i < 4 && c.scores ? "checked" : ""}>` : `<span></span>`}
+          <span class="nm"><b>${esc(c.name)}</b><small>${esc([c.category, `in ${c.towns} town${c.towns === 1 ? "" : "s"}, best #${c.best}`, c.km != null ? `${c.km} km` : "", c.reviews != null ? `${c.reviews} reviews${c.rating ? ` · ${c.rating}★` : ""}` : ""].filter(Boolean).join(" · "))}</small>
+          ${c.scores ? `<span class="chips">${chip(c.scores.seo, "SEO")}${chip(c.scores.aeo, "AEO")}${chip(c.scores.geo, "GEO")}</span>` : `<small>${c.origin ? esc(hostOf(c.origin)) + " · not rated" : "No website on Google"}</small>`}</span>
+          ${c.scores ? ring(c.scores.overall) : ""}</label>`).join("")}</div>
+        <div class="btns stack"><button id="fadd" class="primary">Track the ticked ones</button><button id="fmap">See the map</button></div>`
+        : `<p class="lede">No businesses in the same line of work showed up. Check “Search for” and try again.</p>`}
       ${res.dropped?.length ? `<details class="fold"><summary>Left out (${res.dropped.length})</summary><div class="pad">${res.dropped.map((d) => `<p class="unknowns"><b>${esc(d.name)}</b>: ${esc(d.why)}</p>`).join("")}</div></details>` : ""}`;
     $("fclose").onclick = close;
+    if ($("fmap")) $("fmap").onclick = () => { close(); S.tab = "compare"; S.compare = o; S.ctab = "map"; S.open = null; render(); };
     if ($("fadd")) $("fadd").onclick = async () => {
       const picks = [...box.querySelectorAll("[data-pick]:checked")];
-      for (const p of picks) await putSite({ origin: p.dataset.pick, name: p.dataset.name || hostOf(p.dataset.pick), addedAt: new Date().toISOString(), keywords: [], role: "competitor", competitorOf: o });
-      close(); toast(`Tracking ${picks.length} competitor${picks.length === 1 ? "" : "s"}. Open each and press Scan now`);
-      S.stab = "competitors"; render();
+      for (const p of picks) {
+        const origin = p.dataset.pick, c = res.competitors.find((x) => x.origin === origin);
+        await putSite({ origin, name: p.dataset.name || hostOf(origin), addedAt: new Date().toISOString(), keywords: [], role: "competitor", competitorOf: o });
+        // Already rated: keep that scan, so it doesn't need scanning again. Its place goes on the map.
+        const r = S.areaScans?.get(origin);
+        if (r) await keepScan(origin, scanFrom(r, origin));
+        if (c?.lat != null && !S.data.get("geo:" + origin)) { S.data.set("geo:" + origin, { lat: c.lat, lng: c.lng, label: c.address || c.name, src: "maps", t: new Date().toISOString() }); await putData(["geo:" + origin]); }
+      }
+      close(); toast(`Tracking ${picks.length} competitor${picks.length === 1 ? "" : "s"}`);
+      S.stab = "competitors"; lastScreen = null; render();
     };
   };
   ask();
@@ -708,16 +748,27 @@ function cmpRankings(s, all) {
 function cmpMap(s, all) {
   const metric = METRICS[S.metric] ? S.metric : "overall";
   const missing = all.filter((x) => !S.data.get("geo:" + x.origin) && !AUTO.get(x.origin)?.place);
+  const area = S.data.get("area:" + s.origin);
   return `<div class="metrics">${Object.entries(METRICS).map(([k, l]) => `<button data-metric="${k}" aria-pressed="${k === metric}">${l}</button>`).join("")}</div>
-    <div id="map" class="map" role="region" aria-label="Map of ${esc(s.name)} and its competitors"></div>
+    <div id="map" class="map tall" role="region" aria-label="Map of ${esc(s.name)} and its competitors"></div>
     <div class="legend3"><span class="s-pass"><i></i>85+</span><span class="s-part"><i></i>65–84</span><span class="s-fail"><i></i>under 65</span><span class="s-none"><i></i>not scanned</span></div>
+    ${area ? `<div class="legend3 heat"><b>Your Google Maps rank, by town:</b><span class="s-pass"><i></i>top 3</span><span class="s-part"><i></i>4–10</span><span class="s-fail"><i></i>11+ or not shown</span></div>
+      <h2 class="sec">Where you show up <small>${when(area.t)}</small></h2>${areaTowns(area)}
+      ${canSearch() ? `<div class="btns stack"><button id="areascan">Scan the area again</button></div>` : ""}`
+      : `<div class="emptybox"><b>See where you show up</b><p>Searches Google Maps in the towns around ${esc(s.name)}, across county and state lines, and colours the map by where you rank in each. Competitors that show up are rated and pinned.</p>${canSearch() ? `<div class="btns"><button id="areascan" class="primary">Scan the area</button></div>` : `<p class="unknowns">Needs the Android app (it searches Google Maps on the phone).</p>`}</div>`}
     ${missing.length ? `<div id="mapmissing" class="emptybox"><b>${missing.length} not on the map yet</b><p>${missing.map((x) => esc(x.name)).join(", ")}. Press Find locations to look up the addresses their sites give, or set one in a site's Settings.</p><div class="btns"><button id="locate" class="primary">Find locations</button></div></div>` : ""}`;
 }
 async function bindMap(s, all) {
   document.querySelectorAll("[data-metric]").forEach((b) => (b.onclick = () => { S.metric = b.dataset.metric; render(); }));
+  if ($("areascan")) $("areascan").onclick = () => findCompetitors(s.origin);
   const draw = () => {
+    const area = S.data.get("area:" + s.origin);
     const pins = all.map((x) => ({ x, g: S.data.get("geo:" + x.origin) || AUTO.get(x.origin)?.place })).filter((r) => r.g).map(({ x, g }) => ({ origin: x.origin, name: x.name, lat: g.lat, lng: g.lng, scores: lastPoint(x.origin), me: x.origin === s.origin }));
-    return drawMap($("map"), pins, METRICS[S.metric] ? S.metric : "overall", openSite).catch((e) => notice(`Couldn't draw the map: ${esc(e.message || e)}`));
+    // The area scan's other businesses (no website, or not rated) as small pins, so the map shows everyone who ranks.
+    for (const c of area?.competitors || []) if (c.lat != null && !pins.some((p) => p.origin && c.origin && p.origin === c.origin)) pins.push({ origin: c.origin, name: c.name, lat: c.lat, lng: c.lng, scores: c.scores || null, note: `${c.category || "Competitor"} · in ${c.towns} town${c.towns === 1 ? "" : "s"}, best #${c.best}`, size: 0 });
+    // Your own place, from the scan, when the site doesn't state one.
+    if (area && !pins.some((p) => p.me)) pins.push({ origin: s.origin, name: s.name, lat: area.home.lat, lng: area.home.lng, scores: lastPoint(s.origin), me: true });
+    return drawMap($("map"), pins, METRICS[S.metric] ? S.metric : "overall", (o) => o && S.sites.has(o) && openSite(o), { heat: area?.towns || null }).catch((e) => notice(`Couldn't draw the map: ${esc(e.message || e)}`));
   };
   draw();
   const locate = async () => {

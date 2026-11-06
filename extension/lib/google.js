@@ -16,6 +16,8 @@ export function readGoogle() {
   const isMaps = /google\.[a-z.]+$/.test(host) && path.startsWith("/maps");
   const isSerp = /google\.[a-z.]+$/.test(host) && path === "/search";
   const out = { kind: isMaps ? "maps" : isSerp ? "serp" : "other", url: location.href, readAt: new Date().toISOString() };
+  // Google's robot check sends the search to its own page (/sorry/…): say so, so the window can be shown to solve it.
+  if (/google\.[a-z.]+$/.test(host) && (path.startsWith("/sorry") || document.querySelector('form[action*="sorry"], #captcha-form, iframe[src*="recaptcha"]'))) return { ...out, kind: isMaps ? "maps" : "serp", blocked: true };
   if (!isMaps && !isSerp) return out;
 
   /** A business panel: Maps place page or the knowledge panel beside search results. */
@@ -57,19 +59,24 @@ export function readGoogle() {
     // A search with several matches shows a list ("Results") instead of one place: read each entry.
     const feed = document.querySelector('[role="feed"]');
     if (feed) {
-      out.places = [...feed.querySelectorAll('a[href*="/maps/place/"][aria-label]')].slice(0, 10).map((a) => {
+      out.places = [...feed.querySelectorAll('a[href*="/maps/place/"][aria-label]')].slice(0, 20).map((a) => {
         const card = a.parentElement;
         // Rows read "Plumber · 2125 Montana Ave" / "Open 24 hours · (513) 631-0595".
         const parts = [...card.querySelectorAll(".W4Efsd > *")].map(txt).flatMap((s) => s.split("·")).map((s) => s.trim()).filter(Boolean);
         const category = parts.find((s) => /^[A-Za-z][A-Za-z &',/-]+$/.test(s) && !/^(open|closed|opens|closes|temporarily|permanently|website|directions|book online|order online)\b/i.test(s)) || null;
+        // "4.8 stars 30 Reviews"; the place link carries its coordinates ("!3d39.96!4d-76.77").
         const stars = card.querySelector('[role="img"][aria-label]')?.getAttribute("aria-label") || "";
+        const at = a.href.match(/!3d(-?[\d.]+)!4d(-?[\d.]+)/);
         return { name: a.getAttribute("aria-label"), category, rating: num((stars.match(/\d[.,]\d/) || [])[0]?.replace(",", ".")),
+          reviews: count((stars.match(/([\d,.]+\s*[KM]?)\s+reviews?/i) || [])[1]), lat: at ? +at[1] : null, lng: at ? +at[2] : null,
           address: parts.find((s) => /^\d+\s+\S/.test(s) && !/\(\d{3}\)/.test(s)) || null,
           website: [...card.querySelectorAll("a")].find((x) => /website/i.test(x.getAttribute("aria-label") || "") || /^website$/i.test(txt(x)))?.href || null };
-      }).filter((p) => p.name);
+      }).filter((p) => p.name).map((p, i) => ({ ...p, position: i + 1 }));
       return out;
     }
     out.business = business(document.querySelector('[role="main"]') || document.body);
+    const at = location.href.match(/!3d(-?[\d.]+)!4d(-?[\d.]+)/) || location.href.match(/@(-?[\d.]+),(-?[\d.]+),/);
+    if (out.business && at) Object.assign(out.business, { lat: +at[1], lng: +at[2] });
     out.query = decodeURIComponent((path.match(/\/maps\/(?:place|search)\/([^/@]+)/) || [])[1] || "").replace(/\+/g, " ") || null;
     return out;
   }

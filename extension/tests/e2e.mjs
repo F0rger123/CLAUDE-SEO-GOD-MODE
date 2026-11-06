@@ -535,7 +535,12 @@ await phone.addInitScript(({ mine, rival }) => { const serp = (q, rest) => ({ ki
         local: [{ name: "Keystone Ridge Roofing", rating: 4.9, reviews: 212 }, { name: "Keystone Roofers", rating: 4.6, reviews: 87 }] })
     : /^roofing contractor/.test(q) ? serp(q, { organic: [{ position: 1, url: rival + "/", title: "Keystone Ridge Roofing: Roof Repair & Replacement, York PA", snippet: "" }], local: [{ name: "Keystone Ridge Roofing", rating: 4.9, reviews: 212 }] })
     : serp(q, { organic: [{ position: 1, url: "https://top-rival.example/", title: "Top", snippet: "" }, { position: 2, url: mine + "/", title: "Mine", snippet: "" }], paa: ["roof repair cost"] });
-  window.sgmTestBrowse = async (kind, qs) => qs.map((q) => ({ q, value: kind === "maps" ? { ...google(q), kind: "maps" } : kind === "google" ? google(q)
+  // Google Maps: a place (a business's own name) or a list of results, each with its category and coordinates.
+  const maps = (q) => { const g = google(q); if (g.business || !/^roofing contractor/.test(q)) return { ...g, kind: "maps" };
+    return { kind: "maps", query: q, places: [{ name: "Keystone Ridge Roofing", category: "Roofing contractor", rating: 4.9, reviews: 212, website: rival + "/", lat: 39.97, lng: -76.72 },
+      { name: "Hi Roofing", category: "Roofing contractor", rating: 3.9, reviews: 14, lat: 39.95, lng: -76.74 }, { name: "Valley Electric", category: "Electrician", lat: 39.9, lng: -76.7 },
+      { name: "Summit Roofers", category: "Roofing contractor", lat: 39.99, lng: -76.75 }, { name: "Penn Roof Pros", category: "Roofing contractor", lat: 40.0, lng: -76.8 }].map((p, i) => ({ ...p, position: i + 1 })) }; };
+  window.sgmTestBrowse = async (kind, qs) => qs.map((q) => ({ q, value: kind === "maps" ? maps(q) : kind === "google" ? google(q)
   : { kind: "chat", text: "For " + q + ", homeowners often recommend Rival Roofing (rival-roofing.example) and Acme Roofs.", links: ["https://rival-roofing.example/", "https://acme-roofs.example/"] } })); }, { mine: lookBase, rival });
 // Address lookups and map tiles, as OpenStreetMap would answer.
 await phone.route("https://nominatim.openstreetmap.org/**", (r) => r.fulfill({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "application/json" },
@@ -766,13 +771,24 @@ assert.ok(sb.tables.data.some((r) => r.key === "baudit:" + goodBase), "new busin
 assert.match(await phone.$eval("#view", (e) => e.textContent), /Double-checked/);
 await phone.click(`[data-open="${badBase}"]`).catch(() => {});
 await phone.click('#mode [data-tab="sites"]'); await phone.click(`[data-open="${badBase}"]`);
-// Find competitors automatically from a business's Competitors section.
+// Find competitors automatically: the area scan searches Google Maps town by town, ranks you in each, and rates the
+// competitors in your line of work (an electrician in the results is left out).
 await phone.click('[data-stab="competitors"]');
 await phone.click("#findcomp");
-await phone.waitForSelector("#fgo"); await phone.click("#fgo");
-await phone.waitForSelector("#fclose");
-assert.match(await phone.$eval("#sheet", (e) => e.textContent), /No new competitors found|competitor/);
-await phone.click("#fclose");
+await phone.waitForSelector("#fgo"); await phone.fill("#fkw", "roofing contractor"); await phone.click("#fgo");
+await phone.waitForFunction(() => /around you|No competitors found|Couldn.t scan/.test(document.getElementById("sheettitle")?.textContent || ""), null, { timeout: 240000 });
+const areaText = await phone.$eval("#sheet", (e) => e.textContent);
+assert.match(areaText, /2 competitors around you.*Summit Roofers.*Penn Roof Pros/s, areaText.slice(0, 300));
+assert.match(areaText, /You show up in \d+ of \d+ towns/);
+// Keystone Ridge is tracked already, so it isn't offered again; its website was still rated, and the scan was saved.
+for (let i = 0; i < 50 && !sb.tables.data.some((r) => r.key === "area:" + badBase); i++) await phone.waitForTimeout(200);
+const areaRow = sb.tables.data.find((r) => r.key === "area:" + badBase), areaVal = typeof areaRow?.value === "string" ? JSON.parse(areaRow.value) : areaRow?.value;
+assert.equal(typeof areaVal?.competitors?.find((c) => c.name === "Keystone Ridge Roofing")?.scores?.overall, "number", "competitor rated and saved");
+assert.match(areaText, /Valley Electric: an electrician, not the same line of work/);
+await phone.click("#fmap");
+await phone.waitForSelector(".heatlbl");
+assert.match(await phone.$eval("#view", (e) => e.textContent), /Where you show up/);
+await phone.click('#mode [data-tab="sites"]'); await phone.click(`[data-open="${badBase}"]`);
 // A General site, linked to a business. A server without that site type yet still takes the rest and keeps it waiting.
 sb.flags.oldRoles = true;
 await phone.click('#mode [data-tab="sites"]');

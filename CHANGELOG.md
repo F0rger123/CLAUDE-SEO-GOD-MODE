@@ -8,6 +8,11 @@
   - Now reads a Google Maps list of results as well as a single place.
   - Only takes a business with this name whose website is this site, so a same-named business in another town isn't used.
   - When nothing matches, it says why.
+- **Find competitors now scans your area (app):** it searches Google Maps for what you do in about 10 towns around you, across county and state lines, the way customers there search. It shows where you rank in each town, and who ranks above you.
+  - **Competitors:** the businesses in your line of work (matched by Google category; electricians, shops and makers are left out with the reason). The top 6 websites are rated automatically (Overall, SEO, AEO, GEO). Tracking one keeps that rating, so there's no need to scan it again.
+  - **Heat map:** the Compare map colours each town by your rank (top 3, 4 to 10, lower or not shown) and pins every competitor that ranks, including ones without a website. A town in another state or county is marked.
+  - **Towns** come from a list built into the app (GeoNames, US and Canada), so no extra server is needed to pick them.
+- **Google's robot check is noticed:** when Google sends a search to its robot-check page, the app now shows the window so you can solve it. Before, it waited two minutes per search and came back empty.
 - **Smoother app opening:** every part of the logo animation now only moves or fades, so the phone's graphics chip draws it even while the app is still starting up. The black background fades instead of changing colour, and the centre's pulse is its own layer. Refreshing your sites now waits until the opening is over, so a redraw can't interrupt it.
 - **Google's category replaces a guess:** pressing Fill in from my website again also refreshes what it does and the services.
 
