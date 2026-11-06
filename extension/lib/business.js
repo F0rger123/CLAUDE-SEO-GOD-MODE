@@ -15,6 +15,7 @@
 import { auditBusiness, DIRECTORIES as DIRECTORY_HOSTS, detectTargets, fetchPage, sameDomain, terms } from "./compete.js";
 import { parseJsonld, parsePage, schemaTypes } from "./pyparse.js";
 import { geocode } from "./map.js";
+import { bestCategory, soundsLikeService, TRADE_WORDS } from "./categories.js";
 
 export const PARTS = {
   website: { label: "Website", weight: 35 },
@@ -444,9 +445,40 @@ const cityOf = (a) => {
 const flatPlace = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const names = (v) => [].concat(v || []).map((x) => (typeof x === "string" ? x : x?.name || x?.address?.addressLocality)).filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim());
 
+// Menu links that aren't something the business sells.
+const NOT_SERVICE = /\b(home|about|contact|blog|news|faqs?|gallery|portfolio|projects?|reviews?|testimonials?|careers?|jobs|team|privacy|terms|policy|login|log in|sign (in|up)|account|cart|checkout|shop now|order now|book (now|online)|schedule|quote|estimate|coupons?|specials?|offers?|financing|guides?|resources|locations?|areas?|search|results|download|app|messages?|email|reminders?|explore|content|learn more|read more|see (more|our|recent)|view|click|call|why|our work|commercial|residential|menu|directions|map|sitemap|pdf|author|tips|deals|donate|foundation|insurance|before and after|your|our|my)\b/i;
+// "What it costs", "X vs. Y", "how to choose": guides, not services.
+const QUESTIONISH = /^(what|how|why|when|which|who|other|all|view|see|more)\b|\b(vs|versus|cost|costs|price|prices|pricing|guide|near me)\b/i;
+const stem5 = (w) => w.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5);
+
+// Text of a link with a space between its parts ("Dental Implants" + "East" isn't "Dental ImplantsEast").
+const textOf = (el) => [...el.childNodes].map((n) => (n.nodeType === 3 ? n.textContent : n.nodeType === 1 ? " " + textOf(n) + " " : "")).join("");
+
+/** The site's own menu: internal links whose text names the page they open ("Drain Cleaning" -> /drain-cleaning/). */
+function menuServices(html, origin) {
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  const out = new Map(), host = hostOf(origin);
+  for (const a of doc.querySelectorAll("a[href]")) {
+    let u; try { u = new URL(a.getAttribute("href"), origin); } catch { continue; }
+    if (hostOf(u.href) !== host || u.pathname === "/" || /\.(pdf|jpe?g|png)$/i.test(u.pathname)) continue;
+    const text = textOf(a).replace(/\s+/g, " ").trim(), words = text.split(" ");
+    if (words.length < 1 || words.length > 5 || /\d|[?!|→›»]|,\s*[A-Z]{2}\b/.test(text) || NOT_SERVICE.test(text)) continue;
+    // The link's address has to name it too, so taglines and buttons are left out.
+    const path = u.pathname.toLowerCase();
+    if (/area|location|city|town|county/.test(path)) continue;
+    if (!terms(text).some((w) => w.length > 2 && path.includes(stem5(w)))) continue;
+    const k = text.toLowerCase().replace(/^(get|find|book|schedule|request|explore)\s+/, "");
+    if (k.includes("@")) continue;
+    if (!out.has(k)) out.set(k, { phrase: k, path });
+  }
+  return [...out.values()];
+}
+
 /**
- * Fill in a business's details from its own website: name, what it does (its schema type, or its main service),
- * every address it lists, the areas it serves, its services and its phone. Each comes back with where it was found.
+ * Fill in a business's details from its own website: name, what it does, every address it lists, the areas it
+ * serves, its services and its phone. What it does is worked out from everywhere the site says it (title,
+ * description, headings, menu, schema and text), matched against Google's business categories (categories.js);
+ * services come from its schema and its menu. Each comes back with where it was found.
  */
 export async function detectBusiness(origin) {
   const home = await fetchPage(origin + "/");
@@ -457,40 +489,89 @@ export async function detectBusiness(origin) {
   const ent = ents.find((i) => i.address) || ents[0] || null;
   const t = await detectTargets(origin + "/").catch(() => null);
   const specific = ents.flatMap((e) => schemaTypes(e)).find((x) => !GENERIC_TYPES.has(x) && TRADE_TYPE.test(x));
-  // Or the service the homepage title leads with ("Govee Installer & Permanent Outdoor Lights in York, PA").
-  const stem = (w) => w.slice(0, 5), titleStems = new Set(terms(p.title || "").map(stem));
-  const services = [...new Set([...items.filter((i) => schemaTypes(i).includes("Service")).map((i) => i.name || i.serviceType).filter(Boolean),
-    ...names(ent?.makesOffer?.map?.((o) => o.itemOffered) || []), ...(t?.services || []).map((s) => s.phrase)])]
-    // Headings like "3 steps" or "Accessories" aren't services: keep 2–5 word phrases without numbers.
-    .filter((s) => !/\d/.test(s) && terms(s).length >= 1 && s.split(/\s+/).length >= 2 && s.split(/\s+/).length <= 5).slice(0, 12);
+  const menu = menuServices(home.html, origin);
+  const name = (typeof ent?.name === "string" && ent.name) || p.og?.["og:site_name"] || (p.title || "").split(/\s[|–—-]\s/).pop().trim() || null;
+  const schemaServices = [...items.filter((i) => schemaTypes(i).includes("Service")).map((i) => i.name || i.serviceType).filter((x) => typeof x === "string"),
+    ...names(ent?.makesOffer?.map?.((o) => o.itemOffered) || [])];
+  // Services: the schema's, then the menu's, then service pages the site has (a page whose address names it).
+  const pageServices = (t?.services || []).filter((s) => s.pages.some((pg) => pg !== "/" && terms(s.phrase).some((w) => pg.toLowerCase().includes(stem5(w))))).map((s) => s.phrase);
+  // A short menu often means the services are listed on a Services page: read its headings.
+  if (menu.filter((m) => soundsLikeService(m.phrase)).length < 3) {
+    const doc = new DOMParser().parseFromString(home.html || "", "text/html");
+    const link = [...doc.querySelectorAll("a[href]")].find((a) => /^(our\s+)?services$/i.test((a.textContent || "").trim()) || /\/(our-)?services?(\.html?|\.php)?\/?$/i.test(a.getAttribute("href") || ""));
+    let url = null; try { url = link && new URL(link.getAttribute("href"), origin); } catch {}
+    if (url && hostOf(url.href) === hostOf(origin)) {
+      const page = await fetchPage(url.href).catch(() => null);
+      if (page?.status === 200) pageServices.push(...parsePage(page.html).headings.filter((x) => x[0] >= 2 && x[0] <= 4).map((x) => x[1]).filter((x) => x.split(/\s+/).length <= 5));
+    }
+  }
+  // Words only in the business's name ("Orkin", "Molly") mark its own programs, not services.
+  const brand = terms(name || "").filter((w) => w.length > 3 && !COMMON.has(w) && !TRADE_WORDS.has(w) && !soundsLikeService(w));
+  const clean = (s) => String(s).replace(/[^\p{L}\p{N}&'’ -]+/gu, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  const services = [...new Set([...schemaServices, ...menu.map((m) => m.phrase), ...pageServices].map(clean))]
+    .filter((s) => s && !/\d/.test(s) && !NOT_SERVICE.test(s) && !QUESTIONISH.test(s) && s.split(" ").length <= 5 && !/^(services?|all services|our services|products?)$/.test(s) && !brand.some((w) => terms(s).includes(w))
+      && (schemaServices.some((x) => clean(x) === s) || soundsLikeService(s)))
+    .slice(0, 12);
+  const h = (lv) => p.headings.filter((x) => lv.includes(x[0])).map((x) => x[1]).join(" · ");
+  const fields = [
+    { text: ents.flatMap((e) => schemaTypes(e)).filter((x) => !GENERIC_TYPES.has(x)).map(typeWords).join(" · "), weight: 5 },
+    { text: ents.map((e) => [e.description, e.slogan, ...[].concat(e.knowsAbout || [])].filter((x) => typeof x === "string").join(" ")).join(" "), weight: 2 },
+    { text: name || "", weight: 2 },
+    { text: p.title || "", weight: 4 },
+    { text: `${p.meta?.description || ""} ${p.og?.["og:description"] || ""}`, weight: 3 },
+    { text: h([1]), weight: 3 },
+    { text: h([2, 3]), weight: 1.5 },
+    { text: [...menu.map((m) => m.phrase), ...schemaServices].join(" · "), weight: 2.5 },
+    { text: (p.text || "").slice(0, 20000), perMention: 0.4 },
+  ];
+  const best = bestCategory(fields);
+  const category = best ? best.name : specific ? typeWords(specific) : null;
   const locations = [...new Set(ents.map((e) => cityOf(Array.isArray(e.address) ? e.address[0] : e.address)).filter(Boolean))];
   const areas = [...new Set([...ents.flatMap((e) => names(e.areaServed)), ...(t?.places || []).map((x) => (typeof x === "string" ? x : x.place || x.name)).filter(Boolean)])]
-    .filter((a) => !locations.some((l) => flatPlace(l).startsWith(flatPlace(a)))).slice(0, 10);
-  const name = (typeof ent?.name === "string" && ent.name) || p.og?.["og:site_name"] || (p.title || "").split(/\s[|–—-]\s/).pop().trim() || null;
+    .filter((a) => !/^(us|usa|united states)$/i.test(a) && !locations.some((l) => flatPlace(l).startsWith(flatPlace(a)))).slice(0, 10);
   const tel = [].concat(ent?.telephone || [])[0] || null;
-  const titled = services.find((s) => terms(s).length >= 2 && terms(s).every((w) => titleStems.has(stem(w)))) || null;
   return {
-    name, category: specific ? typeWords(specific) : titled || null, locations, areas, services, phone: typeof tel === "string" ? tel : null,
-    from: { name: ent?.name ? "your schema" : "your page title", category: specific ? "your schema type" : titled ? "your homepage title" : null, locations: locations.length ? "your schema address" : null },
+    name, category, locations, areas, services, phone: typeof tel === "string" ? tel : null,
+    from: { name: ent?.name ? "your schema" : "your page title", category: best ? `your website (${best.hits.slice(0, 3).map((x) => `“${x}”`).join(", ")})` : specific ? "your schema type" : null, locations: locations.length ? "your schema address" : null },
   };
 }
 
-/** What Google's business panel says about a name (and town): category, address, phone. search(qs) as in runBusinessAudit. */
+/**
+ * What Google says about a business: its category, town, phone and website, from the business panel, the map pack
+ * or a Google Maps list. Only a business with this name counts, and when both have a website it has to be this
+ * business's website (so "Joe's Pizza" in another town, or a similar name, isn't taken). Searches the name and town,
+ * then the name alone. search(qs) as in runBusinessAudit; biz.origin is the business's website when known.
+ * Returns the details, or { none: why } when Google showed no match.
+ */
 export async function lookupOnGoogle(biz, search) {
-  const q = `${biz.name} ${locationsOf(biz)[0] || ""}`.trim();
-  const [hit] = await search([q]);
-  const pack = (hit?.serp?.local || []).find((m) => namesBusiness(m.name, biz.name));
-  const b = hit?.serp?.business && namesBusiness(hit.serp.business.name, biz.name) ? hit.serp.business : pack;
-  if (!b) return null;
-  return { name: b.name, category: b.category ? b.category.toLowerCase() : null, locations: [cityOf(b.address)].filter(Boolean), phone: b.phone || null, website: b.website || null };
+  const town = locationsOf(biz)[0] || "";
+  const qs = [...new Set([`${biz.name} ${town}`.trim(), biz.name])];
+  const named = (n) => n && (namesBusiness(n, biz.name) || namesBusiness(biz.name, n) || sameBusiness(n, biz.name));
+  const site = (b) => (biz.origin && b.website ? sameDomain(b.website, biz.origin) : null);
+  let other = null;
+  for (const q of qs) {
+    const [hit] = await search([q]);
+    const s = hit?.serp;
+    const cands = [s?.business, ...(s?.local || []), ...(s?.places || [])].filter((b) => b && named(b.name));
+    // Its own website first; a match with no website listed next; never one that links to a different website.
+    const b = cands.find((c) => site(c) === true) || cands.find((c) => site(c) === null);
+    if (b) return { name: b.name, category: b.category ? b.category.toLowerCase() : null, locations: [cityOf(b.address)].filter(Boolean), phone: b.phone || null, website: b.website || null, matchedSite: site(b) === true };
+    other = other || cands[0] || null;
+  }
+  return { none: other ? `Google shows “${other.name}”, but it links to ${hostOf(other.website)}, not your website. Check the business name matches your Google profile exactly.`
+    : `Google didn't show a business named “${biz.name}”${town ? ` in ${town}` : ""}. Check the name matches your Google profile exactly, or add your town.` };
 }
 
-/** Merge found details into what's there: typed values win; lists are combined. */
-export function mergeBiz(have, found) {
-  if (!found) return have;
+/**
+ * Merge found details into what's there: typed values win; lists are combined. prefer: fields where what was found
+ * wins (the category from Google; the category and services when you ask to fill in from the website again).
+ */
+export function mergeBiz(have, found, { prefer = [] } = {}) {
+  if (!found || found.none) return have;
   const list = (a, b) => { const seen = new Set(); return [...(a || []), ...(b || [])].map((x) => String(x).trim()).filter((x) => x && !seen.has(flatPlace(x)) && seen.add(flatPlace(x))); };
-  return { ...have, name: have.name || found.name || "", category: have.category || found.category || "", locations: list(locationsOf(have), found.locations), areas: list(have.areas, found.areas),
-    services: list(have.services, found.services).slice(0, 16), phone: have.phone || found.phone || null };
+  const pick = (k) => (prefer.includes(k) ? found[k] || have[k] : have[k] || found[k]) || "";
+  return { ...have, name: pick("name"), category: pick("category"), locations: list(locationsOf(have), found.locations), areas: list(have.areas, found.areas),
+    services: (prefer.includes("services") && found.services?.length ? list(found.services, []) : list(have.services, found.services)).slice(0, 16), phone: have.phone || found.phone || null };
 }
 
 // ---------------------------------------------------------------- finding competitors, carefully

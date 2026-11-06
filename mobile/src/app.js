@@ -416,9 +416,10 @@ function bindSite(s, o) {
     $("baform").onsubmit = (e) => { e.preventDefault(); auditSite(o); };
     editorFor = o;
     editor = bindBizEditor($("baform"), "ba", bizInfo(o), {
-      onDetect: async (cur) => { const merged = mergeBiz(cur, await detectBusiness(o)); await saveBizInfo(o, merged); return { merged, note: "Filled in from your website. Check it, and add anything missing." }; },
-      onGoogle: async (cur) => { if (!cur.name) throw new Error("Add the business name first."); const g = await lookupOnGoogle(cur, async (qs) => [{ q: qs[0], serp: await searchMaps(qs[0], readGoogle) }]);
-        if (!g) return null; const merged = mergeBiz(cur, g); await saveBizInfo(o, merged); return { merged, note: `Found on Google: ${[g.category, g.locations[0]].filter(Boolean).join(", ")}` }; },
+      onDetect: async (cur) => { const found = await detectBusiness(o); const merged = mergeBiz(cur, found, { prefer: ["category", "services"] }); await saveBizInfo(o, merged);
+        return { merged, note: found.category ? `Filled in from your website: ${found.category}. Check it, and add anything missing.` : "Filled in from your website, but it doesn't say what the business does. Type it, or look it up on Google." }; },
+      onGoogle: async (cur) => { if (!cur.name) throw new Error("Add the business name first."); const g = await lookupOnGoogle({ ...cur, origin: o }, async (qs) => [{ q: qs[0], serp: await searchMaps(qs[0], readGoogle) }]);
+        if (g.none) throw new Error(g.none); const merged = mergeBiz(cur, g, { prefer: ["category"] }); await saveBizInfo(o, merged); return { merged, note: `Found on Google: ${[g.category, g.locations[0]].filter(Boolean).join(", ")}` }; },
     });
     autoDetect(o);
     on("barun", () => auditSite(o));

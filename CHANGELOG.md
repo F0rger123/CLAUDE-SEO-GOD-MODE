@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased (2026-11-06): business details filled in accurately
+
+- **What the business does, from the whole website:** the fill-in no longer guesses from one heading. It matches the site's title, description, headings, menu, schema and text against about 190 Google business categories, so it picks "plumber", "hvac contractor", "dentist", "pizza restaurant" and so on. Checked on 12 real sites of different kinds; 11 came out right and the twelfth (a site that loads its text with JavaScript) is left blank instead of guessed.
+- **Services from the site's own menu:** each one is a menu link whose web address names it, or a heading on the Services page. Taglines, buttons, guides, "near me" phrases and the business's own program names are left out.
+- **Look it up on Google:**
+  - Now reads a Google Maps list of results as well as a single place.
+  - Only takes a business with this name whose website is this site, so a same-named business in another town isn't used.
+  - When nothing matches, it says why.
+- **Google's category replaces a guess:** pressing Fill in from my website again also refreshes what it does and the services.
+
 ## 2.32.0 (2026-11-04): extension 1.27, app 2.2: careful competitor finding, details filled in when adding a site
 
 - **Competitors, found carefully:** one finder now does it for both the business audit and **Find competitors automatically**.

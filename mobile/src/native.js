@@ -161,7 +161,7 @@ export async function searchGoogle(qs, read, onProgress, onReveal) {
 export async function searchMaps(q, read, onProgress, onReveal) {
   if (globalThis.sgmTestBrowse) return (await globalThis.sgmTestBrowse("maps", [q]))[0]?.value || null;
   // Maps fills the place in after the page loads: read again for up to 10 seconds until it's there.
-  const waitRead = new Function(`return async function () { for (let i = 0; i < 20; i++) { const r = (${read})(); if (r.business || i === 19) return r; await new Promise((s) => setTimeout(s, 500)); } }`)();
+  const waitRead = new Function(`return async function () { for (let i = 0; i < 20; i++) { const r = (${read})(); if (r.business || r.places?.length || i === 19) return r; await new Promise((s) => setTimeout(s, 500)); } }`)();
   const url = /^https?:/.test(q) ? q : "https://www.google.com/maps/search/" + encodeURIComponent(q);
   const got = await browse([{ q, url, label: /^https?:/.test(q) ? "Opening your Google profile…" : `Finding “${q}” on Google Maps…` }], waitRead,
     { title: "Google Maps: solve the check, then this hides again", onProgress, onReveal, headers: { "User-Agent": DESKTOP_UA }, blockedText: "Google is asking for a robot check. Solve it in the window and the check carries on.",

@@ -54,6 +54,21 @@ export function readGoogle() {
   }
 
   if (isMaps) {
+    // A search with several matches shows a list ("Results") instead of one place: read each entry.
+    const feed = document.querySelector('[role="feed"]');
+    if (feed) {
+      out.places = [...feed.querySelectorAll('a[href*="/maps/place/"][aria-label]')].slice(0, 10).map((a) => {
+        const card = a.parentElement;
+        // Rows read "Plumber · 2125 Montana Ave" / "Open 24 hours · (513) 631-0595".
+        const parts = [...card.querySelectorAll(".W4Efsd > *")].map(txt).flatMap((s) => s.split("·")).map((s) => s.trim()).filter(Boolean);
+        const category = parts.find((s) => /^[A-Za-z][A-Za-z &',/-]+$/.test(s) && !/^(open|closed|opens|closes|temporarily|permanently|website|directions|book online|order online)\b/i.test(s)) || null;
+        const stars = card.querySelector('[role="img"][aria-label]')?.getAttribute("aria-label") || "";
+        return { name: a.getAttribute("aria-label"), category, rating: num((stars.match(/\d[.,]\d/) || [])[0]?.replace(",", ".")),
+          address: parts.find((s) => /^\d+\s+\S/.test(s) && !/\(\d{3}\)/.test(s)) || null,
+          website: [...card.querySelectorAll("a")].find((x) => /website/i.test(x.getAttribute("aria-label") || "") || /^website$/i.test(txt(x)))?.href || null };
+      }).filter((p) => p.name);
+      return out;
+    }
     out.business = business(document.querySelector('[role="main"]') || document.body);
     out.query = decodeURIComponent((path.match(/\/maps\/(?:place|search)\/([^/@]+)/) || [])[1] || "").replace(/\+/g, " ") || null;
     return out;

@@ -385,11 +385,12 @@ async function renderAudit() {
   $("baform").onsubmit = (e) => { e.preventDefault(); $("barun").click(); };
   const save = (x) => chrome.storage.local.set({ [infoKey]: { name: x.name, category: x.category, locations: locationsOf(x), services: x.services, areas: x.areas, phone: x.phone || null } });
   const editor = bindBizEditor($("baform"), "ba", b, {
-    onDetect: async (cur) => { const merged = mergeBiz(cur, await detectBusiness(me.origin)); await save(merged); return { merged, note: "Filled in from your website. Check it, and add anything missing." }; },
+    onDetect: async (cur) => { const found = await detectBusiness(me.origin); const merged = mergeBiz(cur, found, { prefer: ["category", "services"] }); await save(merged);
+      return { merged, note: found.category ? `Filled in from your website: ${found.category}. Check it, and add anything missing.` : "Filled in from your website, but it doesn't say what the business does. Type it, or look it up on Google." }; },
     onGoogle: async (cur) => { if (!cur.name) throw new Error("Add the business name first.");
       if (!(await access(GOOGLE, "Looking it up needs permission to read Google. Press it again and choose Allow."))) return null;
-      const g = await lookupOnGoogle(cur, async (qs) => (await K.googleSearch(qs)).results);
-      if (!g) return null; const merged = mergeBiz(cur, g); await save(merged); return { merged, note: `Found on Google: ${[g.category, g.locations[0]].filter(Boolean).join(", ")}` }; },
+      const g = await lookupOnGoogle({ ...cur, origin: me.origin }, async (qs) => (await K.googleSearch(qs)).results);
+      if (g.none) throw new Error(g.none); const merged = mergeBiz(cur, g, { prefer: ["category"] }); await save(merged); return { merged, note: `Found on Google: ${[g.category, g.locations[0]].filter(Boolean).join(", ")}` }; },
   });
   // First time here: fill in from the website (typed details are never replaced).
   if (!saved && !last) $("badetect").click();
