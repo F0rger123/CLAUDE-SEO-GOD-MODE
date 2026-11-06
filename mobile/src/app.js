@@ -31,6 +31,7 @@ import { detectBusiness, locationsOf, marketsOf, lookupOnGoogle, mergeBiz, runBu
 import { auditHtml, auditPrompt, bindAudit, bindBizEditor, bizEditor } from "./lib/businessview.js";
 import { drawMap, geocode } from "./lib/map.js";
 import { areaSummary, scanArea } from "./lib/localscan.js";
+import { placeFromEntity, scoreMapHtml, showScoreMap, withArea } from "./lib/scoremap.js";
 
 installNativeFetch([SB_URL]);
 
@@ -298,6 +299,7 @@ function renderLookup(o) {
     <div class="hero"><div><b>${esc(hostOf(o))}</b><small>Not tracked · <a href="${esc(o)}" target="_blank" rel="noopener">${esc(o)}</a></small></div></div>
     ${running ? scanBox("Rating the whole site…", "scanprog", `${hostOf(o)}: ${S.scanning.text}`, "Same crawl, checks and scores as the Chrome extension. Takes up to a minute.")
       : scan ? `${scoreBoxes(scan.scores)}<h2 class="sec">SEO snapshot <small>${scan.pagesRated} pages, ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
+        ${mapSection(hostOf(o), o)}
         ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>` : ""}
         <div class="btns stack">${failed.length ? `<button id="copyfix">Copy fix prompt</button>` : ""}<button id="track" class="primary">Keep this site</button><button id="rescan">Scan again</button></div>`
       : `<div class="emptybox"><b>Couldn't rate it</b><p>Check the address and your connection, then try again.</p></div><div class="btns stack"><button id="rescan" class="primary">Try again</button></div>`}`;
@@ -305,6 +307,28 @@ function renderLookup(o) {
   if ($("copyfix")) $("copyfix").onclick = () => copy(fixAllPrompt(scan), "Fix prompt copied");
   if ($("track")) $("track").onclick = () => quickAdd({ url: o });
   if ($("rescan")) $("rescan").onclick = () => scanSite(o);
+  if (scan && !running) siteMap(null, o, scan);
+}
+
+/**
+ * Fill the score map for a scanned site: it (placed from a location set for it, else its own schema, looked up once
+ * and kept), its competitors and the business audit's and area scan's, coloured by the chosen score.
+ */
+async function siteMap(s, o, scan) {
+  const owns = s && (s.role === "mine" || s.role === "client");
+  const all = owns ? [...competitorsOf(o), ...autoRivals(o)] : [];
+  let g = S.data.get("geo:" + o);
+  if (!g) {
+    const p = await placeFromEntity(scan?.entity).catch(() => null);
+    if (p) { g = { ...p, src: "site", t: new Date().toISOString() }; if (s) { S.data.set("geo:" + o, g); await putData(["geo:" + o]); } }
+  }
+  if (!$("sitemap")) return;
+  const area = owns ? S.data.get("area:" + o) : null, mine = { origin: o, name: s?.name || hostOf(o), scores: scan?.scores || lastPoint(o) };
+  const placed = all.map((x) => ({ x, g: S.data.get("geo:" + x.origin) || AUTO.get(x.origin)?.place }));
+  const pins = [...(g ? [{ ...mine, lat: g.lat, lng: g.lng, me: true }] : []),
+    ...placed.filter((r) => r.g).map(({ x, g: at }) => ({ origin: x.origin, name: x.name, lat: at.lat, lng: at.lng, scores: lastPoint(x.origin) }))];
+  showScoreMap(document, "sitemap", { pins: withArea(pins, area, mine), area, metric: S.metric, missing: placed.filter((r) => !r.g).map((r) => r.x.name), approx: g?.approx,
+    onMetric: (k) => (S.metric = k), onOpen: (x) => S.sites.has(x) && openSite(x) });
 }
 const fixRow = (r) => `<div class="factor"><span class="dot ${r.ratio > 0.5 ? "s-part" : "s-fail"}"></span><div><b>${esc(r.name)}</b><small>${esc(r.detail || "")}${r.gain ? ` · +${Math.round(r.gain)} pts` : ""}</small></div></div>`;
 
@@ -374,12 +398,15 @@ function siteOverview(s, o) {
   const running = S.scanning?.origin === o, h = trend(o), scan = scanOf(o);
   const failed = scan ? scan.results.filter((r) => r.ratio != null && r.ratio < 0.999 && r.cat !== "info").sort((a, b) => (b.gain || 0) - (a.gain || 0)) : [];
   return `${running ? scanBox("Rating the whole site…", "scanprog", `${hostOf(o)}: ${S.scanning.text}`) : `<div class="btns stack"><button id="scannow"${scan ? "" : ` class="primary"`}>${scan ? "Scan again" : "Scan now"}</button></div>`}
+    ${scan && !running ? mapSection(s.name, o) : ""}
     ${h.length > 1 ? `<h2 class="sec">Score history</h2>${lineChart([{ name: "Overall", cls: "main", points: h.map((x) => ({ t: x.t, v: x.overall })) }], { label: s.name + " score history" })}` : ""}
     ${scan ? `<h2 class="sec">SEO snapshot <small>scanned ${when(scan.page.scannedAt)}</small></h2><div class="summarytext">${summaryText(scan).split("\n").map((l) => `<p>${esc(l)}</p>`).join("")}</div>
       ${failed.length ? `<h2 class="sec">Top fixes <small>${failed.length}</small></h2><div class="list">${failed.slice(0, 6).map(fixRow).join("")}</div>
         <div class="btns stack"><button id="copyfix" class="primary">Copy fix prompt</button></div>` : ""}`
       : running ? "" : `<div class="emptybox"><b>Not scanned yet</b><p>Press Scan now to rate the whole site on this phone. Scans from the Chrome extension show up here too.</p></div>`}`;
 }
+/** The score map section for a scanned site (filled by siteMap). */
+const mapSection = (name, o) => `<h2 class="sec">On the map <small>you and your competitors, by score</small></h2>${scoreMapHtml("sitemap", name, { metric: S.metric, area: S.data.get("area:" + o) })}`;
 
 function siteKeywords(s, o) {
   const kws = s.keywords, report = S.data.get("kwreport:" + o);
@@ -420,6 +447,7 @@ function bindSite(s, o) {
   const scan = scanOf(o), report = S.data.get("kwreport:" + o);
   on("scannow", () => scanSite(o));
   on("findcomp", () => findCompetitors(o));
+  if ($("sitemap")) siteMap(s, o, scan);
   if ($("baform")) {
     $("baform").onsubmit = (e) => { e.preventDefault(); auditSite(o); };
     editorFor = o;
@@ -764,11 +792,9 @@ async function bindMap(s, all) {
   const draw = () => {
     const area = S.data.get("area:" + s.origin);
     const pins = all.map((x) => ({ x, g: S.data.get("geo:" + x.origin) || AUTO.get(x.origin)?.place })).filter((r) => r.g).map(({ x, g }) => ({ origin: x.origin, name: x.name, lat: g.lat, lng: g.lng, scores: lastPoint(x.origin), me: x.origin === s.origin }));
-    // The area scan's other businesses (no website, or not rated) as small pins, so the map shows everyone who ranks.
-    for (const c of area?.competitors || []) if (c.lat != null && !pins.some((p) => p.origin && c.origin && p.origin === c.origin)) pins.push({ origin: c.origin, name: c.name, lat: c.lat, lng: c.lng, scores: c.scores || null, note: `${c.category || "Competitor"} · in ${c.towns} town${c.towns === 1 ? "" : "s"}, best #${c.best}`, size: 0 });
-    // Your own place, from the scan, when the site doesn't state one.
-    if (area && !pins.some((p) => p.me)) pins.push({ origin: s.origin, name: s.name, lat: area.home.lat, lng: area.home.lng, scores: lastPoint(s.origin), me: true });
-    return drawMap($("map"), pins, METRICS[S.metric] ? S.metric : "overall", (o) => o && S.sites.has(o) && openSite(o), { heat: area?.towns || null }).catch((e) => notice(`Couldn't draw the map: ${esc(e.message || e)}`));
+    // The area scan's other businesses (no website, or not rated) as small pins, so the map shows everyone who ranks,
+    // and your own place from the scan when the site doesn't state one.
+    return drawMap($("map"), withArea(pins, area, { origin: s.origin, name: s.name, scores: lastPoint(s.origin) }), METRICS[S.metric] ? S.metric : "overall", (o) => o && S.sites.has(o) && openSite(o), { heat: area?.towns || null }).catch((e) => notice(`Couldn't draw the map: ${esc(e.message || e)}`));
   };
   draw();
   const locate = async () => {

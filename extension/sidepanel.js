@@ -7,16 +7,17 @@ import { potentials, summaryText } from "./lib/summary.js";
 import { compare, history, proofReport, saveScan, setBaseline } from "./lib/proof.js";
 import { REPO, siteCommands } from "./lib/skills.js";
 import { TOOLS } from "./lib/tools.js";
-import { addScorePoint, trackedFor, trackSite } from "./lib/track.js";
+import { addScorePoint, trackedFor, trackedSites, trackSite } from "./lib/track.js";
 import { focusResult, quickAdd, trackChanged, renderCompete, renderGoogle, renderTrack, showTech, updateBanner } from "./views.js";
 import { staleCode } from "./lib/daily.js";
+import { scoreMapHtml, showScoreMap, placeFromEntity, withArea as withAreaPins } from "./lib/scoremap.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const when = (iso) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const EVIDENCE = { OBSERVED: ["Measured", ""], INFERRED: ["Estimate", "inferred"], UNKNOWN: ["Not measured", "unknown"] };
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const state = { scan: null, mode: "site", filter: "all", query: "", showPassing: false, tool: "serp", fresh: false };
+const state = { scan: null, mode: "site", filter: "all", query: "", showPassing: false, tool: "serp", fresh: false, metric: "overall" };
 const isSite = () => state.scan?.mode === "site";
 
 function notice(html) { const n = $("notice"); n.hidden = !html; n.innerHTML = html || ""; }
@@ -80,7 +81,7 @@ async function scan() {
       try { psiKey = (await chrome.storage.local.get("psiKey")).psiKey || ""; } catch {}
       const r = await rateSite(page.origin + "/", { onProgress: stage, psiKey });
       scan = { mode, page, site, scores: r.scores, results: r.checks, priority: r.priority, kits: r.kits, unknown: r.unknown,
-        pagesRated: r.pages_rated, hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages };
+        pagesRated: r.pages_rated, hitLimit: r.hit_page_limit, rubricVersion: r.rubric_version, pages: r.pages, entity: r.entity || null };
     } else {
       stage(`Scoring ${CHECKS.length} checks…`);
       scan = { mode, page, site, ...score(page, site) };
@@ -216,7 +217,8 @@ function renderOverview() {
       <span class="chip"><b>${page.internalLinks}</b> internal links</span><span class="chip"><b>${page.images.length}</b> images</span>
       <span class="chip">Schema <b>${esc(types || "none")}</b></span></div>
       <h2 class="sec">Hosting and tech</h2><div id="techout"><p class="lede">Looking it up…</p></div>`;
-  $("tab-overview").innerHTML = `<h2 class="sec">Biggest wins <small>points each fix adds</small></h2>
+  $("tab-overview").innerHTML = `<h2 class="sec">On the map <small>you and your competitors, by score</small></h2><div id="smbox"><p class="lede">Placing it on the map…</p></div>
+    <h2 class="sec">Biggest wins <small>points each fix adds</small></h2>
     ${failed.length ? `<div class="list">${failed.slice(0, 5).map((r, i) => issueRow(r, page, i)).join("")}</div>` : "<p class='lede'>Every measured check passed.</p>"}
     <h2 class="sec">By area <small>each bar is one check</small></h2><div class="areas">${areas}</div>${facts}`;
 }
@@ -297,6 +299,42 @@ function renderPrompt() {
   $("exmd").onclick = () => copy(`SEO, AEO and GEO issues for ${isSite() ? page.origin + " (whole site)" : page.url}\n` + failed.map((r) => `- [${CATS[r.cat]}] ${r.name} (+${r.gain}): ${r.detail}`).join("\n"), "Issue list copied");
 }
 
+/**
+ * The score map under the scores: this site where it is, its competitors (tracked, from the business audit, and from
+ * an area scan made on the phone) coloured by the chosen score, and the area scan's towns by rank.
+ */
+async function renderScoreMap() {
+  const box = $("smbox"), s = state.scan;
+  if (!box) return;
+  const origin = s.page.origin || new URL(s.page.url).origin;
+  const t = await trackedFor(origin), o = t?.origin || origin;
+  const rivals = t ? (await trackedSites()).filter((x) => x.competitorOf === o) : [];
+  const keys = [o, ...rivals.map((x) => x.origin)].flatMap((x) => ["geo:" + x, "trend:" + x, "sitescans:" + x]);
+  const got = await chrome.storage.local.get([...keys, "area:" + o, "baudit:" + o]);
+  const latest = (x) => { const h = got["trend:" + x] || []; return h[h.length - 1] || got["sitescans:" + x]?.[0]?.scores || null; };
+  // Where this site is: a location set for it, else what its own schema says (looked up once, then kept).
+  let me = got["geo:" + o];
+  if (!me) {
+    me = await placeFromEntity(s.entity || got["sitescans:" + o]?.find((x) => x.entity)?.entity);
+    if (me && t) await chrome.storage.local.set({ ["geo:" + o]: { ...me, src: "site", t: new Date().toISOString() } });
+  }
+  const pins = [], missing = [];
+  if (me) pins.push({ origin: o, name: t?.name || new URL(o).hostname, lat: me.lat, lng: me.lng, scores: s.scores, me: true });
+  for (const x of rivals) {
+    let g = got["geo:" + x.origin];
+    const ent = got["sitescans:" + x.origin]?.[0]?.entity;
+    if (!g && ent?.lat != null) g = ent;
+    if (g) pins.push({ origin: x.origin, name: x.name, lat: g.lat, lng: g.lng, scores: latest(x.origin) }); else missing.push(x.name);
+  }
+  for (const c of got["baudit:" + o]?.competitors || []) if (c.place && !pins.some((p) => p.origin === c.origin))
+    pins.push({ origin: c.origin, name: c.name, lat: c.place.lat, lng: c.place.lng, scores: c.scores || null, note: "Found by the business audit" });
+  const area = got["area:" + o] || null;
+  if (!$("smbox") || state.scan !== s) return;
+  box.innerHTML = scoreMapHtml("smap", t?.name || new URL(o).hostname, { metric: state.metric, area });
+  showScoreMap(box, "smap", { pins: area ? withAreaPins(pins, area, me ? null : { origin: o, name: t?.name || o, scores: s.scores }) : pins, area, metric: state.metric, missing, approx: me?.approx,
+    onMetric: (k) => (state.metric = k), onOpen: (x) => window.open(x, "_blank", "noopener") });
+}
+
 // ---------------------------------------------------------------- shared
 function download(text, name, type) {
   const a = document.createElement("a");
@@ -336,6 +374,7 @@ async function render() {
   renderProof(await history(page.url, state.scan.mode));
   bindCopy($("tab-overview"));
   showTech($("techout"), page.origin || new URL(page.url).origin);
+  renderScoreMap().catch(() => { const b = $("smbox"); if (b) b.innerHTML = `<p class="lede">Couldn't draw the map.</p>`; });
   const kf = $("psikey");
   if (kf) kf.onsubmit = async (e) => { e.preventDefault(); const v = $("psi").value.trim(); if (!v) return;
     await chrome.storage.local.set({ psiKey: v }); kf.remove(); toast("Key saved. Scan again for real speed scores"); };

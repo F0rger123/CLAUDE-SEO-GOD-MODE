@@ -2,6 +2,7 @@
 
 ## Unreleased (2026-11-06): business details filled in accurately
 
+- **Score map with every scan:** a whole-site scan, in the Chrome extension or the Android app, now opens with a map of the site and its competitors, each pin coloured by Overall, SEO, AEO or GEO (switch with the buttons above it). The site is placed from a location set for it or the address in its own schema; an area scan made on the phone adds every business that ranks and colours each town by your rank. Locations and area scans now sync to the extension.
 - **What the business does, from the whole website:** the fill-in no longer guesses from one heading. It matches the site's title, description, headings, menu, schema and text against about 190 Google business categories, so it picks "plumber", "hvac contractor", "dentist", "pizza restaurant" and so on. Checked on 12 real sites of different kinds; 11 came out right and the twelfth (a site that loads its text with JavaScript) is left blank instead of guessed.
 - **Services from the site's own menu:** each one is a menu link whose web address names it, or a heading on the Services page. Taglines, buttons, guides, "near me" phrases and the business's own program names are left out.
 - **Look it up on Google:**

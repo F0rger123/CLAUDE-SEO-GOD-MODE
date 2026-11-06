@@ -582,4 +582,7 @@ input[role="switch"]:disabled { opacity: .4; cursor: default; }
 .heatlbl b { min-width: 26px; padding: 3px 5px; border-radius: 99px; background: var(--hc); color: #fff; font: 800 11.5px/1 system-ui, sans-serif; text-align: center; box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
 .heatlbl i { font: 600 9.5px/1 system-ui, sans-serif; font-style: normal; color: #222; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; white-space: nowrap; }
 .map.tall { height: 420px; }
+.metrics { display: flex; gap: 6px; margin-bottom: 10px; }
+.metrics button { flex: 1; justify-content: center; }
+.metrics button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .legend3.heat b { color: var(--ink); font-weight: 650; }

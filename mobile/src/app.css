@@ -176,9 +176,6 @@ div.brow { grid-template-columns: 1fr auto; grid-template-areas: "nm share"; }
 .share b { font: 800 18px/1 var(--display); color: var(--st, var(--ink)); }
 
 /* Map */
-.metrics { display: flex; gap: 6px; margin-bottom: 10px; }
-.metrics button { flex: 1; justify-content: center; }
-.metrics button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .excerpt { color: var(--muted); font-size: 12px; font-style: italic; }
 .factor.idea { grid-template-columns: 1fr auto; align-items: center; }
 

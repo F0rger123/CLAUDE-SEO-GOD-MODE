@@ -149,6 +149,9 @@ console.log("summary (bad):", bs.summary);
 for (const k of ["overall", "seo", "aeo", "geo"]) assert.ok(gs.scores[k] > bs.scores[k] + 15, `site: good beats bad on ${k}`);
 assert.match(bs.summary, /^This site /); assert.match(bs.summary, /Biggest wins: /); assert.match(bs.summary, /You should set up: .*allow AI search crawlers/);
 assert.match(bs.summary, /fix prompt/); assert.match(gs.summary, /This site (looks great|looks good)/);
+// The score map shows with the scan; a site that states no address says how to get on it.
+await bs.panel.waitForFunction(() => !/Placing it/.test(document.getElementById("smbox")?.textContent || "Placing it"), null, { timeout: 20000 });
+assert.match(await bs.panel.$eval("#smbox", (e) => e.textContent), /isn't on the map: it doesn't state its address/);
 assert.equal(await bs.panel.$eval('#tabs [data-tab="prompt"]', (e) => e.textContent), "Fix prompt");
 await noClaude(bs.panel, "site view");
 await bs.panel.click('#tabs button[data-tab="issues"]');
@@ -707,6 +710,13 @@ await phone.click('#mode [data-tab="sites"]'); await phone.click(`[data-open="${
 await phone.click('[data-stab="settings"]');
 await phone.fill("#locin", "York, PA"); await phone.click("#locsave");
 await phone.waitForFunction(() => /set by you/.test(document.getElementById("view").textContent), null, { timeout: 15000 });
+// The scan's overview shows the score map straight away, and the score buttons recolour it in place.
+await phone.click('[data-stab="overview"]');
+await phone.waitForSelector('#sitemap .pin.me', { timeout: 15000 });
+await phone.click('[data-smetric="seo"]');
+await phone.waitForSelector('#sitemap .pin.me');
+assert.equal(await phone.$eval('[data-smetric="seo"]', (b) => b.getAttribute("aria-pressed")), "true");
+await phone.waitForTimeout(1000); await phone.screenshot({ path: path.join(os.tmpdir(), "sgm-sitemap.png"), fullPage: true });
 await phone.click('#mode [data-tab="compare"]');
 if (await phone.$('[data-biz="' + badBase + '"]')) await phone.click('[data-biz="' + badBase + '"]');
 await phone.waitForSelector(".board .brow");
